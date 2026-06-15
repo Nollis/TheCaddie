@@ -53,6 +53,29 @@ import TheCaddieDomain
     #expect(packet.target == "center of the green")
 }
 
+@Test func longShotBeyondReachRecommendsAdvancingInsteadOfCoveringGreenDistance() {
+    let roundState = SampleRound.roundState.updateShotContext(
+        ShotContext(
+            shotNumber: 2,
+            remainingDistanceM: .known(300),
+            lie: .known(.fairway),
+            wind: nil
+        )
+    )
+
+    let packet = CaddieRecommendationEngine.build(
+        course: SampleRound.course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    #expect(packet.status == .ready)
+    #expect(packet.recommendedClub == "Driver")
+    #expect(packet.distanceBasisM == 220)
+    #expect(packet.target == "right-center fairway")
+    #expect(packet.primaryReason == "Driver advances the ball about 220m and leaves roughly 80m in.")
+}
+
 @Test func helpingAndHurtingWindChangeDistanceBasisDeterministically() {
     let helpingRound = SampleRound.roundState.updateShotContext(
         ShotContext(
