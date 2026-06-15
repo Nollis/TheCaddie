@@ -259,6 +259,16 @@ public enum CaddieRecommendationEngine {
         )
         let primaryReason = "\(club.name) advances the ball about \(formatMeters(club.carryDistanceM))m and leaves roughly \(formatMeters(leaveDistance))m in."
 
+        let riskNote: String?
+        if lie == .tee,
+           hole.fairway != nil,
+           let longest = teeClubs.max(by: { $0.carryDistanceM < $1.carryDistanceM }),
+           club.carryDistanceM < longest.carryDistanceM {
+            riskNote = "\(longest.name) brings the trouble into range here — \(club.name) keeps the tee shot in play."
+        } else {
+            riskNote = advancementRiskNote(for: landingHazards, strategy: player.strategyPreference)
+        }
+
         return CaddieRecommendationPacket(
             status: .ready,
             courseId: course.id,
@@ -279,7 +289,7 @@ public enum CaddieRecommendationEngine {
                 lie: lie
             ),
             primaryReason: primaryReason,
-            riskNote: advancementRiskNote(for: landingHazards, strategy: player.strategyPreference),
+            riskNote: riskNote,
             confidence: .medium
         )
     }

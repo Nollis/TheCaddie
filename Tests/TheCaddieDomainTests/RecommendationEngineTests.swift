@@ -116,6 +116,13 @@ private func teePacket(
     #expect(packet.recommendedClub == "Driver")
 }
 
+@Test func clubbedDownTeeShotExplainsWhyInRiskNote() {
+    let packet = teePacket(landingWidthM: 30)
+
+    #expect(packet.recommendedClub == "5 Iron")
+    #expect(packet.riskNote == "Driver brings the trouble into range here — 5 Iron keeps the tee shot in play.")
+}
+
 @Test func recommendationEngineReturnsReadyPacketForSampleShot() {
     let packet = CaddieRecommendationEngine.build(
         course: SampleRound.course,
