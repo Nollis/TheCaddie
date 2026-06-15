@@ -45,6 +45,77 @@ private func teePacket(
     #expect(packet.recommendedClub != "Driver")
 }
 
+@Test func wideOpenFairwayKeepsDriverForHighHandicap() {
+    let packet = teePacket(landingWidthM: 50)
+
+    #expect(packet.recommendedClub == "Driver")
+}
+
+@Test func tightFairwayKeepsDriverForScratchPlayer() {
+    let scratch = PlayerContext(
+        handicapIndex: 2.0,
+        clubs: SampleRound.player.clubs,
+        strategyPreference: .normal
+    )
+    let packet = teePacket(landingWidthM: 30, player: scratch)
+
+    #expect(packet.recommendedClub == "Driver")
+}
+
+@Test func waterAtDriverLandingZoneClubsDown() {
+    let water = Hazard(
+        id: "tee-water-right",
+        kind: .water,
+        position: "right 220m",
+        note: "Water down the right at the driver landing zone."
+    )
+    let packet = teePacket(landingWidthM: 56, hazards: [water])
+
+    #expect(packet.recommendedClub == "3 Hybrid")
+
+    let noHazard = teePacket(landingWidthM: 56)
+    #expect(noHazard.recommendedClub == "Driver")
+}
+
+@Test func drivingZoneEndCapDropsDriver() {
+    let packet = teePacket(landingWidthM: 56, drivingZoneEndM: 180)
+
+    #expect(packet.recommendedClub == "3 Hybrid")
+}
+
+@Test func extremelyTightFairwayFallsBackToLowestRiskClub() {
+    let packet = teePacket(landingWidthM: 12)
+
+    // No club fits a 6m half-width; fallback picks the lowest-spread club,
+    // tie-broken by longest carry (PW over 50W).
+    #expect(packet.recommendedClub == "PW")
+    #expect(packet.recommendedClub != "Driver")
+}
+
+@Test func teeShotWithoutFairwayDataUsesLegacyLongestClub() {
+    // SampleRound hole 1 has no fairway data; a tee shot should still return Driver.
+    let teeRound = RoundState(
+        courseId: SampleRound.course.id,
+        selectedHoleNumber: 1,
+        shotContexts: [
+            1: ShotContext(
+                shotNumber: 1,
+                remainingDistanceM: .known(356),
+                lie: .known(.tee),
+                wind: nil
+            )
+        ]
+    )
+    let packet = CaddieRecommendationEngine.build(
+        course: SampleRound.course,
+        player: SampleRound.player,
+        roundState: teeRound
+    )
+
+    #expect(packet.shotIntent == .teePosition)
+    #expect(packet.recommendedClub == "Driver")
+}
+
 @Test func recommendationEngineReturnsReadyPacketForSampleShot() {
     let packet = CaddieRecommendationEngine.build(
         course: SampleRound.course,
