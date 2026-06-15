@@ -1,5 +1,4 @@
 import SwiftUI
-import TheCaddieDomain
 
 struct CaddieScreen: View {
     @StateObject var viewModel: CaddieViewModel

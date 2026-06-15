@@ -1,0 +1,424 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		07C670B847375C84D17F2600 /* ShotContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA692C8B8A2320941096620 /* ShotContext.swift */; };
+		540572457951476C7E0CE995 /* TheCaddieApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCB85E45AC65E25F07467DEF /* TheCaddieApp.swift */; };
+		67236306E6CCA9800719A08B /* CaddieScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3964C2A32522B0526393FE6 /* CaddieScreen.swift */; };
+		6908A2B1D539C587D966E3D3 /* CaddieRecommendationPacket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B8A4DF5DD11A65A042E3F89 /* CaddieRecommendationPacket.swift */; };
+		6C943C19F3CCBC1200F1719E /* RoundState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D2B48CCFF0BF2C9D2FE98B1 /* RoundState.swift */; };
+		6CA3C05B747CF936F94B77FF /* CaddieViewState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FEC945E340732A1306496C5 /* CaddieViewState.swift */; };
+		87896163D7A8667BBC7E4A57 /* CaddieRecommendationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F8D7BDD0C9A11619579B74E /* CaddieRecommendationEngine.swift */; };
+		BAEEC84335FCD756D00E96DD /* CaddieViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F51A9202B8B3C33D1888CEE5 /* CaddieViewModel.swift */; };
+		BE10429D649F77D66E173863 /* CourseModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA35B4D0FF9CDA29A0A1D6BD /* CourseModels.swift */; };
+		C182ABABB2BB4704E1CE96AB /* PlayerContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 843D312CDD78BD6866E43222 /* PlayerContext.swift */; };
+		E87EF79C30106C1793116C54 /* CaddieResponseText.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2B9209D8D15CF686A13EF5E /* CaddieResponseText.swift */; };
+		EBF3403236BDA80613E40381 /* TheCaddieDomain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07169DF33B018813C1DFFC36 /* TheCaddieDomain.swift */; };
+		F233325B14293B71D04D35BE /* SampleRound.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B9976FD3ECBE39451751AC /* SampleRound.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		07169DF33B018813C1DFFC36 /* TheCaddieDomain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheCaddieDomain.swift; sourceTree = "<group>"; };
+		0D2B48CCFF0BF2C9D2FE98B1 /* RoundState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundState.swift; sourceTree = "<group>"; };
+		2B8A4DF5DD11A65A042E3F89 /* CaddieRecommendationPacket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieRecommendationPacket.swift; sourceTree = "<group>"; };
+		2E68CFB3A5BA460118498AED /* TrueCaddie.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TrueCaddie.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5CA692C8B8A2320941096620 /* ShotContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShotContext.swift; sourceTree = "<group>"; };
+		6FEC945E340732A1306496C5 /* CaddieViewState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieViewState.swift; sourceTree = "<group>"; };
+		74B9976FD3ECBE39451751AC /* SampleRound.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleRound.swift; sourceTree = "<group>"; };
+		843D312CDD78BD6866E43222 /* PlayerContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerContext.swift; sourceTree = "<group>"; };
+		8F8D7BDD0C9A11619579B74E /* CaddieRecommendationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieRecommendationEngine.swift; sourceTree = "<group>"; };
+		AA35B4D0FF9CDA29A0A1D6BD /* CourseModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseModels.swift; sourceTree = "<group>"; };
+		C3964C2A32522B0526393FE6 /* CaddieScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieScreen.swift; sourceTree = "<group>"; };
+		E2B9209D8D15CF686A13EF5E /* CaddieResponseText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieResponseText.swift; sourceTree = "<group>"; };
+		F51A9202B8B3C33D1888CEE5 /* CaddieViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieViewModel.swift; sourceTree = "<group>"; };
+		FCB85E45AC65E25F07467DEF /* TheCaddieApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheCaddieApp.swift; sourceTree = "<group>"; };
+		FECF0EAF69D95DCA89C137F7 /* TrueCaddie.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TrueCaddie.entitlements; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		06FD10C33CA50F2E8554F9CA /* Presentation */ = {
+			isa = PBXGroup;
+			children = (
+				E2B9209D8D15CF686A13EF5E /* CaddieResponseText.swift */,
+				6FEC945E340732A1306496C5 /* CaddieViewState.swift */,
+			);
+			path = Presentation;
+			sourceTree = "<group>";
+		};
+		1EBE5BD20ED3943B062F57C5 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				AA35B4D0FF9CDA29A0A1D6BD /* CourseModels.swift */,
+				843D312CDD78BD6866E43222 /* PlayerContext.swift */,
+				0D2B48CCFF0BF2C9D2FE98B1 /* RoundState.swift */,
+				5CA692C8B8A2320941096620 /* ShotContext.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		37B077DC9F613BE0633E57C3 /* TheCaddie */ = {
+			isa = PBXGroup;
+			children = (
+				C3964C2A32522B0526393FE6 /* CaddieScreen.swift */,
+				F51A9202B8B3C33D1888CEE5 /* CaddieViewModel.swift */,
+				FCB85E45AC65E25F07467DEF /* TheCaddieApp.swift */,
+				FECF0EAF69D95DCA89C137F7 /* TrueCaddie.entitlements */,
+			);
+			name = TheCaddie;
+			path = ios/TheCaddie;
+			sourceTree = "<group>";
+		};
+		4B6B19AC10E284AEFEF508B5 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2E68CFB3A5BA460118498AED /* TrueCaddie.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6BD9C0FAAC36FF79CF8136FE /* TheCaddieDomain */ = {
+			isa = PBXGroup;
+			children = (
+				07169DF33B018813C1DFFC36 /* TheCaddieDomain.swift */,
+				1EBE5BD20ED3943B062F57C5 /* Models */,
+				06FD10C33CA50F2E8554F9CA /* Presentation */,
+				BCB4641F665AABA8DDE6BB81 /* Recommendation */,
+				C5957279815E1B4B71DD0342 /* SampleData */,
+			);
+			name = TheCaddieDomain;
+			path = Sources/TheCaddieDomain;
+			sourceTree = "<group>";
+		};
+		B7045873D91A9FB85F4AB5BE = {
+			isa = PBXGroup;
+			children = (
+				37B077DC9F613BE0633E57C3 /* TheCaddie */,
+				6BD9C0FAAC36FF79CF8136FE /* TheCaddieDomain */,
+				4B6B19AC10E284AEFEF508B5 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		BCB4641F665AABA8DDE6BB81 /* Recommendation */ = {
+			isa = PBXGroup;
+			children = (
+				8F8D7BDD0C9A11619579B74E /* CaddieRecommendationEngine.swift */,
+				2B8A4DF5DD11A65A042E3F89 /* CaddieRecommendationPacket.swift */,
+			);
+			path = Recommendation;
+			sourceTree = "<group>";
+		};
+		C5957279815E1B4B71DD0342 /* SampleData */ = {
+			isa = PBXGroup;
+			children = (
+				74B9976FD3ECBE39451751AC /* SampleRound.swift */,
+			);
+			path = SampleData;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A3B278A8AF143E91E976F41A /* TrueCaddie */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9A2D5061EB8131DD9184CB17 /* Build configuration list for PBXNativeTarget "TrueCaddie" */;
+			buildPhases = (
+				2EFEF96105E03FE5C9A4BD33 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TrueCaddie;
+			packageProductDependencies = (
+			);
+			productName = TrueCaddie;
+			productReference = 2E68CFB3A5BA460118498AED /* TrueCaddie.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		1B4B44E63AEF5E63275EDE61 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					A3B278A8AF143E91E976F41A = {
+						DevelopmentTeam = XT9G73WJRY;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 8FDD90462C55DDECBD48AB27 /* Build configuration list for PBXProject "TheCaddie" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = B7045873D91A9FB85F4AB5BE;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A3B278A8AF143E91E976F41A /* TrueCaddie */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		2EFEF96105E03FE5C9A4BD33 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				87896163D7A8667BBC7E4A57 /* CaddieRecommendationEngine.swift in Sources */,
+				6908A2B1D539C587D966E3D3 /* CaddieRecommendationPacket.swift in Sources */,
+				E87EF79C30106C1793116C54 /* CaddieResponseText.swift in Sources */,
+				67236306E6CCA9800719A08B /* CaddieScreen.swift in Sources */,
+				BAEEC84335FCD756D00E96DD /* CaddieViewModel.swift in Sources */,
+				6CA3C05B747CF936F94B77FF /* CaddieViewState.swift in Sources */,
+				BE10429D649F77D66E173863 /* CourseModels.swift in Sources */,
+				C182ABABB2BB4704E1CE96AB /* PlayerContext.swift in Sources */,
+				6C943C19F3CCBC1200F1719E /* RoundState.swift in Sources */,
+				F233325B14293B71D04D35BE /* SampleRound.swift in Sources */,
+				07C670B847375C84D17F2600 /* ShotContext.swift in Sources */,
+				540572457951476C7E0CE995 /* TheCaddieApp.swift in Sources */,
+				EBF3403236BDA80613E40381 /* TheCaddieDomain.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		06A9288BF0AC378708D9AF5B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = XT9G73WJRY;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		0B5CF17B4B3D228A6355B422 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ios/TheCaddie/TrueCaddie.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = TrueCaddie;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "TrueCaddie uses your location during a round to understand shot context.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "TrueCaddie may use the microphone for future voice caddie features.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.truecaddie.ios;
+				PRODUCT_NAME = TrueCaddie;
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		9CB723518A7B2EBEEFD678A9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = XT9G73WJRY;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		D1B1277CA4DD98D8312A7802 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ios/TheCaddie/TrueCaddie.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = TrueCaddie;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "TrueCaddie uses your location during a round to understand shot context.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "TrueCaddie may use the microphone for future voice caddie features.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.truecaddie.ios;
+				PRODUCT_NAME = TrueCaddie;
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		8FDD90462C55DDECBD48AB27 /* Build configuration list for PBXProject "TheCaddie" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				06A9288BF0AC378708D9AF5B /* Debug */,
+				9CB723518A7B2EBEEFD678A9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9A2D5061EB8131DD9184CB17 /* Build configuration list for PBXNativeTarget "TrueCaddie" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0B5CF17B4B3D228A6355B422 /* Debug */,
+				D1B1277CA4DD98D8312A7802 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 1B4B44E63AEF5E63275EDE61 /* Project object */;
+}

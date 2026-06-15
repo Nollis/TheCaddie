@@ -1,5 +1,4 @@
 import SwiftUI
-import TheCaddieDomain
 
 @main
 struct TheCaddieApp: App {

@@ -166,16 +166,9 @@ public enum CaddieRecommendationEngine {
         case .safe:
             return sortedAscending.first { $0.carryDistanceM >= distanceBasisM }
         case .normal:
-            let coveringClub = sortedAscending.first { $0.carryDistanceM >= distanceBasisM }
-            let shorterClub = sortedAscending.last { $0.carryDistanceM < distanceBasisM }
-
-            guard let coveringClub, let shorterClub else {
-                return coveringClub ?? shorterClub
-            }
-
-            let coverDelta = abs(coveringClub.carryDistanceM - distanceBasisM)
-            let shortDelta = abs(distanceBasisM - shorterClub.carryDistanceM)
-            return coverDelta <= shortDelta ? coveringClub : shorterClub
+            let shortToleranceM = 1.0
+            return sortedAscending.first { $0.carryDistanceM + shortToleranceM >= distanceBasisM }
+                ?? sortedAscending.last
         case .aggressive:
             return sortedAscending.last { $0.carryDistanceM <= distanceBasisM }
                 ?? sortedAscending.first

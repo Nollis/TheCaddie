@@ -1,6 +1,5 @@
 import Combine
 import Foundation
-import TheCaddieDomain
 
 @MainActor
 final class CaddieViewModel: ObservableObject {
