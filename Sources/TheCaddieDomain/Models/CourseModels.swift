@@ -24,6 +24,7 @@ public struct CourseHole: Equatable, Sendable, Identifiable {
     public let teeLengthM: Double
     public let green: GreenContext
     public let hazards: [Hazard]
+    public let fairway: FairwayContext?
 
     public var id: Int { number }
 
@@ -32,13 +33,15 @@ public struct CourseHole: Equatable, Sendable, Identifiable {
         par: Int,
         teeLengthM: Double,
         green: GreenContext,
-        hazards: [Hazard]
+        hazards: [Hazard],
+        fairway: FairwayContext? = nil
     ) {
         self.number = number
         self.par = par
         self.teeLengthM = teeLengthM
         self.green = green
         self.hazards = hazards
+        self.fairway = fairway
     }
 }
 
@@ -51,6 +54,16 @@ public struct GreenContext: Equatable, Sendable {
         self.frontDistanceM = frontDistanceM
         self.centerDistanceM = centerDistanceM
         self.backDistanceM = backDistanceM
+    }
+}
+
+public struct FairwayContext: Equatable, Sendable {
+    public let landingWidthM: Double
+    public let drivingZoneEndM: Double?
+
+    public init(landingWidthM: Double, drivingZoneEndM: Double? = nil) {
+        self.landingWidthM = landingWidthM
+        self.drivingZoneEndM = drivingZoneEndM
     }
 }
 

@@ -1,6 +1,29 @@
 import Testing
 import TheCaddieDomain
 
+@Test func courseHoleCarriesOptionalFairwayContext() {
+    let hole = CourseHole(
+        number: 1,
+        par: 4,
+        teeLengthM: 380,
+        green: GreenContext(frontDistanceM: 360, centerDistanceM: 372, backDistanceM: 384),
+        hazards: [],
+        fairway: FairwayContext(landingWidthM: 30, drivingZoneEndM: 250)
+    )
+
+    #expect(hole.fairway?.landingWidthM == 30)
+    #expect(hole.fairway?.drivingZoneEndM == 250)
+
+    let holeWithoutFairway = CourseHole(
+        number: 2,
+        par: 3,
+        teeLengthM: 150,
+        green: GreenContext(frontDistanceM: 140, centerDistanceM: 150, backDistanceM: 160),
+        hazards: []
+    )
+    #expect(holeWithoutFairway.fairway == nil)
+}
+
 @Test func sampleRoundExposesCompleteCurrentShotContext() throws {
     let context = CurrentShotContext.resolve(
         course: SampleRound.course,
