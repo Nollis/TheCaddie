@@ -11,12 +11,12 @@ import TheCaddieDomain
     let viewState = CaddieViewState.make(from: packet)
 
     #expect(viewState.kind == .ready)
-    #expect(viewState.title == "5 Iron to middle-right of the green")
+    #expect(viewState.title == "8 Iron to middle-right of the green")
     #expect(viewState.holeLabel == "Hole 1 · Par 4")
     #expect(viewState.distanceLabel == "142 m")
     #expect(viewState.primaryActionLabel == nil)
     #expect(viewState.quickUpdateLabels == ["Fairway", "Rough", "Bunker"])
-    #expect(viewState.subtitle.contains("5 Iron covers the 150m playing number"))
+    #expect(viewState.subtitle.contains("8 Iron covers the 150m playing number"))
     #expect(viewState.subtitle.contains("Avoid long left water"))
 }
 

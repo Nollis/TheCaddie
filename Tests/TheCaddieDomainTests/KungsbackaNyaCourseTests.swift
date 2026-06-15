@@ -53,5 +53,77 @@ import TheCaddieDomain
     #expect(packet.distanceBasisM == 220)
     #expect(packet.target == "left-center fairway")
     #expect(packet.primaryReason == "Driver advances the ball about 220m and leaves roughly 240m in.")
-    #expect(packet.riskNote == "Water right comes into play around 188m and bunker left starts to matter around 240m.")
+    #expect(packet.riskNote == "Water right is near the landing zone and bunker left is the long miss.")
+}
+
+@Test func kungsbackaHoleOneNearGreenDoesNotRepeatPassedTeeWater() {
+    let roundState = KungsbackaNyaCourse.openingRoundState.updateShotContext(
+        ShotContext(
+            shotNumber: 3,
+            remainingDistanceM: .known(72),
+            lie: .known(.fairway),
+            wind: nil
+        )
+    )
+
+    let packet = CaddieRecommendationEngine.build(
+        course: KungsbackaNyaCourse.course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    #expect(packet.status == .ready)
+    #expect(packet.recommendedClub == "50W")
+    #expect(packet.riskNote == nil)
+}
+
+@Test func kungsbackaHoleOneSecondShotDoesNotWarnAboutDistantBunkerPastLandingWindow() {
+    let roundState = KungsbackaNyaCourse.openingRoundState.updateShotContext(
+        ShotContext(
+            shotNumber: 2,
+            remainingDistanceM: .known(262),
+            lie: .known(.fairway),
+            wind: nil
+        )
+    )
+
+    let packet = CaddieRecommendationEngine.build(
+        course: KungsbackaNyaCourse.course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    #expect(packet.status == .ready)
+    #expect(packet.recommendedClub == "3 Hybrid")
+    #expect(packet.riskNote == nil)
+}
+
+@Test func kungsbackaHoleTwoUsesPlayerNineIronDistance() {
+    let roundState = KungsbackaNyaCourse.openingRoundState.selectHole(2)
+
+    let packet = CaddieRecommendationEngine.build(
+        course: KungsbackaNyaCourse.course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    #expect(packet.status == .ready)
+    #expect(packet.shotIntent == .approach)
+    #expect(packet.recommendedClub == "9 Iron")
+    #expect(packet.target == "middle-right of the green")
+}
+
+@Test func kungsbackaHoleThreeAvoidsDriverThroughPairedWater() {
+    let roundState = KungsbackaNyaCourse.openingRoundState.selectHole(3)
+
+    let packet = CaddieRecommendationEngine.build(
+        course: KungsbackaNyaCourse.course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    #expect(packet.status == .ready)
+    #expect(packet.shotIntent == .teePosition)
+    #expect(packet.recommendedClub == "8 Iron")
+    #expect(packet.primaryReason == "8 Iron advances the ball about 150m and leaves roughly 130m in.")
 }

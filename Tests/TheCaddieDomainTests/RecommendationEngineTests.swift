@@ -18,12 +18,12 @@ import TheCaddieDomain
     #expect(packet.lie == .fairway)
     #expect(packet.strategyPreference == .normal)
     #expect(packet.shotIntent == .approach)
-    #expect(packet.recommendedClub == "5 Iron")
-    #expect(packet.clubCarryDistanceM == 160)
+    #expect(packet.recommendedClub == "8 Iron")
+    #expect(packet.clubCarryDistanceM == 150)
     #expect(packet.distanceBasisM == 150)
     #expect(abs((packet.expectedDispersionM ?? 0) - 25.056) < 0.001)
     #expect(packet.target == "middle-right of the green")
-    #expect(packet.primaryReason == "5 Iron covers the 150m playing number with 4m/s hurting wind.")
+    #expect(packet.primaryReason == "8 Iron covers the 150m playing number with 4m/s hurting wind.")
     #expect(packet.riskNote == "Avoid long left water; that is the expensive miss.")
     #expect(packet.confidence == .medium)
 }
@@ -173,9 +173,9 @@ import TheCaddieDomain
     )
 
     #expect(helpingPacket.distanceBasisM == 136)
-    #expect(helpingPacket.recommendedClub == "7 Iron")
+    #expect(helpingPacket.recommendedClub == "9 Iron")
     #expect(hurtingPacket.distanceBasisM == 150)
-    #expect(hurtingPacket.recommendedClub == "5 Iron")
+    #expect(hurtingPacket.recommendedClub == "8 Iron")
 }
 
 @Test func missingDistanceReturnsMissingContextPacketWithoutInventedClub() {

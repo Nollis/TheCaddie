@@ -133,5 +133,5 @@ import TheCaddieDomain
     #expect(packet.target == "front approach window")
     #expect(packet.recommendedClub == "3 Hybrid")
     #expect(packet.primaryReason == "3 Hybrid advances the ball about 190m and leaves roughly 50m in.")
-    #expect(packet.riskNote == "Bunker left starts to matter around 417m.")
+    #expect(packet.riskNote == "Bunker left is near the landing zone.")
 }

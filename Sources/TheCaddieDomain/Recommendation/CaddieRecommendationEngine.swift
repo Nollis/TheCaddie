@@ -199,7 +199,12 @@ public enum CaddieRecommendationEngine {
         guard let club = advancementClub(
             from: playableClubs(from: player.clubs, lie: lie),
             strategy: player.strategyPreference,
-            lie: lie
+            lie: lie,
+            hazards: hole.hazards,
+            currentProgressM: currentProgressM(
+                holeLengthM: hole.teeLengthM,
+                remainingDistanceM: remainingDistanceM
+            )
         ) else {
             return contextPacket(
                 status: .unavailable,
@@ -395,7 +400,9 @@ public enum CaddieRecommendationEngine {
     private static func advancementClub(
         from clubs: [PlayerClub],
         strategy: StrategyPreference,
-        lie: ShotLie
+        lie: ShotLie,
+        hazards: [Hazard],
+        currentProgressM: Double
     ) -> PlayerClub? {
         let sortedDescending = clubs.sorted { lhs, rhs in
             lhs.carryDistanceM > rhs.carryDistanceM
@@ -411,11 +418,39 @@ public enum CaddieRecommendationEngine {
             }
         }
 
+        if let saferTeeClub = saferTeeClub(
+            from: sortedDescending,
+            hazards: hazards,
+            currentProgressM: currentProgressM
+        ) {
+            return saferTeeClub
+        }
+
         switch strategy {
         case .safe:
             return sortedDescending.dropFirst().first ?? sortedDescending.first
         case .normal, .aggressive:
             return sortedDescending.first
+        }
+    }
+
+    private static func saferTeeClub(
+        from clubs: [PlayerClub],
+        hazards: [Hazard],
+        currentProgressM: Double
+    ) -> PlayerClub? {
+        guard hazards.contains(where: { $0.kind == .water || $0.kind == .outOfBounds }) else {
+            return nil
+        }
+
+        return clubs.first { club in
+            let landingM = currentProgressM + club.carryDistanceM
+            return !hasPinchedSevereHazardsNearLanding(
+                hazards,
+                landingM: landingM,
+                currentProgressM: currentProgressM,
+                bufferM: 40
+            )
         }
     }
 
@@ -491,11 +526,11 @@ public enum CaddieRecommendationEngine {
 
         switch (water, bunker) {
         case let (water?, bunker?):
-            return "\(hazardLeadIn(for: water, verb: "comes into play")) and \(hazardLeadIn(for: bunker, verb: bunkerVerb(for: strategy), capitalizeKind: false))."
+            return "\(advancementHazardNote(for: water, role: .landingZone)) and \(advancementHazardNote(for: bunker, role: .longMiss))."
         case let (water?, nil):
-            return "\(hazardLeadIn(for: water, verb: "comes into play"))."
+            return "\(advancementHazardNote(for: water, role: .landingZone))."
         case let (nil, bunker?):
-            return "\(hazardLeadIn(for: bunker, verb: bunkerVerb(for: strategy)))."
+            return "\(advancementHazardNote(for: bunker, role: .landingZone))."
         case (nil, nil):
             return hazards.first?.note
         }
@@ -634,7 +669,7 @@ public enum CaddieRecommendationEngine {
     ) -> [Hazard] {
         hazards.filter { hazard in
             guard let hazardDistanceM = hazardDistance(for: hazard) else {
-                return true
+                return fromTeeProgressM <= 25 || isGreenSideHazard(hazard)
             }
 
             return hazardDistanceM >= fromTeeProgressM + 25
@@ -648,17 +683,40 @@ public enum CaddieRecommendationEngine {
     ) -> [Hazard] {
         hazards.filter { hazard in
             guard let hazardDistanceM = hazardDistance(for: hazard) else {
-                return currentProgressM <= 25
+                return false
             }
 
             return hazardDistanceM >= currentProgressM + 40
-                && hazardDistanceM <= projectedLandingM + 35
+                && hazardDistanceM <= projectedLandingM + 25
         }
         .sorted { lhs, rhs in
             let lhsDistance = abs((hazardDistance(for: lhs) ?? projectedLandingM) - projectedLandingM)
             let rhsDistance = abs((hazardDistance(for: rhs) ?? projectedLandingM) - projectedLandingM)
             return lhsDistance < rhsDistance
         }
+    }
+
+    private static func hasPinchedSevereHazardsNearLanding(
+        _ hazards: [Hazard],
+        landingM: Double,
+        currentProgressM: Double,
+        bufferM: Double
+    ) -> Bool {
+        let sides = hazards.compactMap { hazard -> String? in
+            guard hazard.kind == .water || hazard.kind == .outOfBounds,
+                  let hazardDistanceM = hazardDistance(for: hazard) else {
+                return nil
+            }
+
+            guard hazardDistanceM >= currentProgressM + 35,
+                  abs(hazardDistanceM - landingM) <= bufferM else {
+                return nil
+            }
+
+            return hazardSide(for: hazard.position)
+        }
+
+        return Set(sides).isSuperset(of: ["left", "right"])
     }
 
     private static func currentProgressM(
@@ -675,26 +733,18 @@ public enum CaddieRecommendationEngine {
         hazards.first { $0.kind == kind }
     }
 
-    private static func bunkerVerb(for strategy: StrategyPreference) -> String {
-        strategy == .aggressive
-            ? "waits if you really chase it"
-            : "starts to matter"
-    }
-
-    private static func hazardLeadIn(
+    private static func advancementHazardNote(
         for hazard: Hazard,
-        verb: String,
-        capitalizeKind: Bool = true
+        role: AdvancementHazardRole
     ) -> String {
         let side = hazardSide(for: hazard.position)
-        let kindLabel = capitalizeKind
-            ? hazard.kind.rawValue.capitalized
-            : hazard.kind.rawValue
-        if let distanceM = hazardDistance(for: hazard) {
-            return "\(kindLabel) \(side) \(verb) around \(formatMeters(distanceM))m"
+        let label = "\(hazard.kind.rawValue.capitalized) \(side)"
+        switch role {
+        case .landingZone:
+            return "\(label) is near the landing zone"
+        case .longMiss:
+            return "\(label.lowercased()) is the long miss"
         }
-
-        return "\(kindLabel) \(side) \(verb)"
     }
 
     private static func hazardReference(for hazard: Hazard) -> String {
@@ -737,6 +787,11 @@ public enum CaddieRecommendationEngine {
 
         return Double(hazard.position[match])
     }
+
+    private static func isGreenSideHazard(_ hazard: Hazard) -> Bool {
+        let lowered = hazard.position.lowercased()
+        return lowered.contains("short") || lowered.contains("long")
+    }
 }
 
 private func formatMeters(_ value: Double) -> String {
@@ -745,4 +800,9 @@ private func formatMeters(_ value: Double) -> String {
     }
 
     return String(format: "%.1f", value)
+}
+
+private enum AdvancementHazardRole {
+    case landingZone
+    case longMiss
 }
