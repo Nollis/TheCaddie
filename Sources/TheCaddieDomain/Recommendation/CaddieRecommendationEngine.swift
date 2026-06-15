@@ -208,16 +208,33 @@ public enum CaddieRecommendationEngine {
         lie: ShotLie,
         intent: ShotIntent
     ) -> CaddieRecommendationPacket {
-        guard let club = advancementClub(
-            from: playableClubs(from: player.clubs, lie: lie),
-            strategy: player.strategyPreference,
-            lie: lie,
-            hazards: hole.hazards,
-            currentProgressM: currentProgressM(
-                holeLengthM: hole.teeLengthM,
-                remainingDistanceM: remainingDistanceM
+        let progressM = currentProgressM(
+            holeLengthM: hole.teeLengthM,
+            remainingDistanceM: remainingDistanceM
+        )
+        let teeClubs = playableClubs(from: player.clubs, lie: lie)
+
+        let selectedClub: PlayerClub?
+        if lie == .tee, let fairway = hole.fairway {
+            selectedClub = riskGatedTeeClub(
+                from: teeClubs,
+                player: player,
+                fairway: fairway,
+                hazards: hole.hazards,
+                currentProgressM: progressM,
+                strategy: player.strategyPreference
             )
-        ) else {
+        } else {
+            selectedClub = advancementClub(
+                from: teeClubs,
+                strategy: player.strategyPreference,
+                lie: lie,
+                hazards: hole.hazards,
+                currentProgressM: progressM
+            )
+        }
+
+        guard let club = selectedClub else {
             return contextPacket(
                 status: .unavailable,
                 course: course,
@@ -229,10 +246,6 @@ public enum CaddieRecommendationEngine {
             )
         }
 
-        let progressM = currentProgressM(
-            holeLengthM: hole.teeLengthM,
-            remainingDistanceM: remainingDistanceM
-        )
         let landingHazards = advancementHazards(
             from: hole.hazards,
             currentProgressM: progressM,
@@ -418,6 +431,102 @@ public enum CaddieRecommendationEngine {
         distanceBasisM: Double
     ) -> Bool {
         clubs.contains { $0.carryDistanceM + 1.0 >= distanceBasisM }
+    }
+
+    private static func riskBudget(for strategy: StrategyPreference) -> Double {
+        switch strategy {
+        case .safe: return 0.6
+        case .normal: return 1.0
+        case .aggressive: return 1.6
+        }
+    }
+
+    private static func severityWeight(for kind: HazardKind) -> Double {
+        switch kind {
+        case .water: return 1.0
+        case .outOfBounds: return 1.2
+        case .trees: return 0.5
+        case .bunker: return 0.3
+        }
+    }
+
+    private static func teeHazardRisk(
+        hazards: [Hazard],
+        landingM: Double
+    ) -> Double {
+        let windowM = 35.0
+        return hazards.reduce(0) { sum, hazard in
+            guard let distanceM = hazardDistance(for: hazard) else {
+                return sum
+            }
+            let alongM = abs(distanceM - landingM)
+            guard alongM <= windowM else {
+                return sum
+            }
+            let proximity = 1 - alongM / windowM
+            return sum + severityWeight(for: hazard.kind) * proximity
+        }
+    }
+
+    private static func teeShotRisk(
+        club: PlayerClub,
+        player: PlayerContext,
+        fairway: FairwayContext,
+        hazards: [Hazard],
+        currentProgressM: Double
+    ) -> Double {
+        let landingM = currentProgressM + club.carryDistanceM
+        let lateralSpread = expectedDispersion(for: club, player: player, lie: .tee)
+        let halfWidth = max(1, fairway.landingWidthM / 2)
+        let widthRisk = max(0, (lateralSpread - halfWidth) / halfWidth)
+        let hazardRisk = teeHazardRisk(hazards: hazards, landingM: landingM)
+
+        let overshootRisk: Double
+        if let endM = fairway.drivingZoneEndM, landingM > endM {
+            overshootRisk = (landingM - endM) / 50
+        } else {
+            overshootRisk = 0
+        }
+
+        return widthRisk + hazardRisk + overshootRisk
+    }
+
+    private static func riskGatedTeeClub(
+        from clubs: [PlayerClub],
+        player: PlayerContext,
+        fairway: FairwayContext,
+        hazards: [Hazard],
+        currentProgressM: Double,
+        strategy: StrategyPreference
+    ) -> PlayerClub? {
+        let candidates = clubs.sorted { lhs, rhs in
+            lhs.carryDistanceM > rhs.carryDistanceM
+        }
+        guard !candidates.isEmpty else {
+            return nil
+        }
+
+        let budget = riskBudget(for: strategy)
+        let scored = candidates.map { club in
+            (club: club, risk: teeShotRisk(
+                club: club,
+                player: player,
+                fairway: fairway,
+                hazards: hazards,
+                currentProgressM: currentProgressM
+            ))
+        }
+
+        if let acceptable = scored.first(where: { $0.risk <= budget }) {
+            return acceptable.club
+        }
+
+        return scored.min { lhs, rhs in
+            if lhs.risk != rhs.risk {
+                return lhs.risk < rhs.risk
+            }
+            return lhs.club.carryDistanceM > rhs.club.carryDistanceM
+        }?.club
     }
 
     private static func advancementClub(

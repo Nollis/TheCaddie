@@ -1,6 +1,50 @@
 import Testing
 import TheCaddieDomain
 
+private func teePacket(
+    landingWidthM: Double,
+    drivingZoneEndM: Double? = nil,
+    hazards: [Hazard] = [],
+    player: PlayerContext = SampleRound.player,
+    teeLengthM: Double = 380
+) -> CaddieRecommendationPacket {
+    let hole = CourseHole(
+        number: 1,
+        par: 4,
+        teeLengthM: teeLengthM,
+        green: GreenContext(
+            frontDistanceM: teeLengthM - 20,
+            centerDistanceM: teeLengthM - 8,
+            backDistanceM: teeLengthM + 4
+        ),
+        hazards: hazards,
+        fairway: FairwayContext(landingWidthM: landingWidthM, drivingZoneEndM: drivingZoneEndM)
+    )
+    let course = Course(id: "tee-test", name: "Tee Test", holes: [hole])
+    let roundState = RoundState(
+        courseId: course.id,
+        selectedHoleNumber: 1,
+        shotContexts: [
+            1: ShotContext(
+                shotNumber: 1,
+                remainingDistanceM: .known(teeLengthM),
+                lie: .known(.tee),
+                wind: nil
+            )
+        ]
+    )
+    return CaddieRecommendationEngine.build(course: course, player: player, roundState: roundState)
+}
+
+@Test func tightFairwayClubsDownFromDriverForHighHandicap() {
+    // SampleRound.player is a 21.8 handicap (dispersion multiplier 1.45).
+    let packet = teePacket(landingWidthM: 30)
+
+    #expect(packet.shotIntent == .teePosition)
+    #expect(packet.recommendedClub == "5 Iron")
+    #expect(packet.recommendedClub != "Driver")
+}
+
 @Test func recommendationEngineReturnsReadyPacketForSampleShot() {
     let packet = CaddieRecommendationEngine.build(
         course: SampleRound.course,
