@@ -46,6 +46,14 @@ final class CaddieViewModel: ObservableObject {
         roundState = roundState.updateShotContext(updatedShot)
     }
 
+    func recordShotResult(_ lie: ShotLie) {
+        roundState = roundState.recordShotResult(
+            course: course,
+            player: player,
+            resultingLie: lie
+        )
+    }
+
     func addDistance(_ distanceM: Double) {
         let currentShot = roundState.currentShotContext() ?? SampleRound.readyShot
         let updatedShot = ShotContext(

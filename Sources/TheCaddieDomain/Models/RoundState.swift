@@ -44,6 +44,43 @@ public struct RoundState: Equatable, Sendable {
             shotContexts: shotContexts
         )
     }
+
+    public func recordShotResult(
+        course: Course?,
+        player: PlayerContext,
+        resultingLie: ShotLie
+    ) -> RoundState {
+        guard let currentShot = currentShotContext(),
+              let remainingDistanceM = currentShot.remainingDistanceM.value else {
+            return self
+        }
+
+        let packet = CaddieRecommendationEngine.build(
+            course: course,
+            player: player,
+            roundState: self
+        )
+        let baselineAdvanceM = packet.clubCarryDistanceM
+            ?? player.clubs.first?.carryDistanceM
+            ?? 0
+
+        guard baselineAdvanceM > 0 else {
+            return self
+        }
+
+        let nextRemainingDistanceM = max(
+            0,
+            remainingDistanceM - (baselineAdvanceM * progressionMultiplier(for: resultingLie))
+        )
+        let nextShot = ShotContext(
+            shotNumber: currentShot.shotNumber + 1,
+            remainingDistanceM: .known(nextRemainingDistanceM),
+            lie: .known(resultingLie),
+            wind: currentShot.wind
+        )
+
+        return updateShotContext(nextShot)
+    }
 }
 
 public enum CurrentShotContext: Equatable, Sendable {
@@ -82,5 +119,18 @@ public enum CurrentShotContext: Equatable, Sendable {
         }
 
         return .ready(course: course, hole: hole, player: player, shot: shot)
+    }
+}
+
+private func progressionMultiplier(for lie: ShotLie) -> Double {
+    switch lie {
+    case .tee, .fairway:
+        return 1.0
+    case .rough:
+        return 0.9
+    case .bunker:
+        return 0.72
+    case .recovery:
+        return 0.58
     }
 }

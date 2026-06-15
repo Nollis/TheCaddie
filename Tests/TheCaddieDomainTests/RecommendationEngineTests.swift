@@ -72,8 +72,9 @@ import TheCaddieDomain
     #expect(packet.status == .ready)
     #expect(packet.recommendedClub == "Driver")
     #expect(packet.distanceBasisM == 220)
-    #expect(packet.target == "right-center fairway")
+    #expect(packet.target == "stock fairway corridor")
     #expect(packet.primaryReason == "Driver advances the ball about 220m and leaves roughly 80m in.")
+    #expect(packet.riskNote == nil)
 }
 
 @Test func helpingAndHurtingWindChangeDistanceBasisDeterministically() {
@@ -128,7 +129,7 @@ import TheCaddieDomain
 @Test func noSuitableClubReturnsUnavailablePacket() {
     let player = PlayerContext(
         handicapIndex: nil,
-        clubs: [PlayerClub(name: "Wedge", carryDistanceM: 80)],
+        clubs: [],
         strategyPreference: .safe
     )
 

@@ -98,3 +98,36 @@ import TheCaddieDomain
     #expect(SampleRound.roundState.currentShotContext() == SampleRound.readyShot)
     #expect(updatedRound.currentShotContext() == updatedShot)
 }
+
+@Test func roundStateCanRecordShotResultAndAdvanceTheHoleState() throws {
+    let updatedRound = KungsbackaNyaCourse.openingRoundState.recordShotResult(
+        course: KungsbackaNyaCourse.course,
+        player: SampleRound.player,
+        resultingLie: .fairway
+    )
+
+    let updatedShot = try #require(updatedRound.currentShotContext())
+
+    #expect(updatedShot.shotNumber == 2)
+    #expect(updatedShot.remainingDistanceM.value == 240)
+    #expect(updatedShot.lie.value == .fairway)
+}
+
+@Test func progressedShotUsesForwardHazardsInsteadOfRepeatingPassedTeeWater() {
+    let updatedRound = KungsbackaNyaCourse.openingRoundState.recordShotResult(
+        course: KungsbackaNyaCourse.course,
+        player: SampleRound.player,
+        resultingLie: .fairway
+    )
+
+    let packet = CaddieRecommendationEngine.build(
+        course: KungsbackaNyaCourse.course,
+        player: SampleRound.player,
+        roundState: updatedRound
+    )
+
+    #expect(packet.status == .ready)
+    #expect(packet.target == "front approach window")
+    #expect(packet.primaryReason == "Driver advances the ball about 220m and leaves roughly 20m in.")
+    #expect(packet.riskNote == "Bunker left starts to matter around 417m.")
+}

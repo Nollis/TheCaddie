@@ -79,9 +79,16 @@ public enum CaddieRecommendationEngine {
             wind: shot.wind,
             strategy: player.strategyPreference
         )
+        let approachHazards = relevantHazards(
+            for: hole.hazards,
+            fromTeeProgressM: currentProgressM(
+                holeLengthM: hole.teeLengthM,
+                remainingDistanceM: remainingDistance
+            )
+        )
 
         if shouldRecommendAdvancement(
-            remainingDistanceM: remainingDistance,
+            distanceBasisM: distanceBasis,
             lie: lie,
             clubs: player.clubs
         ) {
@@ -113,9 +120,9 @@ public enum CaddieRecommendationEngine {
 
         let target = targetLabel(
             for: player.strategyPreference,
-            hazards: hole.hazards
+            hazards: approachHazards
         )
-        let riskNote = riskNote(for: hole.hazards, strategy: player.strategyPreference)
+        let riskNote = riskNote(for: approachHazards, strategy: player.strategyPreference)
         let windPhrase = windPhrase(for: shot.wind)
         let primaryReason = "\(club.name) covers the \(formatMeters(distanceBasis))m playing number\(windPhrase)."
 
@@ -161,11 +168,21 @@ public enum CaddieRecommendationEngine {
             )
         }
 
-        let target = advancementTargetLabel(
-            for: player.strategyPreference,
-            hazards: hole.hazards
+        let progressM = currentProgressM(
+            holeLengthM: hole.teeLengthM,
+            remainingDistanceM: remainingDistanceM
+        )
+        let landingHazards = advancementHazards(
+            from: hole.hazards,
+            currentProgressM: progressM,
+            projectedLandingM: progressM + club.carryDistanceM
         )
         let leaveDistance = max(0, remainingDistanceM - club.carryDistanceM)
+        let target = advancementTargetLabel(
+            for: player.strategyPreference,
+            hazards: landingHazards,
+            leaveDistanceM: leaveDistance
+        )
         let primaryReason = "\(club.name) advances the ball about \(formatMeters(club.carryDistanceM))m and leaves roughly \(formatMeters(leaveDistance))m in."
 
         return CaddieRecommendationPacket(
@@ -182,28 +199,24 @@ public enum CaddieRecommendationEngine {
             clubCarryDistanceM: club.carryDistanceM,
             distanceBasisM: club.carryDistanceM,
             primaryReason: primaryReason,
-            riskNote: riskNote(for: hole.hazards, strategy: player.strategyPreference),
+            riskNote: advancementRiskNote(for: landingHazards, strategy: player.strategyPreference),
             confidence: .medium
         )
     }
 
     private static func shouldRecommendAdvancement(
-        remainingDistanceM: Double,
+        distanceBasisM: Double,
         lie: ShotLie,
         clubs: [PlayerClub]
     ) -> Bool {
-        guard let longestClub = clubs.max(by: { lhs, rhs in
-            lhs.carryDistanceM < rhs.carryDistanceM
-        }) else {
-            return false
-        }
-
         guard lie != .bunker, lie != .recovery else {
             return false
         }
 
-        let reachableBufferM = 25.0
-        return remainingDistanceM > longestClub.carryDistanceM + reachableBufferM
+        return !hasCoveringClub(
+            in: clubs,
+            distanceBasisM: distanceBasisM
+        )
     }
 
     private static func adjustedDistance(
@@ -258,6 +271,13 @@ public enum CaddieRecommendationEngine {
         }
     }
 
+    private static func hasCoveringClub(
+        in clubs: [PlayerClub],
+        distanceBasisM: Double
+    ) -> Bool {
+        clubs.contains { $0.carryDistanceM + 1.0 >= distanceBasisM }
+    }
+
     private static func advancementClub(
         from clubs: [PlayerClub],
         strategy: StrategyPreference
@@ -293,8 +313,13 @@ public enum CaddieRecommendationEngine {
 
     private static func advancementTargetLabel(
         for strategy: StrategyPreference,
-        hazards: [Hazard]
+        hazards: [Hazard],
+        leaveDistanceM: Double
     ) -> String {
+        if leaveDistanceM <= 60 {
+            return "front approach window"
+        }
+
         switch strategy {
         case .safe:
             return "safe fairway window"
@@ -320,16 +345,35 @@ public enum CaddieRecommendationEngine {
         }
 
         if let water = hazards.first(where: { $0.kind == .water }) {
-            return "Avoid \(water.position) \(water.kind.rawValue); that is the expensive miss."
+            return "Avoid \(hazardReference(for: water)); that is the expensive miss."
         }
 
         if let bunker = hazards.first(where: { $0.kind == .bunker }) {
             return strategy == .aggressive
-                ? "The \(bunker.position) bunker is the main miss to manage."
-                : "Favor away from the \(bunker.position) bunker."
+                ? "The \(hazardReference(for: bunker)) is the main miss to manage."
+                : "Favor away from \(hazardReference(for: bunker))."
         }
 
         return hazards.first?.note
+    }
+
+    private static func advancementRiskNote(
+        for hazards: [Hazard],
+        strategy: StrategyPreference
+    ) -> String? {
+        let water = nearestHazard(of: .water, in: hazards)
+        let bunker = nearestHazard(of: .bunker, in: hazards)
+
+        switch (water, bunker) {
+        case let (water?, bunker?):
+            return "\(hazardLeadIn(for: water, verb: "comes into play")) and \(hazardLeadIn(for: bunker, verb: bunkerVerb(for: strategy), capitalizeKind: false))."
+        case let (water?, nil):
+            return "\(hazardLeadIn(for: water, verb: "comes into play"))."
+        case let (nil, bunker?):
+            return "\(hazardLeadIn(for: bunker, verb: bunkerVerb(for: strategy)))."
+        case (nil, nil):
+            return hazards.first?.note
+        }
     }
 
     private static func confidence(
@@ -409,6 +453,116 @@ public enum CaddieRecommendationEngine {
             riskNote: nil,
             confidence: confidence
         )
+    }
+
+    private static func relevantHazards(
+        for hazards: [Hazard],
+        fromTeeProgressM: Double
+    ) -> [Hazard] {
+        hazards.filter { hazard in
+            guard let hazardDistanceM = hazardDistance(for: hazard) else {
+                return true
+            }
+
+            return hazardDistanceM >= fromTeeProgressM + 25
+        }
+    }
+
+    private static func advancementHazards(
+        from hazards: [Hazard],
+        currentProgressM: Double,
+        projectedLandingM: Double
+    ) -> [Hazard] {
+        hazards.filter { hazard in
+            guard let hazardDistanceM = hazardDistance(for: hazard) else {
+                return currentProgressM <= 25
+            }
+
+            return hazardDistanceM >= currentProgressM + 40
+                && hazardDistanceM <= projectedLandingM + 35
+        }
+        .sorted { lhs, rhs in
+            let lhsDistance = abs((hazardDistance(for: lhs) ?? projectedLandingM) - projectedLandingM)
+            let rhsDistance = abs((hazardDistance(for: rhs) ?? projectedLandingM) - projectedLandingM)
+            return lhsDistance < rhsDistance
+        }
+    }
+
+    private static func currentProgressM(
+        holeLengthM: Double,
+        remainingDistanceM: Double
+    ) -> Double {
+        max(0, holeLengthM - remainingDistanceM)
+    }
+
+    private static func nearestHazard(
+        of kind: HazardKind,
+        in hazards: [Hazard]
+    ) -> Hazard? {
+        hazards.first { $0.kind == kind }
+    }
+
+    private static func bunkerVerb(for strategy: StrategyPreference) -> String {
+        strategy == .aggressive
+            ? "waits if you really chase it"
+            : "starts to matter"
+    }
+
+    private static func hazardLeadIn(
+        for hazard: Hazard,
+        verb: String,
+        capitalizeKind: Bool = true
+    ) -> String {
+        let side = hazardSide(for: hazard.position)
+        let kindLabel = capitalizeKind
+            ? hazard.kind.rawValue.capitalized
+            : hazard.kind.rawValue
+        if let distanceM = hazardDistance(for: hazard) {
+            return "\(kindLabel) \(side) \(verb) around \(formatMeters(distanceM))m"
+        }
+
+        return "\(kindLabel) \(side) \(verb)"
+    }
+
+    private static func hazardReference(for hazard: Hazard) -> String {
+        let side = hazardSide(for: hazard.position)
+        if let distanceM = hazardDistance(for: hazard) {
+            return "\(hazard.kind.rawValue) \(side) around \(formatMeters(distanceM))m"
+        }
+
+        return "\(hazard.position) \(hazard.kind.rawValue)"
+    }
+
+    private static func hazardSide(for position: String) -> String {
+        let lowered = position.lowercased()
+        if lowered.contains("long left") {
+            return "long left"
+        }
+        if lowered.contains("long right") {
+            return "long right"
+        }
+        if lowered.contains("short left") {
+            return "short left"
+        }
+        if lowered.contains("short right") {
+            return "short right"
+        }
+        if lowered.contains("left") {
+            return "left"
+        }
+        if lowered.contains("right") {
+            return "right"
+        }
+        return position
+    }
+
+    private static func hazardDistance(for hazard: Hazard) -> Double? {
+        let pattern = #"\d+(\.\d+)?"#
+        guard let match = hazard.position.range(of: pattern, options: .regularExpression) else {
+            return nil
+        }
+
+        return Double(hazard.position[match])
     }
 }
 

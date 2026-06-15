@@ -109,7 +109,7 @@ struct CaddieScreen: View {
 
     private func quickUpdateButton(_ label: String, lie: ShotLie) -> some View {
         Button {
-            viewModel.markLie(lie)
+            viewModel.recordShotResult(lie)
         } label: {
             Text(label)
                 .font(.system(.headline, design: .rounded).weight(.bold))

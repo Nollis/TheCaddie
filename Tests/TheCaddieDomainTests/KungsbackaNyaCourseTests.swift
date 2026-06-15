@@ -52,5 +52,5 @@ import TheCaddieDomain
     #expect(packet.distanceBasisM == 220)
     #expect(packet.target == "left-center fairway")
     #expect(packet.primaryReason == "Driver advances the ball about 220m and leaves roughly 240m in.")
-    #expect(packet.riskNote == "Avoid right 188m water; that is the expensive miss.")
+    #expect(packet.riskNote == "Water right comes into play around 188m and bunker left starts to matter around 240m.")
 }
