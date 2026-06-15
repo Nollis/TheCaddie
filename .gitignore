@@ -1,0 +1,24 @@
+.DS_Store
+Thumbs.db
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Xcode
+DerivedData/
+*.xcuserdata/
+*.xcuserstate
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Editor
+.vscode/
+.idea/
