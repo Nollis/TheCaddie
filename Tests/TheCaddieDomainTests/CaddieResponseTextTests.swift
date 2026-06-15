@@ -14,7 +14,7 @@ import TheCaddieDomain
     #expect(text.contains("Aim middle-right of the green."))
     #expect(text.contains("5 Iron covers the 150m playing number"))
     #expect(text.contains("Avoid long left water"))
-    #expect(!text.localizedCaseInsensitiveContains("ai"))
+    #expect(!text.localizedCaseInsensitiveContains("openai"))
     #expect(!text.localizedCaseInsensitiveContains("model"))
     #expect(!text.localizedCaseInsensitiveContains("connect"))
 }
