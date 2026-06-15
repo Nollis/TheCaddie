@@ -74,6 +74,18 @@ public enum CaddieRecommendationEngine {
             )
         }
 
+        if lie == .green {
+            return contextPacket(
+                status: .unavailable,
+                course: course,
+                hole: hole,
+                player: player,
+                shot: shot,
+                reason: "On the green. Finish the hole from here.",
+                confidence: .low
+            )
+        }
+
         let distanceBasis = adjustedDistance(
             remainingDistance,
             wind: shot.wind,
@@ -374,9 +386,20 @@ public enum CaddieRecommendationEngine {
         case .safe:
             return sortedAscending.first { $0.carryDistanceM >= distanceBasisM }
         case .normal:
-            let shortToleranceM = 1.0
-            return sortedAscending.first { $0.carryDistanceM + shortToleranceM >= distanceBasisM }
-                ?? sortedAscending.last
+            let coveringWindowM = 10.0
+            let coveringClubs = sortedAscending.filter { club in
+                club.carryDistanceM >= distanceBasisM
+                    && club.carryDistanceM <= distanceBasisM + coveringWindowM
+            }
+            if let loftedCover = coveringClubs.max(by: { lhs, rhs in
+                clubLoftRank(lhs.name) < clubLoftRank(rhs.name)
+            }) {
+                return loftedCover
+            }
+
+            return sortedAscending.min { lhs, rhs in
+                abs(lhs.carryDistanceM - distanceBasisM) < abs(rhs.carryDistanceM - distanceBasisM)
+            }
         case .aggressive:
             return sortedAscending.last { $0.carryDistanceM <= distanceBasisM }
                 ?? sortedAscending.first
@@ -575,7 +598,7 @@ public enum CaddieRecommendationEngine {
             lieMultiplier = 1.08
         case .rough:
             lieMultiplier = 1.28
-        case .bunker, .recovery:
+        case .bunker, .recovery, .green:
             lieMultiplier = 1.55
         }
 
@@ -596,6 +619,41 @@ public enum CaddieRecommendationEngine {
             return 16
         }
         return 12
+    }
+
+    private static func clubLoftRank(_ name: String) -> Int {
+        let normalized = name.lowercased()
+        if normalized == "pw" {
+            return 10
+        }
+        if normalized.contains("wedge") || normalized.hasSuffix("w") {
+            return 11
+        }
+        if let ironNumber = ironNumber(in: normalized) {
+            return ironNumber
+        }
+        if normalized.contains("hybrid") {
+            return 3
+        }
+        if normalized.contains("wood") {
+            return 2
+        }
+        if normalized.contains("driver") {
+            return 1
+        }
+        return 0
+    }
+
+    private static func ironNumber(in normalizedClubName: String) -> Int? {
+        let pattern = #"\b\d+(?=\s*iron\b)"#
+        guard let match = normalizedClubName.range(
+            of: pattern,
+            options: .regularExpression
+        ) else {
+            return nil
+        }
+
+        return Int(normalizedClubName[match])
     }
 
     private static func windPhrase(for wind: WindContext?) -> String {

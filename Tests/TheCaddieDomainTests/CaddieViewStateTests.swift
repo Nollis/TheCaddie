@@ -13,9 +13,10 @@ import TheCaddieDomain
     #expect(viewState.kind == .ready)
     #expect(viewState.title == "8 Iron to middle-right of the green")
     #expect(viewState.holeLabel == "Hole 1 · Par 4")
+    #expect(viewState.shotLabel == "Shot 2")
     #expect(viewState.distanceLabel == "142 m")
     #expect(viewState.primaryActionLabel == nil)
-    #expect(viewState.quickUpdateLabels == ["Fairway", "Rough", "Bunker"])
+    #expect(viewState.quickUpdateLabels == ["Fairway", "Rough", "Bunker", "Green"])
     #expect(viewState.subtitle.contains("8 Iron covers the 150m playing number"))
     #expect(viewState.subtitle.contains("Avoid long left water"))
 }
@@ -32,6 +33,7 @@ import TheCaddieDomain
     #expect(viewState.kind == .noCourseLoaded)
     #expect(viewState.title == "Choose a course")
     #expect(viewState.holeLabel == "No course")
+    #expect(viewState.shotLabel == "No shot")
     #expect(viewState.distanceLabel == "--")
     #expect(viewState.primaryActionLabel == "Load sample")
     #expect(viewState.quickUpdateLabels.isEmpty)
@@ -48,6 +50,7 @@ import TheCaddieDomain
 
     #expect(viewState.kind == .missingContext)
     #expect(viewState.title == "Distance needed")
+    #expect(viewState.shotLabel == "Shot 2")
     #expect(viewState.distanceLabel == "--")
     #expect(viewState.primaryActionLabel == "Add distance")
 }
@@ -63,6 +66,7 @@ import TheCaddieDomain
 
     #expect(viewState.kind == .missingContext)
     #expect(viewState.title == "Lie needed")
+    #expect(viewState.shotLabel == "Shot 2")
     #expect(viewState.distanceLabel == "142 m")
     #expect(viewState.primaryActionLabel == "Mark lie")
 }

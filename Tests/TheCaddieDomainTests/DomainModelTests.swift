@@ -115,6 +115,39 @@ import TheCaddieDomain
     #expect(updatedShot.lie.value == .fairway)
 }
 
+@Test func roundStateCanRecordShotResultForSelectedHoleWithoutStoredShot() throws {
+    let updatedRound = KungsbackaNyaCourse.openingRoundState
+        .selectHole(8)
+        .recordShotResult(
+            course: KungsbackaNyaCourse.course,
+            player: SampleRound.player,
+            resultingLie: .bunker
+        )
+
+    let updatedShot = try #require(updatedRound.currentShotContext())
+
+    #expect(updatedRound.selectedHoleNumber == 8)
+    #expect(updatedShot.shotNumber == 2)
+    #expect(updatedShot.remainingDistanceM.value == 29.2)
+    #expect(updatedShot.lie.value == .bunker)
+}
+
+@Test func greenShotResultAdvancesToGreenState() throws {
+    let updatedRound = KungsbackaNyaCourse.openingRoundState
+        .selectHole(8)
+        .recordShotResult(
+            course: KungsbackaNyaCourse.course,
+            player: SampleRound.player,
+            resultingLie: .green
+        )
+
+    let updatedShot = try #require(updatedRound.currentShotContext())
+
+    #expect(updatedShot.shotNumber == 2)
+    #expect(updatedShot.remainingDistanceM.value == 0)
+    #expect(updatedShot.lie.value == .green)
+}
+
 @Test func progressedShotUsesForwardHazardsInsteadOfRepeatingPassedTeeWater() {
     let updatedRound = KungsbackaNyaCourse.openingRoundState.recordShotResult(
         course: KungsbackaNyaCourse.course,

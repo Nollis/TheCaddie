@@ -49,6 +49,7 @@ public enum ShotLie: String, Equatable, Hashable, Sendable {
     case rough
     case bunker
     case recovery
+    case green
 }
 
 public struct WindContext: Equatable, Sendable {

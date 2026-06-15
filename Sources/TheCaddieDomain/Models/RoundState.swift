@@ -50,7 +50,13 @@ public struct RoundState: Equatable, Sendable {
         player: PlayerContext,
         resultingLie: ShotLie
     ) -> RoundState {
-        guard let currentShot = currentShotContext(),
+        let context = CurrentShotContext.resolve(
+            course: course,
+            player: player,
+            roundState: self
+        )
+
+        guard case let .ready(_, _, _, currentShot) = context,
               let remainingDistanceM = currentShot.remainingDistanceM.value else {
             return self
         }
@@ -68,10 +74,12 @@ public struct RoundState: Equatable, Sendable {
             return self
         }
 
-        let nextRemainingDistanceM = max(
-            0,
-            remainingDistanceM - (baselineAdvanceM * progressionMultiplier(for: resultingLie))
-        )
+        let nextRemainingDistanceM = resultingLie == .green
+            ? 0
+            : max(
+                0,
+                remainingDistanceM - (baselineAdvanceM * progressionMultiplier(for: resultingLie))
+            )
         let nextShot = ShotContext(
             shotNumber: currentShot.shotNumber + 1,
             remainingDistanceM: .known(nextRemainingDistanceM),
@@ -132,5 +140,7 @@ private func progressionMultiplier(for lie: ShotLie) -> Double {
         return 0.72
     case .recovery:
         return 0.58
+    case .green:
+        return 1.0
     }
 }

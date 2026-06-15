@@ -43,6 +43,10 @@ struct CaddieScreen: View {
                 Text("Grounded by local shot context")
                     .font(.system(.subheadline, design: .rounded).weight(.medium))
                     .foregroundStyle(.secondary)
+
+                Text(viewState.shotLabel)
+                    .font(.system(.subheadline, design: .rounded).weight(.bold))
+                    .foregroundStyle(Color(red: 0.05, green: 0.38, blue: 0.19))
             }
 
             Spacer()
@@ -151,6 +155,7 @@ struct CaddieScreen: View {
                 quickUpdateButton("Fairway", lie: .fairway)
                 quickUpdateButton("Rough", lie: .rough)
                 quickUpdateButton("Bunker", lie: .bunker)
+                quickUpdateButton("Green", lie: .green)
             }
             .opacity(viewState.quickUpdateLabels.isEmpty ? 0.35 : 1)
             .disabled(viewState.quickUpdateLabels.isEmpty)
@@ -163,6 +168,8 @@ struct CaddieScreen: View {
         } label: {
             Text(label)
                 .font(.system(.headline, design: .rounded).weight(.bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(CaddiePillButtonStyle())

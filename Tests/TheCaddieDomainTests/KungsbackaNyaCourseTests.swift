@@ -113,6 +113,24 @@ import TheCaddieDomain
     #expect(packet.target == "middle-right of the green")
 }
 
+@Test func kungsbackaHoleEightUsesNineIronForOneThirtyMeterParThree() {
+    let roundState = KungsbackaNyaCourse.openingRoundState.selectHole(8)
+
+    let packet = CaddieRecommendationEngine.build(
+        course: KungsbackaNyaCourse.course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    #expect(packet.status == .ready)
+    #expect(packet.holeNumber == 8)
+    #expect(packet.par == 3)
+    #expect(packet.remainingDistanceM == 130)
+    #expect(packet.shotIntent == .approach)
+    #expect(packet.recommendedClub == "9 Iron")
+    #expect(packet.primaryReason == "9 Iron covers the 130m playing number.")
+}
+
 @Test func kungsbackaHoleThreeAvoidsDriverThroughPairedWater() {
     let roundState = KungsbackaNyaCourse.openingRoundState.selectHole(3)
 

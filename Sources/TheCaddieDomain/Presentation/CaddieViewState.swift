@@ -12,6 +12,7 @@ public struct CaddieViewState: Equatable, Sendable {
     public let title: String
     public let subtitle: String
     public let holeLabel: String
+    public let shotLabel: String
     public let distanceLabel: String
     public let primaryActionLabel: String?
     public let quickUpdateLabels: [String]
@@ -21,6 +22,7 @@ public struct CaddieViewState: Equatable, Sendable {
         title: String,
         subtitle: String,
         holeLabel: String,
+        shotLabel: String,
         distanceLabel: String,
         primaryActionLabel: String?,
         quickUpdateLabels: [String]
@@ -29,6 +31,7 @@ public struct CaddieViewState: Equatable, Sendable {
         self.title = title
         self.subtitle = subtitle
         self.holeLabel = holeLabel
+        self.shotLabel = shotLabel
         self.distanceLabel = distanceLabel
         self.primaryActionLabel = primaryActionLabel
         self.quickUpdateLabels = quickUpdateLabels
@@ -42,9 +45,10 @@ public struct CaddieViewState: Equatable, Sendable {
                 title: CaddieResponseText.displayHeadline(for: packet),
                 subtitle: detailText(for: packet),
                 holeLabel: holeLabel(for: packet),
+                shotLabel: shotLabel(for: packet),
                 distanceLabel: distanceLabel(for: packet),
                 primaryActionLabel: nil,
-                quickUpdateLabels: ["Fairway", "Rough", "Bunker"]
+                quickUpdateLabels: ["Fairway", "Rough", "Bunker", "Green"]
             )
 
         case .noCourseLoaded:
@@ -53,6 +57,7 @@ public struct CaddieViewState: Equatable, Sendable {
                 title: "Choose a course",
                 subtitle: "Load sample course context to see the first grounded recommendation.",
                 holeLabel: "No course",
+                shotLabel: "No shot",
                 distanceLabel: "--",
                 primaryActionLabel: "Load sample",
                 quickUpdateLabels: []
@@ -64,9 +69,10 @@ public struct CaddieViewState: Equatable, Sendable {
                 title: "Distance needed",
                 subtitle: packet.primaryReason,
                 holeLabel: holeLabel(for: packet),
+                shotLabel: shotLabel(for: packet),
                 distanceLabel: "--",
                 primaryActionLabel: "Add distance",
-                quickUpdateLabels: ["Fairway", "Rough", "Bunker"]
+                quickUpdateLabels: ["Fairway", "Rough", "Bunker", "Green"]
             )
 
         case .missingLie:
@@ -75,9 +81,10 @@ public struct CaddieViewState: Equatable, Sendable {
                 title: "Lie needed",
                 subtitle: packet.primaryReason,
                 holeLabel: holeLabel(for: packet),
+                shotLabel: shotLabel(for: packet),
                 distanceLabel: distanceLabel(for: packet),
                 primaryActionLabel: "Mark lie",
-                quickUpdateLabels: ["Fairway", "Rough", "Bunker"]
+                quickUpdateLabels: ["Fairway", "Rough", "Bunker", "Green"]
             )
 
         case .unknownHole, .unavailable:
@@ -86,6 +93,7 @@ public struct CaddieViewState: Equatable, Sendable {
                 title: CaddieResponseText.displayHeadline(for: packet),
                 subtitle: packet.primaryReason,
                 holeLabel: holeLabel(for: packet),
+                shotLabel: shotLabel(for: packet),
                 distanceLabel: distanceLabel(for: packet),
                 primaryActionLabel: nil,
                 quickUpdateLabels: []
@@ -111,6 +119,14 @@ public struct CaddieViewState: Equatable, Sendable {
         }
 
         return "Hole \(holeNumber)"
+    }
+
+    private static func shotLabel(for packet: CaddieRecommendationPacket) -> String {
+        guard let shotNumber = packet.shotNumber else {
+            return "No shot"
+        }
+
+        return "Shot \(shotNumber)"
     }
 
     private static func distanceLabel(for packet: CaddieRecommendationPacket) -> String {
