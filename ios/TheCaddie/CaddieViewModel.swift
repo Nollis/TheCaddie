@@ -61,9 +61,9 @@ final class CaddieViewModel: ObservableObject {
 extension CaddieViewModel {
     static func sample() -> CaddieViewModel {
         CaddieViewModel(
-            course: SampleRound.course,
+            course: KungsbackaNyaCourse.course,
             player: SampleRound.player,
-            roundState: SampleRound.roundState
+            roundState: KungsbackaNyaCourse.openingRoundState
         )
     }
 

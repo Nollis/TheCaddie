@@ -17,6 +17,7 @@
 		BAEEC84335FCD756D00E96DD /* CaddieViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F51A9202B8B3C33D1888CEE5 /* CaddieViewModel.swift */; };
 		BE10429D649F77D66E173863 /* CourseModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA35B4D0FF9CDA29A0A1D6BD /* CourseModels.swift */; };
 		C182ABABB2BB4704E1CE96AB /* PlayerContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 843D312CDD78BD6866E43222 /* PlayerContext.swift */; };
+		D4A51C87F1A24B32A18F7311 /* KungsbackaNyaCourse.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4A51C86F1A24B32A18F7311 /* KungsbackaNyaCourse.swift */; };
 		E87EF79C30106C1793116C54 /* CaddieResponseText.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2B9209D8D15CF686A13EF5E /* CaddieResponseText.swift */; };
 		EBF3403236BDA80613E40381 /* TheCaddieDomain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07169DF33B018813C1DFFC36 /* TheCaddieDomain.swift */; };
 		F233325B14293B71D04D35BE /* SampleRound.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B9976FD3ECBE39451751AC /* SampleRound.swift */; };
@@ -34,6 +35,7 @@
 		8F8D7BDD0C9A11619579B74E /* CaddieRecommendationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieRecommendationEngine.swift; sourceTree = "<group>"; };
 		AA35B4D0FF9CDA29A0A1D6BD /* CourseModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseModels.swift; sourceTree = "<group>"; };
 		C3964C2A32522B0526393FE6 /* CaddieScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieScreen.swift; sourceTree = "<group>"; };
+		D4A51C86F1A24B32A18F7311 /* KungsbackaNyaCourse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KungsbackaNyaCourse.swift; sourceTree = "<group>"; };
 		E2B9209D8D15CF686A13EF5E /* CaddieResponseText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieResponseText.swift; sourceTree = "<group>"; };
 		F51A9202B8B3C33D1888CEE5 /* CaddieViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieViewModel.swift; sourceTree = "<group>"; };
 		FCB85E45AC65E25F07467DEF /* TheCaddieApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheCaddieApp.swift; sourceTree = "<group>"; };
@@ -115,6 +117,7 @@
 		C5957279815E1B4B71DD0342 /* SampleData */ = {
 			isa = PBXGroup;
 			children = (
+				D4A51C86F1A24B32A18F7311 /* KungsbackaNyaCourse.swift */,
 				74B9976FD3ECBE39451751AC /* SampleRound.swift */,
 			);
 			path = SampleData;
@@ -187,6 +190,7 @@
 				6CA3C05B747CF936F94B77FF /* CaddieViewState.swift in Sources */,
 				BE10429D649F77D66E173863 /* CourseModels.swift in Sources */,
 				C182ABABB2BB4704E1CE96AB /* PlayerContext.swift in Sources */,
+				D4A51C87F1A24B32A18F7311 /* KungsbackaNyaCourse.swift in Sources */,
 				6C943C19F3CCBC1200F1719E /* RoundState.swift in Sources */,
 				F233325B14293B71D04D35BE /* SampleRound.swift in Sources */,
 				07C670B847375C84D17F2600 /* ShotContext.swift in Sources */,
