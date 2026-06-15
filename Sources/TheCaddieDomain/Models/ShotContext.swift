@@ -43,7 +43,7 @@ public enum ShotLieState: Equatable, Sendable {
     }
 }
 
-public enum ShotLie: String, Equatable, Sendable {
+public enum ShotLie: String, Equatable, Hashable, Sendable {
     case tee
     case fairway
     case rough

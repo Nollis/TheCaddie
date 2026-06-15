@@ -23,6 +23,7 @@ struct CaddieScreen: View {
 
             VStack(alignment: .leading, spacing: 22) {
                 header(viewState)
+                holeNavigator()
                 recommendationCard(viewState)
                 quickUpdates(viewState)
                 Spacer(minLength: 0)
@@ -51,6 +52,55 @@ struct CaddieScreen: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .background(.white.opacity(0.78), in: Capsule())
+        }
+    }
+
+    @ViewBuilder
+    private func holeNavigator() -> some View {
+        let holes = viewModel.availableHoleNumbers
+
+        if holes.count > 1 {
+            HStack(spacing: 10) {
+                Button {
+                    viewModel.selectPreviousHole()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(.headline, design: .rounded).weight(.black))
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(CaddieIconButtonStyle())
+                .disabled(!viewModel.canSelectPreviousHole)
+                .opacity(viewModel.canSelectPreviousHole ? 1 : 0.42)
+
+                Menu {
+                    ForEach(holes, id: \.self) { holeNumber in
+                        Button("Hole \(holeNumber)") {
+                            viewModel.selectHole(holeNumber)
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Text("Hole \(viewModel.selectedHoleNumber)")
+                            .font(.system(.headline, design: .rounded).weight(.black))
+                        Image(systemName: "chevron.down")
+                            .font(.system(.caption, design: .rounded).weight(.black))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                }
+                .buttonStyle(CaddiePillButtonStyle())
+
+                Button {
+                    viewModel.selectNextHole()
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.system(.headline, design: .rounded).weight(.black))
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(CaddieIconButtonStyle())
+                .disabled(!viewModel.canSelectNextHole)
+                .opacity(viewModel.canSelectNextHole ? 1 : 0.42)
+            }
         }
     }
 
@@ -177,6 +227,15 @@ private struct CaddiePillButtonStyle: ButtonStyle {
             .padding(.vertical, 14)
             .background(.white.opacity(configuration.isPressed ? 0.65 : 0.86), in: Capsule())
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
+    }
+}
+
+private struct CaddieIconButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(Color(red: 0.05, green: 0.38, blue: 0.19))
+            .background(.white.opacity(configuration.isPressed ? 0.65 : 0.86), in: Circle())
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
     }
 }
 

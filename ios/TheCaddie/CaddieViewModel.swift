@@ -29,10 +29,34 @@ final class CaddieViewModel: ObservableObject {
         CaddieViewState.make(from: packet)
     }
 
+    var selectedHoleNumber: Int {
+        roundState.selectedHoleNumber
+    }
+
+    var availableHoleNumbers: [Int] {
+        course?.holes.map(\.number) ?? []
+    }
+
+    var canSelectPreviousHole: Bool {
+        guard let currentIndex = availableHoleNumbers.firstIndex(of: selectedHoleNumber) else {
+            return false
+        }
+
+        return currentIndex > availableHoleNumbers.startIndex
+    }
+
+    var canSelectNextHole: Bool {
+        guard let currentIndex = availableHoleNumbers.firstIndex(of: selectedHoleNumber) else {
+            return false
+        }
+
+        return currentIndex < availableHoleNumbers.index(before: availableHoleNumbers.endIndex)
+    }
+
     func loadSample() {
-        course = SampleRound.course
+        course = KungsbackaNyaCourse.course
         player = SampleRound.player
-        roundState = SampleRound.roundState
+        roundState = KungsbackaNyaCourse.openingRoundState
     }
 
     func markLie(_ lie: ShotLie) {
@@ -52,6 +76,34 @@ final class CaddieViewModel: ObservableObject {
             player: player,
             resultingLie: lie
         )
+    }
+
+    func selectHole(_ holeNumber: Int) {
+        guard availableHoleNumbers.contains(holeNumber) else {
+            return
+        }
+
+        roundState = roundState.selectHole(holeNumber)
+    }
+
+    func selectPreviousHole() {
+        guard let currentIndex = availableHoleNumbers.firstIndex(of: selectedHoleNumber),
+              currentIndex > availableHoleNumbers.startIndex else {
+            return
+        }
+
+        let previousIndex = availableHoleNumbers.index(before: currentIndex)
+        selectHole(availableHoleNumbers[previousIndex])
+    }
+
+    func selectNextHole() {
+        guard let currentIndex = availableHoleNumbers.firstIndex(of: selectedHoleNumber),
+              currentIndex < availableHoleNumbers.index(before: availableHoleNumbers.endIndex) else {
+            return
+        }
+
+        let nextIndex = availableHoleNumbers.index(after: currentIndex)
+        selectHole(availableHoleNumbers[nextIndex])
     }
 
     func addDistance(_ distanceM: Double) {

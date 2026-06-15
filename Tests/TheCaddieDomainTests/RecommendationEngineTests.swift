@@ -17,9 +17,11 @@ import TheCaddieDomain
     #expect(packet.remainingDistanceM == 142)
     #expect(packet.lie == .fairway)
     #expect(packet.strategyPreference == .normal)
+    #expect(packet.shotIntent == .approach)
     #expect(packet.recommendedClub == "5 Iron")
     #expect(packet.clubCarryDistanceM == 160)
     #expect(packet.distanceBasisM == 150)
+    #expect(abs((packet.expectedDispersionM ?? 0) - 25.056) < 0.001)
     #expect(packet.target == "middle-right of the green")
     #expect(packet.primaryReason == "5 Iron covers the 150m playing number with 4m/s hurting wind.")
     #expect(packet.riskNote == "Avoid long left water; that is the expensive miss.")
@@ -70,11 +72,75 @@ import TheCaddieDomain
     )
 
     #expect(packet.status == .ready)
-    #expect(packet.recommendedClub == "Driver")
-    #expect(packet.distanceBasisM == 220)
+    #expect(packet.shotIntent == .advance)
+    #expect(packet.recommendedClub == "3 Hybrid")
+    #expect(packet.distanceBasisM == 190)
     #expect(packet.target == "stock fairway corridor")
-    #expect(packet.primaryReason == "Driver advances the ball about 220m and leaves roughly 80m in.")
+    #expect(packet.primaryReason == "3 Hybrid advances the ball about 190m and leaves roughly 110m in.")
     #expect(packet.riskNote == nil)
+}
+
+@Test func bunkerLieSwitchesToRecoveryIntentWithPlayableRecoveryClub() {
+    let roundState = SampleRound.roundState.updateShotContext(
+        ShotContext(
+            shotNumber: 3,
+            remainingDistanceM: .known(72),
+            lie: .known(.bunker),
+            wind: nil
+        )
+    )
+
+    let packet = CaddieRecommendationEngine.build(
+        course: SampleRound.course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    #expect(packet.status == .ready)
+    #expect(packet.shotIntent == .recovery)
+    #expect(packet.recommendedClub == "PW")
+    #expect(packet.target == "safe recovery window")
+    #expect(packet.primaryReason == "PW is the safest recovery club from this lie.")
+    #expect(packet.confidence == .low)
+}
+
+@Test func playerCanOverrideClubPlayabilityAndDispersionForLearnedProfile() {
+    let player = PlayerContext(
+        handicapIndex: 21.8,
+        clubs: [
+            PlayerClub(
+                name: "Driver",
+                carryDistanceM: 220,
+                typicalDispersionM: 42,
+                playableLies: [.tee, .fairway]
+            ),
+            PlayerClub(name: "3 Hybrid", carryDistanceM: 190)
+        ],
+        strategyPreference: .normal,
+        skillProfile: PlayerSkillProfile(
+            handicapIndex: 21.8,
+            dispersionMultiplier: 1.0,
+            conservativeBiasM: 10
+        )
+    )
+    let roundState = SampleRound.roundState.updateShotContext(
+        ShotContext(
+            shotNumber: 2,
+            remainingDistanceM: .known(260),
+            lie: .known(.fairway),
+            wind: nil
+        )
+    )
+
+    let packet = CaddieRecommendationEngine.build(
+        course: SampleRound.course,
+        player: player,
+        roundState: roundState
+    )
+
+    #expect(packet.status == .ready)
+    #expect(packet.recommendedClub == "Driver")
+    #expect(abs((packet.expectedDispersionM ?? 0) - 45.36) < 0.001)
 }
 
 @Test func helpingAndHurtingWindChangeDistanceBasisDeterministically() {

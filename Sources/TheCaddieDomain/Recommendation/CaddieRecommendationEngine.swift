@@ -79,6 +79,22 @@ public enum CaddieRecommendationEngine {
             wind: shot.wind,
             strategy: player.strategyPreference
         )
+        let playableClubs = playableClubs(from: player.clubs, lie: lie)
+        guard !playableClubs.isEmpty else {
+            let reason = player.clubs.isEmpty
+                ? "No club in the current bag covers this shot."
+                : "No club in the current bag fits this lie."
+            return contextPacket(
+                status: .unavailable,
+                course: course,
+                hole: hole,
+                player: player,
+                shot: shot,
+                reason: reason,
+                confidence: .low
+            )
+        }
+
         let approachHazards = relevantHazards(
             for: hole.hazards,
             fromTeeProgressM: currentProgressM(
@@ -86,13 +102,27 @@ public enum CaddieRecommendationEngine {
                 remainingDistanceM: remainingDistance
             )
         )
-
-        if shouldRecommendAdvancement(
-            distanceBasisM: distanceBasis,
+        let intent = shotIntent(
             lie: lie,
-            clubs: player.clubs
-        ) {
+            shotNumber: shot.shotNumber,
+            distanceBasisM: distanceBasis,
+            clubs: playableClubs
+        )
+
+        if intent == .teePosition || intent == .advance || intent == .layup {
             return advancementPacket(
+                course: course,
+                hole: hole,
+                player: player,
+                shot: shot,
+                remainingDistanceM: remainingDistance,
+                lie: lie,
+                intent: intent
+            )
+        }
+
+        if intent == .recovery {
+            return recoveryPacket(
                 course: course,
                 hole: hole,
                 player: player,
@@ -103,7 +133,7 @@ public enum CaddieRecommendationEngine {
         }
 
         guard let club = selectClub(
-            from: player.clubs,
+            from: playableClubs,
             distanceBasisM: distanceBasis,
             strategy: player.strategyPreference
         ) else {
@@ -135,13 +165,25 @@ public enum CaddieRecommendationEngine {
             remainingDistanceM: remainingDistance,
             lie: lie,
             strategyPreference: player.strategyPreference,
+            shotIntent: intent,
             target: target,
             recommendedClub: club.name,
             clubCarryDistanceM: club.carryDistanceM,
             distanceBasisM: distanceBasis,
+            expectedDispersionM: expectedDispersion(
+                for: club,
+                player: player,
+                lie: lie
+            ),
             primaryReason: primaryReason,
             riskNote: riskNote,
-            confidence: confidence(for: club, distanceBasisM: distanceBasis, lie: lie)
+            confidence: confidence(
+                for: club,
+                distanceBasisM: distanceBasis,
+                lie: lie,
+                player: player,
+                hazards: approachHazards
+            )
         )
     }
 
@@ -151,11 +193,13 @@ public enum CaddieRecommendationEngine {
         player: PlayerContext,
         shot: ShotContext,
         remainingDistanceM: Double,
-        lie: ShotLie
+        lie: ShotLie,
+        intent: ShotIntent
     ) -> CaddieRecommendationPacket {
         guard let club = advancementClub(
-            from: player.clubs,
-            strategy: player.strategyPreference
+            from: playableClubs(from: player.clubs, lie: lie),
+            strategy: player.strategyPreference,
+            lie: lie
         ) else {
             return contextPacket(
                 status: .unavailable,
@@ -194,29 +238,92 @@ public enum CaddieRecommendationEngine {
             remainingDistanceM: remainingDistanceM,
             lie: lie,
             strategyPreference: player.strategyPreference,
+            shotIntent: intent,
             target: target,
             recommendedClub: club.name,
             clubCarryDistanceM: club.carryDistanceM,
             distanceBasisM: club.carryDistanceM,
+            expectedDispersionM: expectedDispersion(
+                for: club,
+                player: player,
+                lie: lie
+            ),
             primaryReason: primaryReason,
             riskNote: advancementRiskNote(for: landingHazards, strategy: player.strategyPreference),
             confidence: .medium
         )
     }
 
-    private static func shouldRecommendAdvancement(
-        distanceBasisM: Double,
-        lie: ShotLie,
-        clubs: [PlayerClub]
-    ) -> Bool {
-        guard lie != .bunker, lie != .recovery else {
-            return false
+    private static func recoveryPacket(
+        course: Course,
+        hole: CourseHole,
+        player: PlayerContext,
+        shot: ShotContext,
+        remainingDistanceM: Double,
+        lie: ShotLie
+    ) -> CaddieRecommendationPacket {
+        let playableClubs = playableClubs(from: player.clubs, lie: lie)
+        guard let club = playableClubs.sorted(by: { lhs, rhs in
+            lhs.carryDistanceM > rhs.carryDistanceM
+        }).first else {
+            return contextPacket(
+                status: .unavailable,
+                course: course,
+                hole: hole,
+                player: player,
+                shot: shot,
+                reason: "No club in the current bag fits this lie.",
+                confidence: .low
+            )
         }
 
-        return !hasCoveringClub(
-            in: clubs,
-            distanceBasisM: distanceBasisM
+        return CaddieRecommendationPacket(
+            status: .ready,
+            courseId: course.id,
+            holeNumber: hole.number,
+            par: hole.par,
+            shotNumber: shot.shotNumber,
+            remainingDistanceM: remainingDistanceM,
+            lie: lie,
+            strategyPreference: player.strategyPreference,
+            shotIntent: .recovery,
+            target: "safe recovery window",
+            recommendedClub: club.name,
+            clubCarryDistanceM: club.carryDistanceM,
+            distanceBasisM: min(remainingDistanceM, club.carryDistanceM),
+            expectedDispersionM: expectedDispersion(
+                for: club,
+                player: player,
+                lie: lie
+            ),
+            primaryReason: "\(club.name) is the safest recovery club from this lie.",
+            riskNote: "Get back to a playable position before chasing the green.",
+            confidence: .low
         )
+    }
+
+    private static func shotIntent(
+        lie: ShotLie,
+        shotNumber: Int,
+        distanceBasisM: Double,
+        clubs: [PlayerClub]
+    ) -> ShotIntent {
+        if lie == .bunker || lie == .recovery {
+            return .recovery
+        }
+
+        if !hasCoveringClub(in: clubs, distanceBasisM: distanceBasisM) {
+            if lie == .tee || shotNumber == 1 {
+                return .teePosition
+            }
+
+            let longestPlayableCarryM = clubs.map(\.carryDistanceM).max() ?? 0
+            return distanceBasisM <= longestPlayableCarryM + 80
+                ? .layup
+                : .advance
+        }
+
+        return .approach
     }
 
     private static func adjustedDistance(
@@ -271,6 +378,13 @@ public enum CaddieRecommendationEngine {
         }
     }
 
+    private static func playableClubs(
+        from clubs: [PlayerClub],
+        lie: ShotLie
+    ) -> [PlayerClub] {
+        clubs.filter { $0.isPlayable(from: lie) }
+    }
+
     private static func hasCoveringClub(
         in clubs: [PlayerClub],
         distanceBasisM: Double
@@ -280,10 +394,21 @@ public enum CaddieRecommendationEngine {
 
     private static func advancementClub(
         from clubs: [PlayerClub],
-        strategy: StrategyPreference
+        strategy: StrategyPreference,
+        lie: ShotLie
     ) -> PlayerClub? {
         let sortedDescending = clubs.sorted { lhs, rhs in
             lhs.carryDistanceM > rhs.carryDistanceM
+        }
+
+        guard lie == .tee else {
+            switch strategy {
+            case .safe:
+                return sortedDescending.dropFirst().first
+                    ?? sortedDescending.first
+            case .normal, .aggressive:
+                return sortedDescending.first
+            }
         }
 
         switch strategy {
@@ -379,10 +504,16 @@ public enum CaddieRecommendationEngine {
     private static func confidence(
         for club: PlayerClub,
         distanceBasisM: Double,
-        lie: ShotLie
+        lie: ShotLie,
+        player: PlayerContext,
+        hazards: [Hazard]
     ) -> RecommendationConfidence {
         let delta = abs(club.carryDistanceM - distanceBasisM)
         if lie == .bunker || lie == .recovery {
+            return .low
+        }
+        if expectedDispersion(for: club, player: player, lie: lie) >= 35
+            && hazards.contains(where: { $0.kind == .water || $0.kind == .outOfBounds }) {
             return .low
         }
         if delta <= 6 {
@@ -392,6 +523,44 @@ public enum CaddieRecommendationEngine {
             return .medium
         }
         return .low
+    }
+
+    private static func expectedDispersion(
+        for club: PlayerClub,
+        player: PlayerContext,
+        lie: ShotLie
+    ) -> Double {
+        let baseDispersion = club.typicalDispersionM
+            ?? defaultDispersion(for: club)
+        let lieMultiplier: Double
+        switch lie {
+        case .tee:
+            lieMultiplier = 1.0
+        case .fairway:
+            lieMultiplier = 1.08
+        case .rough:
+            lieMultiplier = 1.28
+        case .bunker, .recovery:
+            lieMultiplier = 1.55
+        }
+
+        return baseDispersion
+            * player.skillProfile.dispersionMultiplier
+            * lieMultiplier
+    }
+
+    private static func defaultDispersion(for club: PlayerClub) -> Double {
+        let name = club.name.lowercased()
+        if name.contains("driver") {
+            return 28
+        }
+        if name.contains("wood") || name.contains("hybrid") {
+            return 22
+        }
+        if name.contains("iron") {
+            return 16
+        }
+        return 12
     }
 
     private static func windPhrase(for wind: WindContext?) -> String {
@@ -417,10 +586,12 @@ public enum CaddieRecommendationEngine {
             remainingDistanceM: nil,
             lie: nil,
             strategyPreference: strategyPreference,
+            shotIntent: nil,
             target: nil,
             recommendedClub: nil,
             clubCarryDistanceM: nil,
             distanceBasisM: nil,
+            expectedDispersionM: nil,
             primaryReason: reason,
             riskNote: nil,
             confidence: .low
@@ -445,10 +616,12 @@ public enum CaddieRecommendationEngine {
             remainingDistanceM: shot.remainingDistanceM.value,
             lie: shot.lie.value,
             strategyPreference: player.strategyPreference,
+            shotIntent: nil,
             target: nil,
             recommendedClub: nil,
             clubCarryDistanceM: nil,
             distanceBasisM: shot.remainingDistanceM.value,
+            expectedDispersionM: nil,
             primaryReason: reason,
             riskNote: nil,
             confidence: confidence

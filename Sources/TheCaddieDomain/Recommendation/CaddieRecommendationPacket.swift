@@ -9,10 +9,12 @@ public struct CaddieRecommendationPacket: Equatable, Sendable {
     public let remainingDistanceM: Double?
     public let lie: ShotLie?
     public let strategyPreference: StrategyPreference?
+    public let shotIntent: ShotIntent?
     public let target: String?
     public let recommendedClub: String?
     public let clubCarryDistanceM: Double?
     public let distanceBasisM: Double?
+    public let expectedDispersionM: Double?
     public let primaryReason: String
     public let riskNote: String?
     public let confidence: RecommendationConfidence
@@ -26,10 +28,12 @@ public struct CaddieRecommendationPacket: Equatable, Sendable {
         remainingDistanceM: Double?,
         lie: ShotLie?,
         strategyPreference: StrategyPreference?,
+        shotIntent: ShotIntent?,
         target: String?,
         recommendedClub: String?,
         clubCarryDistanceM: Double?,
         distanceBasisM: Double?,
+        expectedDispersionM: Double?,
         primaryReason: String,
         riskNote: String?,
         confidence: RecommendationConfidence
@@ -42,10 +46,12 @@ public struct CaddieRecommendationPacket: Equatable, Sendable {
         self.remainingDistanceM = remainingDistanceM
         self.lie = lie
         self.strategyPreference = strategyPreference
+        self.shotIntent = shotIntent
         self.target = target
         self.recommendedClub = recommendedClub
         self.clubCarryDistanceM = clubCarryDistanceM
         self.distanceBasisM = distanceBasisM
+        self.expectedDispersionM = expectedDispersionM
         self.primaryReason = primaryReason
         self.riskNote = riskNote
         self.confidence = confidence
@@ -69,4 +75,12 @@ public enum RecommendationConfidence: String, Equatable, Sendable {
     case high
     case medium
     case low
+}
+
+public enum ShotIntent: String, Equatable, Sendable {
+    case teePosition
+    case advance
+    case layup
+    case approach
+    case recovery
 }

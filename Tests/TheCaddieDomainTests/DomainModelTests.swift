@@ -20,7 +20,9 @@ import TheCaddieDomain
     #expect(hole.hazards.map(\.position) == ["short right", "long left"])
     #expect(player.handicapIndex == 21.8)
     #expect(player.strategyPreference == .normal)
+    #expect(player.skillProfile.dispersionMultiplier == 1.45)
     #expect(player.clubs.first?.name == "Driver")
+    #expect(player.clubs.first?.isPlayable(from: .fairway) == false)
     #expect(shot.shotNumber == 2)
     #expect(shot.remainingDistanceM.value == 142)
     #expect(shot.lie.value == .fairway)
@@ -127,7 +129,9 @@ import TheCaddieDomain
     )
 
     #expect(packet.status == .ready)
+    #expect(packet.shotIntent == .layup)
     #expect(packet.target == "front approach window")
-    #expect(packet.primaryReason == "Driver advances the ball about 220m and leaves roughly 20m in.")
+    #expect(packet.recommendedClub == "3 Hybrid")
+    #expect(packet.primaryReason == "3 Hybrid advances the ball about 190m and leaves roughly 50m in.")
     #expect(packet.riskNote == "Bunker left starts to matter around 417m.")
 }

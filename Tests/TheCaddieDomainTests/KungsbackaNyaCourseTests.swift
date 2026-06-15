@@ -47,6 +47,7 @@ import TheCaddieDomain
     #expect(packet.par == 5)
     #expect(packet.remainingDistanceM == 460)
     #expect(packet.lie == .tee)
+    #expect(packet.shotIntent == .teePosition)
     #expect(packet.recommendedClub == "Driver")
     #expect(packet.clubCarryDistanceM == 220)
     #expect(packet.distanceBasisM == 220)

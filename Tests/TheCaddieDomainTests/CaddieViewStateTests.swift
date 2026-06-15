@@ -70,7 +70,7 @@ import TheCaddieDomain
 @Test func unavailableViewStateShowsFallbackWithoutQuickUpdates() {
     let player = PlayerContext(
         handicapIndex: nil,
-        clubs: [PlayerClub(name: "Wedge", carryDistanceM: 80)],
+        clubs: [],
         strategyPreference: .safe
     )
     let packet = CaddieRecommendationEngine.build(
