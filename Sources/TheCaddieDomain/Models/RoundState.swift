@@ -97,12 +97,12 @@ public struct RoundState: Equatable, Sendable {
             return self
         }
 
-        let nextRemainingDistanceM = resultingLie == .green
-            ? 0
-            : max(
-                0,
-                remainingDistanceM - (baselineAdvanceM * progressionMultiplier(for: resultingLie))
-            )
+        let nextRemainingDistanceM = nextRemainingDistance(
+            hole: course?.hole(number: selectedHoleNumber),
+            currentRemainingDistanceM: remainingDistanceM,
+            baselineAdvanceM: baselineAdvanceM,
+            resultingLie: resultingLie
+        )
         let nextShot = ShotContext(
             shotNumber: currentShot.shotNumber + 1,
             remainingDistanceM: .known(nextRemainingDistanceM),
@@ -178,6 +178,66 @@ public struct RoundState: Equatable, Sendable {
             holeScores: updatedScores
         )
     }
+}
+
+private func nextRemainingDistance(
+    hole: CourseHole?,
+    currentRemainingDistanceM: Double,
+    baselineAdvanceM: Double,
+    resultingLie: ShotLie
+) -> Double {
+    if resultingLie == .green {
+        return 0
+    }
+
+    if resultingLie == .bunker,
+       let hole {
+        let currentProgressM = max(0, hole.teeLengthM - currentRemainingDistanceM)
+        let projectedProgressM = min(hole.teeLengthM, currentProgressM + baselineAdvanceM)
+
+        if let bunkerDistanceM = nearestForwardHazardDistance(
+            kind: .bunker,
+            hazards: hole.hazards,
+            currentProgressM: currentProgressM,
+            projectedProgressM: projectedProgressM
+        ) {
+            return max(0, hole.teeLengthM - bunkerDistanceM)
+        }
+    }
+
+    return max(
+        0,
+        currentRemainingDistanceM - (baselineAdvanceM * progressionMultiplier(for: resultingLie))
+    )
+}
+
+private func nearestForwardHazardDistance(
+    kind: HazardKind,
+    hazards: [Hazard],
+    currentProgressM: Double,
+    projectedProgressM: Double
+) -> Double? {
+    hazards
+        .filter { $0.kind == kind }
+        .compactMap { hazard -> Double? in
+            guard let distanceM = hazardDistance(for: hazard),
+                  distanceM > currentProgressM + 5 else {
+                return nil
+            }
+            return distanceM
+        }
+        .min { lhs, rhs in
+            abs(lhs - projectedProgressM) < abs(rhs - projectedProgressM)
+        }
+}
+
+private func hazardDistance(for hazard: Hazard) -> Double? {
+    let pattern = #"\d+(\.\d+)?"#
+    guard let match = hazard.position.range(of: pattern, options: .regularExpression) else {
+        return nil
+    }
+
+    return Double(hazard.position[match])
 }
 
 public enum CurrentShotContext: Equatable, Sendable {

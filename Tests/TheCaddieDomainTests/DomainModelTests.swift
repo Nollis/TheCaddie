@@ -151,8 +151,33 @@ import TheCaddieDomain
 
     #expect(updatedRound.selectedHoleNumber == 8)
     #expect(updatedShot.shotNumber == 2)
-    #expect(updatedShot.remainingDistanceM.value == 29.2)
+    #expect(updatedShot.remainingDistanceM.value == 15)
     #expect(updatedShot.lie.value == .bunker)
+}
+
+@Test func bunkerShotResultSnapsToRealForwardBunkerInsteadOfSyntheticDistance() throws {
+    let afterTee = KungsbackaNyaCourse.openingRoundState.recordShotResult(
+        course: KungsbackaNyaCourse.course,
+        player: SampleRound.player,
+        resultingLie: .fairway
+    )
+    let bunkerRound = afterTee.recordShotResult(
+        course: KungsbackaNyaCourse.course,
+        player: SampleRound.player,
+        resultingLie: .bunker
+    )
+
+    let updatedShot = try #require(bunkerRound.currentShotContext())
+    let packet = CaddieRecommendationEngine.build(
+        course: KungsbackaNyaCourse.course,
+        player: SampleRound.player,
+        roundState: bunkerRound
+    )
+
+    #expect(updatedShot.shotNumber == 3)
+    #expect(updatedShot.remainingDistanceM.value == 43)
+    #expect(updatedShot.lie.value == .bunker)
+    #expect(packet.recommendedClub == "50W")
 }
 
 @Test func greenShotResultAdvancesToGreenState() throws {
