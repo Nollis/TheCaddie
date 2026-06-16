@@ -16,6 +16,10 @@ public struct Course: Equatable, Sendable {
     public func hole(number: Int) -> CourseHole? {
         holes.first { $0.number == number }
     }
+
+    public func nextHole(after holeNumber: Int) -> CourseHole? {
+        holes.first { $0.number > holeNumber }
+    }
 }
 
 public struct CourseHole: Equatable, Sendable, Identifiable {

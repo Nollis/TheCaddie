@@ -9,6 +9,7 @@ public enum KungsbackaNyaCourse {
                 1,
                 par: 5,
                 teeLengthM: 460,
+                fairway: FairwayContext(landingWidthM: 56),
                 hazards: [
                     hazard("h1-bunker-left-417", .bunker, "left 417m", "Bunker left near the green-side approach."),
                     hazard("h1-bunker-left-240", .bunker, "left 240m", "Left bunker can catch the layup line."),
@@ -28,6 +29,7 @@ public enum KungsbackaNyaCourse {
                 3,
                 par: 4,
                 teeLengthM: 280,
+                fairway: FairwayContext(landingWidthM: 23.5, drivingZoneEndM: 146),
                 hazards: [
                     hazard("h3-water-right-185", .water, "right 185m", "Water right shapes the tee shot."),
                     hazard("h3-water-left-196", .water, "left 196m", "Water left punishes an over-correction."),
@@ -39,6 +41,7 @@ public enum KungsbackaNyaCourse {
                 4,
                 par: 4,
                 teeLengthM: 375,
+                fairway: FairwayContext(landingWidthM: 34, drivingZoneEndM: 255),
                 hazards: [
                     hazard("h4-water-left-281", .water, "left 281m", "Water left is the main positional hazard.")
                 ]
@@ -47,6 +50,7 @@ public enum KungsbackaNyaCourse {
                 5,
                 par: 4,
                 teeLengthM: 350,
+                fairway: FairwayContext(landingWidthM: 28, drivingZoneEndM: 210),
                 hazards: [
                     hazard("h5-water-left-104", .water, "left 104m", "Water left appears early in the hole."),
                     hazard("h5-bunker-right-303", .bunker, "right 303m", "Right bunker can catch the stronger tee shot."),
@@ -58,6 +62,7 @@ public enum KungsbackaNyaCourse {
                 6,
                 par: 4,
                 teeLengthM: 330,
+                fairway: FairwayContext(landingWidthM: 42, drivingZoneEndM: 245),
                 hazards: [
                     hazard("h6-bunker-right-299", .bunker, "right 299m", "Right bunker shapes the approach side."),
                     hazard("h6-bunker-right-312", .bunker, "right 312m", "Second right bunker protects the green side.")
@@ -67,6 +72,7 @@ public enum KungsbackaNyaCourse {
                 7,
                 par: 5,
                 teeLengthM: 525,
+                fairway: FairwayContext(landingWidthM: 46, drivingZoneEndM: 255),
                 hazards: [
                     hazard("h7-trees-right-401", .trees, "right 401m", "Trees right affect the second-shot corridor."),
                     hazard("h7-bunker-left-481", .bunker, "left 481m", "Left bunker guards the layup/approach finish."),
@@ -86,6 +92,7 @@ public enum KungsbackaNyaCourse {
                 9,
                 par: 4,
                 teeLengthM: 400,
+                fairway: FairwayContext(landingWidthM: 30, drivingZoneEndM: 215),
                 hazards: [
                     hazard("h9-water-right-106", .water, "right 106m", "Water right affects the tee corridor."),
                     hazard("h9-water-left-298", .water, "left 298m", "Water left is the expensive miss deeper in the hole.")
@@ -111,6 +118,7 @@ public enum KungsbackaNyaCourse {
         _ number: Int,
         par: Int,
         teeLengthM: Double,
+        fairway: FairwayContext? = nil,
         hazards: [Hazard]
     ) -> CourseHole {
         CourseHole(
@@ -122,7 +130,8 @@ public enum KungsbackaNyaCourse {
                 centerDistanceM: teeLengthM,
                 backDistanceM: teeLengthM + 9
             ),
-            hazards: hazards
+            hazards: hazards,
+            fairway: fairway
         )
     }
 

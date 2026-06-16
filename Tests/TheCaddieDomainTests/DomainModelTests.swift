@@ -171,6 +171,58 @@ import TheCaddieDomain
     #expect(updatedShot.lie.value == .green)
 }
 
+@Test func finishCurrentHoleMarksItCompleteAndMovesToNextHole() {
+    let finishedRound = KungsbackaNyaCourse.openingRoundState
+        .selectHole(8)
+        .recordShotResult(
+            course: KungsbackaNyaCourse.course,
+            player: SampleRound.player,
+            resultingLie: .green
+        )
+        .finishCurrentHole(course: KungsbackaNyaCourse.course)
+
+    #expect(finishedRound.isHoleComplete(8))
+    #expect(finishedRound.selectedHoleNumber == 9)
+
+    let nextShot = CurrentShotContext.resolve(
+        course: KungsbackaNyaCourse.course,
+        player: SampleRound.player,
+        roundState: finishedRound
+    )
+
+    guard case let .ready(_, hole, _, shot) = nextShot else {
+        Issue.record("Expected next hole tee shot after finishing the hole")
+        return
+    }
+
+    #expect(hole.number == 9)
+    #expect(shot.shotNumber == 1)
+    #expect(shot.remainingDistanceM.value == 400)
+    #expect(shot.lie.value == .tee)
+}
+
+@Test func finishFinalHoleMarksRoundComplete() {
+    let nearingFinish = RoundState(
+        courseId: KungsbackaNyaCourse.course.id,
+        selectedHoleNumber: 9,
+        shotContexts: [
+            9: ShotContext(
+                shotNumber: 2,
+                remainingDistanceM: .known(0),
+                lie: .known(.green),
+                wind: nil
+            )
+        ],
+        completedHoleNumbers: Set(1...8)
+    )
+
+    let finishedRound = nearingFinish.finishCurrentHole(course: KungsbackaNyaCourse.course)
+
+    #expect(finishedRound.isHoleComplete(9))
+    #expect(finishedRound.selectedHoleNumber == 9)
+    #expect(finishedRound.isRoundComplete(course: KungsbackaNyaCourse.course))
+}
+
 @Test func progressedShotUsesForwardHazardsInsteadOfRepeatingPassedTeeWater() {
     let updatedRound = KungsbackaNyaCourse.openingRoundState.recordShotResult(
         course: KungsbackaNyaCourse.course,

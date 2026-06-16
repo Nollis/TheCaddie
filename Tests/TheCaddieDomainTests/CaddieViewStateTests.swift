@@ -16,9 +16,14 @@ import TheCaddieDomain
     #expect(viewState.shotLabel == "Shot 2")
     #expect(viewState.distanceLabel == "142 m")
     #expect(viewState.primaryActionLabel == nil)
-    #expect(viewState.quickUpdateLabels == ["Fairway", "Rough", "Bunker", "Green"])
-    #expect(viewState.subtitle.contains("8 Iron covers the 150m playing number"))
-    #expect(viewState.subtitle.contains("Avoid long left water"))
+    #expect(viewState.quickActions == [
+        .init(kind: .fairway, label: "Fairway"),
+        .init(kind: .rough, label: "Rough"),
+        .init(kind: .bunker, label: "Bunker"),
+        .init(kind: .green, label: "Green")
+    ])
+    #expect(viewState.subtitle == "8 Iron covers the 150m playing number with 4m/s hurting wind.")
+    #expect(viewState.noteText == "Avoid long left water; that is the expensive miss.")
 }
 
 @Test func noCourseViewStateInvitesLoadingSampleContext() {
@@ -36,7 +41,7 @@ import TheCaddieDomain
     #expect(viewState.shotLabel == "No shot")
     #expect(viewState.distanceLabel == "--")
     #expect(viewState.primaryActionLabel == "Load sample")
-    #expect(viewState.quickUpdateLabels.isEmpty)
+    #expect(viewState.quickActions.isEmpty)
 }
 
 @Test func missingDistanceViewStateDoesNotShowFakeClub() {
@@ -53,6 +58,7 @@ import TheCaddieDomain
     #expect(viewState.shotLabel == "Shot 2")
     #expect(viewState.distanceLabel == "--")
     #expect(viewState.primaryActionLabel == "Add distance")
+    #expect(viewState.quickActions.count == 4)
 }
 
 @Test func missingLieViewStatePromptsForLieWithoutChangingDistance() {
@@ -88,5 +94,95 @@ import TheCaddieDomain
     #expect(viewState.kind == .unavailable)
     #expect(viewState.title == "No recommendation")
     #expect(viewState.subtitle == "No club in the current bag covers this shot.")
-    #expect(viewState.quickUpdateLabels.isEmpty)
+    #expect(viewState.quickActions.isEmpty)
+}
+
+@Test func onGreenViewStateSwitchesToHoleOutAction() {
+    let roundState = KungsbackaNyaCourse.openingRoundState
+        .selectHole(8)
+        .recordShotResult(
+            course: KungsbackaNyaCourse.course,
+            player: SampleRound.player,
+            resultingLie: .green
+        )
+    let packet = CaddieRecommendationEngine.build(
+        course: KungsbackaNyaCourse.course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    let viewState = CaddieViewState.make(
+        from: packet,
+        roundState: roundState,
+        course: KungsbackaNyaCourse.course
+    )
+
+    #expect(viewState.kind == .onGreen)
+    #expect(viewState.title == "Putt it out")
+    #expect(viewState.distanceLabel == "On green")
+    #expect(viewState.quickActions == [
+        .init(kind: .holed, label: "Holed")
+    ])
+}
+
+@Test func roundCompleteViewStateTakesPriorityOverPacket() {
+    let roundState = RoundState(
+        courseId: SampleRound.course.id,
+        selectedHoleNumber: 2,
+        shotContexts: [
+            2: ShotContext(
+                shotNumber: 3,
+                remainingDistanceM: .known(0),
+                lie: .known(.green),
+                wind: nil
+            )
+        ],
+        completedHoleNumbers: [1, 2]
+    )
+    let packet = CaddieRecommendationEngine.build(
+        course: SampleRound.course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    let viewState = CaddieViewState.make(
+        from: packet,
+        roundState: roundState,
+        course: SampleRound.course
+    )
+
+    #expect(viewState.kind == .roundComplete)
+    #expect(viewState.title == "Round complete")
+    #expect(viewState.quickActions.isEmpty)
+}
+
+@Test func completedHoleViewStateOffersNextHoleAction() {
+    let roundState = RoundState(
+        courseId: KungsbackaNyaCourse.course.id,
+        selectedHoleNumber: 8,
+        shotContexts: [
+            8: ShotContext(
+                shotNumber: 3,
+                remainingDistanceM: .known(0),
+                lie: .known(.green),
+                wind: nil
+            )
+        ],
+        completedHoleNumbers: [8]
+    )
+    let packet = CaddieRecommendationEngine.build(
+        course: KungsbackaNyaCourse.course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    let viewState = CaddieViewState.make(
+        from: packet,
+        roundState: roundState,
+        course: KungsbackaNyaCourse.course
+    )
+
+    #expect(viewState.kind == .holeComplete)
+    #expect(viewState.title == "Hole finished")
+    #expect(viewState.primaryActionLabel == "Next hole")
 }

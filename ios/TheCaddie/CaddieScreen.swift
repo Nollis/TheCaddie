@@ -127,6 +127,19 @@ struct CaddieScreen: View {
                 .foregroundStyle(.secondary)
                 .lineSpacing(3)
 
+            if let noteText = viewState.noteText {
+                Text(noteText)
+                    .font(.system(.headline, design: .rounded).weight(.bold))
+                    .foregroundStyle(Color(red: 0.36, green: 0.23, blue: 0.08))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        Color(red: 0.98, green: 0.94, blue: 0.82),
+                        in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    )
+            }
+
             if let primaryActionLabel = viewState.primaryActionLabel {
                 Button(primaryActionLabel) {
                     handlePrimaryAction()
@@ -147,26 +160,25 @@ struct CaddieScreen: View {
 
     private func quickUpdates(_ viewState: CaddieViewState) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("After the shot")
+            Text(quickUpdateTitle(for: viewState))
                 .font(.system(.title3, design: .rounded).weight(.black))
                 .foregroundStyle(.black)
 
             HStack(spacing: 10) {
-                quickUpdateButton("Fairway", lie: .fairway)
-                quickUpdateButton("Rough", lie: .rough)
-                quickUpdateButton("Bunker", lie: .bunker)
-                quickUpdateButton("Green", lie: .green)
+                ForEach(viewState.quickActions, id: \.kind) { action in
+                    quickUpdateButton(action)
+                }
             }
-            .opacity(viewState.quickUpdateLabels.isEmpty ? 0.35 : 1)
-            .disabled(viewState.quickUpdateLabels.isEmpty)
+            .opacity(viewState.quickActions.isEmpty ? 0.35 : 1)
+            .disabled(viewState.quickActions.isEmpty)
         }
     }
 
-    private func quickUpdateButton(_ label: String, lie: ShotLie) -> some View {
+    private func quickUpdateButton(_ action: CaddieViewState.QuickAction) -> some View {
         Button {
-            viewModel.recordShotResult(lie)
+            viewModel.recordQuickAction(action.kind)
         } label: {
-            Text(label)
+            Text(action.label)
                 .font(.system(.headline, design: .rounded).weight(.bold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.78)
@@ -176,15 +188,33 @@ struct CaddieScreen: View {
     }
 
     private func handlePrimaryAction() {
-        switch viewModel.packet.status {
+        switch viewModel.viewState.kind {
         case .noCourseLoaded:
             viewModel.loadSample()
-        case .missingDistance:
-            viewModel.addDistance(142)
-        case .missingLie:
-            viewModel.markLie(.fairway)
-        case .ready, .unknownHole, .unavailable:
+        case .missingContext:
+            switch viewModel.packet.status {
+            case .missingDistance:
+                viewModel.addDistance(142)
+            case .missingLie:
+                viewModel.markLie(.fairway)
+            case .ready, .noCourseLoaded, .unknownHole, .unavailable:
+                break
+            }
+        case .holeComplete:
+            viewModel.selectNextOpenHole()
+        case .ready, .unavailable, .onGreen, .roundComplete:
             break
+        }
+    }
+
+    private func quickUpdateTitle(for viewState: CaddieViewState) -> String {
+        switch viewState.kind {
+        case .onGreen:
+            return "Finish the hole"
+        case .ready, .missingContext:
+            return "After the shot"
+        case .noCourseLoaded, .unavailable, .holeComplete, .roundComplete:
+            return "Shot updates"
         }
     }
 
@@ -198,6 +228,12 @@ struct CaddieScreen: View {
             return "Needs detail"
         case .unavailable:
             return "Unavailable"
+        case .onGreen:
+            return "On the green"
+        case .holeComplete:
+            return "Hole finished"
+        case .roundComplete:
+            return "Round complete"
         }
     }
 
@@ -211,6 +247,10 @@ struct CaddieScreen: View {
             return Color(red: 0.77, green: 0.43, blue: 0.10)
         case .unavailable:
             return Color(red: 0.70, green: 0.16, blue: 0.12)
+        case .onGreen:
+            return Color(red: 0.13, green: 0.49, blue: 0.28)
+        case .holeComplete, .roundComplete:
+            return Color(red: 0.05, green: 0.38, blue: 0.19)
         }
     }
 }
@@ -260,4 +300,16 @@ private struct CaddieIconButtonStyle: ButtonStyle {
 
 #Preview("Missing lie") {
     CaddieScreen(viewModel: .missingLie())
+}
+
+#Preview("On green") {
+    CaddieScreen(viewModel: .onGreen())
+}
+
+#Preview("Hole complete") {
+    CaddieScreen(viewModel: .holeComplete())
+}
+
+#Preview("Round complete") {
+    CaddieScreen(viewModel: .roundComplete())
 }

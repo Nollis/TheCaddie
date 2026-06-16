@@ -15,6 +15,7 @@ import TheCaddieDomain
 
 @Test func kungsbackaNyaCourseCarriesHazardContextFromTrueCaddieBundle() throws {
     let hole1 = try #require(KungsbackaNyaCourse.course.hole(number: 1))
+    let hole3 = try #require(KungsbackaNyaCourse.course.hole(number: 3))
     let hole8 = try #require(KungsbackaNyaCourse.course.hole(number: 8))
 
     #expect(hole1.hazards.contains(Hazard(
@@ -23,6 +24,8 @@ import TheCaddieDomain
         position: "right 188m",
         note: "Water right is the expensive miss from the tee."
     )))
+    #expect(hole1.fairway == FairwayContext(landingWidthM: 56, drivingZoneEndM: nil))
+    #expect(hole3.fairway == FairwayContext(landingWidthM: 23.5, drivingZoneEndM: 146))
     #expect(hole1.hazards.contains { $0.kind == .bunker && $0.position == "left 240m" })
     #expect(hole8.hazards == [
         Hazard(
@@ -53,7 +56,7 @@ import TheCaddieDomain
     #expect(packet.distanceBasisM == 220)
     #expect(packet.target == "left-center fairway")
     #expect(packet.primaryReason == "Driver advances the ball about 220m and leaves roughly 240m in.")
-    #expect(packet.riskNote == "Water right is near the landing zone and bunker left is the long miss.")
+    #expect(packet.riskNote == "Water right is near the landing zone.")
 }
 
 @Test func kungsbackaHoleOneNearGreenDoesNotRepeatPassedTeeWater() {

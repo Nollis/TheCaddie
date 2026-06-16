@@ -4,15 +4,18 @@ public struct RoundState: Equatable, Sendable {
     public let courseId: String
     public let selectedHoleNumber: Int
     public let shotContexts: [Int: ShotContext]
+    public let completedHoleNumbers: Set<Int>
 
     public init(
         courseId: String,
         selectedHoleNumber: Int,
-        shotContexts: [Int: ShotContext]
+        shotContexts: [Int: ShotContext],
+        completedHoleNumbers: Set<Int> = []
     ) {
         self.courseId = courseId
         self.selectedHoleNumber = selectedHoleNumber
         self.shotContexts = shotContexts
+        self.completedHoleNumbers = completedHoleNumbers
     }
 
     public func shotContext(for holeNumber: Int) -> ShotContext? {
@@ -21,6 +24,19 @@ public struct RoundState: Equatable, Sendable {
 
     public func currentShotContext() -> ShotContext? {
         shotContext(for: selectedHoleNumber)
+    }
+
+    public func isHoleComplete(_ holeNumber: Int) -> Bool {
+        completedHoleNumbers.contains(holeNumber)
+    }
+
+    public func isRoundComplete(course: Course?) -> Bool {
+        guard let course else {
+            return false
+        }
+
+        return !course.holes.isEmpty
+            && course.holes.allSatisfy { completedHoleNumbers.contains($0.number) }
     }
 
     public func updateShotContext(
@@ -33,7 +49,8 @@ public struct RoundState: Equatable, Sendable {
         return RoundState(
             courseId: courseId,
             selectedHoleNumber: selectedHoleNumber,
-            shotContexts: updated
+            shotContexts: updated,
+            completedHoleNumbers: completedHoleNumbers
         )
     }
 
@@ -41,7 +58,8 @@ public struct RoundState: Equatable, Sendable {
         RoundState(
             courseId: courseId,
             selectedHoleNumber: holeNumber,
-            shotContexts: shotContexts
+            shotContexts: shotContexts,
+            completedHoleNumbers: completedHoleNumbers
         )
     }
 
@@ -88,6 +106,26 @@ public struct RoundState: Equatable, Sendable {
         )
 
         return updateShotContext(nextShot)
+    }
+
+    public func finishCurrentHole(course: Course?) -> RoundState {
+        guard let course,
+              course.hole(number: selectedHoleNumber) != nil else {
+            return self
+        }
+
+        var completed = completedHoleNumbers
+        completed.insert(selectedHoleNumber)
+
+        let nextHoleNumber = course.nextHole(after: selectedHoleNumber)?.number
+            ?? selectedHoleNumber
+
+        return RoundState(
+            courseId: courseId,
+            selectedHoleNumber: nextHoleNumber,
+            shotContexts: shotContexts,
+            completedHoleNumbers: completed
+        )
     }
 }
 
