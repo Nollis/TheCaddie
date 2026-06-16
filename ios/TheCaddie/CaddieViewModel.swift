@@ -1,4 +1,5 @@
 import Combine
+import CoreLocation
 import Foundation
 
 @MainActor
@@ -7,15 +8,26 @@ final class CaddieViewModel: ObservableObject {
     @Published private(set) var player: PlayerContext
     @Published private(set) var roundState: RoundState
     @Published var isHandsFreeListening: Bool = false
+    @Published private(set) var isUsingLiveDistance = false
+    @Published private(set) var liveDistanceM: Double?
+    @Published private(set) var liveAccuracyM: Double?
+    @Published private(set) var liveLocationStatus = "GPS off"
+    @Published private(set) var liveLocationError: String?
+
+    private let locationManager: LiveRoundLocationManager
+    private var cancellables = Set<AnyCancellable>()
 
     init(
         course: Course?,
         player: PlayerContext,
-        roundState: RoundState
+        roundState: RoundState,
+        locationManager: LiveRoundLocationManager = LiveRoundLocationManager()
     ) {
         self.course = course
         self.player = player
         self.roundState = roundState
+        self.locationManager = locationManager
+        bindLocationManager()
     }
 
     var packet: CaddieRecommendationPacket {
@@ -58,10 +70,35 @@ final class CaddieViewModel: ObservableObject {
         return currentIndex < availableHoleNumbers.index(before: availableHoleNumbers.endIndex)
     }
 
+    var canUseLiveDistance: Bool {
+        course?.hole(number: selectedHoleNumber)?.green.centerCoordinate != nil
+    }
+
+    var liveDistanceLabel: String? {
+        guard let liveDistanceM else {
+            return nil
+        }
+
+        if liveDistanceM.rounded() == liveDistanceM {
+            return "\(Int(liveDistanceM)) m"
+        }
+
+        return String(format: "%.1f m", liveDistanceM)
+    }
+
+    var liveAccuracyLabel: String? {
+        guard let liveAccuracyM else {
+            return nil
+        }
+
+        return "Accuracy ±\(Int(liveAccuracyM.rounded()))m"
+    }
+
     func loadSample() {
         course = KungsbackaNyaCourse.course
         player = SampleRound.player
         roundState = KungsbackaNyaCourse.openingRoundState
+        syncLiveDistanceIfNeeded()
     }
 
     func markLie(_ lie: ShotLie) {
@@ -104,6 +141,7 @@ final class CaddieViewModel: ObservableObject {
         }
 
         roundState = roundState.selectHole(holeNumber)
+        syncLiveDistanceIfNeeded()
     }
 
     func selectPreviousHole() {
@@ -137,8 +175,39 @@ final class CaddieViewModel: ObservableObject {
         roundState = roundState.updateShotContext(updatedShot)
     }
 
+    func startLiveDistance() {
+        liveLocationError = nil
+        isUsingLiveDistance = true
+        liveLocationStatus = canUseLiveDistance
+            ? "Requesting GPS..."
+            : "This course is not mapped for live GPS yet."
+        locationManager.activate()
+        syncLiveDistanceIfNeeded()
+    }
+
+    func stopLiveDistance() {
+        isUsingLiveDistance = false
+        locationManager.deactivate()
+        liveLocationStatus = "GPS paused"
+    }
+
+    func refreshLiveDistance() {
+        liveLocationError = nil
+        guard canUseLiveDistance else {
+            liveLocationStatus = "This course is not mapped for live GPS yet."
+            return
+        }
+
+        if !isUsingLiveDistance {
+            isUsingLiveDistance = true
+        }
+        liveLocationStatus = "Refreshing GPS..."
+        locationManager.requestSingleFix()
+    }
+
     func finishCurrentHole() {
         roundState = roundState.finishCurrentHole(course: course)
+        syncLiveDistanceIfNeeded()
     }
 
     func finishHoleFromGreen(putts: Int) {
@@ -158,6 +227,7 @@ final class CaddieViewModel: ObservableObject {
             fairwayHit: finalFairwayHit,
             greenInRegulation: finalGIR
         )
+        syncLiveDistanceIfNeeded()
     }
 
     func selectNextOpenHole() {
@@ -194,11 +264,17 @@ final class CaddieViewModel: ObservableObject {
                 )
             ]
         )
+        syncLiveDistanceIfNeeded()
     }
     
     func endRound() {
         self.course = nil
         self.roundState = SampleRound.roundState
+        stopLiveDistance()
+        liveDistanceM = nil
+        liveAccuracyM = nil
+        liveLocationError = nil
+        liveLocationStatus = "GPS off"
     }
 
     func updatePlayerHandicap(_ handicap: Double) {
@@ -251,6 +327,7 @@ final class CaddieViewModel: ObservableObject {
             completedHoleNumbers: roundState.completedHoleNumbers.union([holeNumber]),
             holeScores: updatedScores
         )
+        syncLiveDistanceIfNeeded()
     }
 
     private func resolvedShotContext() -> ShotContext {
@@ -269,6 +346,160 @@ final class CaddieViewModel: ObservableObject {
         }
 
         return SampleRound.readyShot
+    }
+
+    private func bindLocationManager() {
+        locationManager.$authorizationStatus
+            .sink { [weak self] status in
+                self?.handleAuthorization(status)
+            }
+            .store(in: &cancellables)
+
+        locationManager.$latestFix
+            .compactMap { $0 }
+            .sink { [weak self] fix in
+                self?.applyLiveDistance(from: fix)
+            }
+            .store(in: &cancellables)
+
+        locationManager.$lastError
+            .sink { [weak self] error in
+                self?.liveLocationError = error
+            }
+            .store(in: &cancellables)
+    }
+
+    private func handleAuthorization(_ status: CLAuthorizationStatus) {
+        switch status {
+        case .authorizedAlways, .authorizedWhenInUse:
+            if isUsingLiveDistance {
+                liveLocationStatus = "GPS active"
+                locationManager.requestSingleFix()
+            }
+        case .notDetermined:
+            if isUsingLiveDistance {
+                liveLocationStatus = "Waiting for location permission..."
+            }
+        case .denied, .restricted:
+            liveLocationStatus = "Location permission denied"
+            liveLocationError = "Enable location access in Settings to use live yardage."
+            isUsingLiveDistance = false
+        @unknown default:
+            liveLocationStatus = "Location status unavailable"
+        }
+    }
+
+    private func syncLiveDistanceIfNeeded() {
+        guard isUsingLiveDistance else {
+            return
+        }
+
+        if let fix = locationManager.latestFix {
+            applyLiveDistance(from: fix)
+        } else {
+            locationManager.requestSingleFix()
+        }
+    }
+
+    private func applyLiveDistance(from fix: LiveRoundLocationManager.LocationFix) {
+        liveAccuracyM = fix.horizontalAccuracyM
+
+        guard isUsingLiveDistance else {
+            return
+        }
+
+        guard let hole = course?.hole(number: selectedHoleNumber) else {
+            liveLocationStatus = "No active hole selected"
+            return
+        }
+
+        guard let distanceM = hole.green.distanceToCenter(from: fix.coordinate) else {
+            liveLocationStatus = "This hole is not mapped for live GPS yet."
+            return
+        }
+
+        liveDistanceM = distanceM
+        liveLocationStatus = "Live distance synced"
+
+        let currentShot = resolvedShotContext()
+        let updatedShot = ShotContext(
+            shotNumber: currentShot.shotNumber,
+            remainingDistanceM: .known(distanceM),
+            lie: currentShot.lie,
+            wind: currentShot.wind
+        )
+        roundState = roundState.updateShotContext(updatedShot)
+    }
+}
+
+final class LiveRoundLocationManager: NSObject, CLLocationManagerDelegate {
+    struct LocationFix: Equatable, Sendable {
+        let coordinate: GeoCoordinate
+        let horizontalAccuracyM: Double
+        let timestamp: Date
+    }
+
+    @Published private(set) var authorizationStatus: CLAuthorizationStatus
+    @Published private(set) var latestFix: LocationFix?
+    @Published private(set) var lastError: String?
+
+    private let manager: CLLocationManager
+
+    override init() {
+        let manager = CLLocationManager()
+        self.manager = manager
+        self.authorizationStatus = manager.authorizationStatus
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyBest
+        manager.distanceFilter = 5
+    }
+
+    func activate() {
+        lastError = nil
+        switch authorizationStatus {
+        case .authorizedAlways, .authorizedWhenInUse:
+            manager.startUpdatingLocation()
+            manager.requestLocation()
+        case .notDetermined:
+            manager.requestWhenInUseAuthorization()
+        case .denied, .restricted:
+            lastError = "Location permission denied."
+        @unknown default:
+            lastError = "Location permission status unavailable."
+        }
+    }
+
+    func deactivate() {
+        manager.stopUpdatingLocation()
+    }
+
+    func requestSingleFix() {
+        activate()
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        authorizationStatus = manager.authorizationStatus
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let location = locations.last else {
+            return
+        }
+
+        latestFix = LocationFix(
+            coordinate: GeoCoordinate(
+                latitude: location.coordinate.latitude,
+                longitude: location.coordinate.longitude
+            ),
+            horizontalAccuracyM: location.horizontalAccuracy,
+            timestamp: location.timestamp
+        )
+        lastError = nil
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        lastError = error.localizedDescription
     }
 }
 

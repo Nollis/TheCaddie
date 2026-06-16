@@ -38,6 +38,31 @@ import TheCaddieDomain
     ])
 }
 
+@Test func kungsbackaNyaCourseCarriesGreenCenterCoordinatesFromBundle() throws {
+    let hole1 = try #require(KungsbackaNyaCourse.course.hole(number: 1))
+    let hole8 = try #require(KungsbackaNyaCourse.course.hole(number: 8))
+
+    #expect(hole1.green.centerCoordinate == GeoCoordinate(
+        latitude: 57.491023724,
+        longitude: 11.992440149
+    ))
+    #expect(hole8.green.centerCoordinate == GeoCoordinate(
+        latitude: 57.490652474,
+        longitude: 11.992686825
+    ))
+}
+
+@Test func kungsbackaHoleOneGreenCoordinateReturnsExpectedGpsDistance() throws {
+    let hole1 = try #require(KungsbackaNyaCourse.course.hole(number: 1))
+    let whiteTee = GeoCoordinate(
+        latitude: 57.49302015313067,
+        longitude: 11.986226141452791
+    )
+
+    let distance = try #require(hole1.green.distanceToCenter(from: whiteTee))
+    #expect(abs(distance - 432.6) < 1.0)
+}
+
 @Test func kungsbackaOpeningRoundBuildsARecommendationFromRealCourse() {
     let packet = CaddieRecommendationEngine.build(
         course: KungsbackaNyaCourse.course,

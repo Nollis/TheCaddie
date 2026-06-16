@@ -27,6 +27,7 @@ struct CaddieScreen: View {
 
             VStack(alignment: .leading, spacing: 20) {
                 header(viewState)
+                liveDistancePanel()
                 holeNavigator()
                 recommendationCard(viewState)
                 quickUpdates(viewState)
@@ -55,6 +56,90 @@ struct CaddieScreen: View {
         .sheet(isPresented: $showDebugDrawer) {
             debugDrawer(viewState: viewState)
         }
+    }
+
+    private func liveDistancePanel() -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 10) {
+                Circle()
+                    .fill(liveDistanceStatusColor)
+                    .frame(width: 10, height: 10)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Live GPS")
+                        .font(.system(.headline, design: .rounded).weight(.bold))
+                        .foregroundStyle(.black)
+
+                    Text(viewModel.liveLocationStatus)
+                        .font(.system(.subheadline, design: .rounded).weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                if let liveDistanceLabel = viewModel.liveDistanceLabel {
+                    Text(liveDistanceLabel)
+                        .font(.system(.headline, design: .rounded).weight(.bold))
+                        .foregroundStyle(Color(red: 0.05, green: 0.38, blue: 0.19))
+                }
+            }
+
+            if let liveAccuracyLabel = viewModel.liveAccuracyLabel {
+                Text(liveAccuracyLabel)
+                    .font(.system(.caption, design: .rounded).weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+
+            if let liveLocationError = viewModel.liveLocationError {
+                Text(liveLocationError)
+                    .font(.system(.caption, design: .rounded).weight(.medium))
+                    .foregroundStyle(Color(red: 0.70, green: 0.16, blue: 0.12))
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    if viewModel.isUsingLiveDistance {
+                        viewModel.stopLiveDistance()
+                        logAction("Paused live GPS distance.")
+                    } else {
+                        viewModel.startLiveDistance()
+                        logAction("Started live GPS distance.")
+                    }
+                } label: {
+                    Label(
+                        viewModel.isUsingLiveDistance ? "Pause GPS" : "Use GPS",
+                        systemImage: viewModel.isUsingLiveDistance ? "location.slash" : "location"
+                    )
+                    .font(.system(.subheadline, design: .rounded).weight(.bold))
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(CaddiePillButtonStyle())
+
+                Button {
+                    viewModel.refreshLiveDistance()
+                    logAction("Requested GPS refresh.")
+                } label: {
+                    Label("Refresh", systemImage: "location.fill")
+                        .font(.system(.subheadline, design: .rounded).weight(.bold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(CaddiePillButtonStyle())
+                .disabled(!viewModel.canUseLiveDistance && !viewModel.isUsingLiveDistance)
+                .opacity((!viewModel.canUseLiveDistance && !viewModel.isUsingLiveDistance) ? 0.45 : 1)
+            }
+
+            Text(viewModel.canUseLiveDistance
+                ? "GPS updates distance to the selected hole's green center. Lie stays manual for now."
+                : "This selected course does not have live GPS mapping yet.")
+                .font(.system(.caption, design: .rounded).weight(.medium))
+                .foregroundStyle(.secondary)
+        }
+        .padding(18)
+        .background(.white.opacity(0.78), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(.white.opacity(0.9), lineWidth: 1)
+        )
     }
 
     private func header(_ viewState: CaddieViewState) -> some View {
@@ -545,6 +630,19 @@ struct CaddieScreen: View {
             return Color(red: 0.76, green: 0.48, blue: 0.11)
         }
         return .red
+    }
+
+    private var liveDistanceStatusColor: Color {
+        if viewModel.liveLocationError != nil {
+            return Color(red: 0.70, green: 0.16, blue: 0.12)
+        }
+        if viewModel.isUsingLiveDistance {
+            return Color(red: 0.06, green: 0.56, blue: 0.24)
+        }
+        if viewModel.canUseLiveDistance {
+            return Color(red: 0.76, green: 0.48, blue: 0.11)
+        }
+        return .gray
     }
 
     private func logAction(_ action: String) {
