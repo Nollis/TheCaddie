@@ -400,7 +400,7 @@ struct CaddieScreen: View {
                                     
                                     if exceedsBudget {
                                         Text("EXCEEDS RISK BUDGET")
-                                            .font(.system(.system(size: 8), design: .rounded).bold())
+                                            .font(.system(size: 8, design: .rounded).bold())
                                             .padding(.horizontal, 6)
                                             .padding(.vertical, 3)
                                             .background(Color.red.opacity(0.1))
@@ -433,7 +433,7 @@ struct CaddieScreen: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 ForEach(actionLogs, id: \.self) { log in
                                     Text(log)
-                                        .font(.system(.system(size: 11), design: .monospaced))
+                                        .font(.system(size: 11, design: .monospaced))
                                         .foregroundColor(.primary)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                 }
@@ -458,7 +458,7 @@ struct CaddieScreen: View {
                 .font(.system(.headline, design: .rounded).bold())
                 .foregroundColor(Color(red: 0.05, green: 0.38, blue: 0.19))
             Text(label)
-                .font(.system(.system(size: 8), design: .rounded))
+                .font(.system(size: 8, design: .rounded))
                 .foregroundColor(.secondary)
         }
     }

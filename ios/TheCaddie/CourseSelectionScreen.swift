@@ -74,35 +74,7 @@ struct CourseSelectionScreen: View {
                             .foregroundColor(.primary)
                         
                         ForEach(courses, id: \.id) { course in
-                            Button(action: {
-                                // Initialize local setup state from current view model values
-                                handicap = viewModel.player.handicapIndex
-                                strategyPreference = viewModel.player.strategyPreference
-                                voiceToggle = viewModel.isHandsFreeListening
-                                selectedCourse = course
-                            }) {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        Text(course.name)
-                                            .font(.system(.headline, design: .rounded).weight(.bold))
-                                            .foregroundColor(.primary)
-                                        
-                                        HStack(spacing: 12) {
-                                            Label("\(course.holes.count) Holes", systemImage: "flag")
-                                            Label("Par \(course.holes.map(\.par).reduce(0, +))", systemImage: "sparkles")
-                                        }
-                                        .font(.system(.caption, design: .rounded))
-                                        .foregroundColor(.secondary)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .foregroundColor(Color(red: 0.06, green: 0.56, blue: 0.24))
-                                }
-                                .padding(20)
-                                .background(Color(white: 1.0).opacity(0.9))
-                                .cornerRadius(16)
-                                .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
-                            }
+                            courseRow(for: course)
                         }
                     }
                     .padding(22)
@@ -112,6 +84,42 @@ struct CourseSelectionScreen: View {
             .sheet(item: $selectedCourse) { course in
                 setupWizardView(for: course)
             }
+        }
+    }
+
+    private func courseRow(for course: Course) -> some View {
+        let holeCountText = "\(course.holes.count) Holes"
+        let totalPar = course.holes.reduce(0) { $0 + $1.par }
+        let parText = "Par \(totalPar)"
+
+        return Button(action: {
+            // Initialize local setup state from current view model values
+            handicap = viewModel.player.handicapIndex ?? 18.0
+            strategyPreference = viewModel.player.strategyPreference
+            voiceToggle = viewModel.isHandsFreeListening
+            selectedCourse = course
+        }) {
+            HStack {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(course.name)
+                        .font(.system(.headline, design: .rounded).weight(.bold))
+                        .foregroundColor(.primary)
+
+                    HStack(spacing: 12) {
+                        Label(holeCountText, systemImage: "flag")
+                        Label(parText, systemImage: "sparkles")
+                    }
+                    .font(.system(.caption, design: .rounded))
+                    .foregroundColor(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .foregroundColor(Color(red: 0.06, green: 0.56, blue: 0.24))
+            }
+            .padding(20)
+            .background(Color(white: 1.0).opacity(0.9))
+            .cornerRadius(16)
+            .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
         }
     }
     
@@ -204,7 +212,7 @@ struct CourseSelectionScreen: View {
                                     .foregroundColor(.secondary)
                             }
                         }
-                        .toggleStyle(SwitchToggleStyle(accentColor: Color(red: 0.06, green: 0.56, blue: 0.24)))
+                        .toggleStyle(SwitchToggleStyle(tint: Color(red: 0.06, green: 0.56, blue: 0.24)))
                         .padding(.vertical, 8)
                     }
                 }

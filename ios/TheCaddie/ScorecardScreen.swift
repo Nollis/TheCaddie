@@ -199,7 +199,7 @@ struct ScorecardScreen: View {
                     Text(String(format: "%.1f", avgPutts))
                         .font(.system(.title3, design: .rounded).weight(.bold))
                     Text("Avg per hole")
-                        .font(.system(.system(size: 8), design: .rounded))
+                        .font(.system(size: 8, design: .rounded))
                         .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -216,7 +216,7 @@ struct ScorecardScreen: View {
                         .font(.system(.title3, design: .rounded).weight(.bold))
                         .foregroundColor(.blue)
                     Text("Fairways Hit")
-                        .font(.system(.system(size: 8), design: .rounded))
+                        .font(.system(size: 8, design: .rounded))
                         .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -233,7 +233,7 @@ struct ScorecardScreen: View {
                         .font(.system(.title3, design: .rounded).weight(.bold))
                         .foregroundColor(.purple)
                     Text("Greens Hit")
-                        .font(.system(.system(size: 8), design: .rounded))
+                        .font(.system(size: 8, design: .rounded))
                         .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -366,7 +366,7 @@ struct ScorecardScreen: View {
                                 .foregroundColor(.secondary)
                         }
                     }
-                    .toggleStyle(SwitchToggleStyle(accentColor: Color(red: 0.06, green: 0.56, blue: 0.24)))
+                    .toggleStyle(SwitchToggleStyle(tint: Color(red: 0.06, green: 0.56, blue: 0.24)))
                 }
                 
                 Spacer()

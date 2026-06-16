@@ -8,7 +8,10 @@
 
 /* Begin PBXBuildFile section */
 		07C670B847375C84D17F2600 /* ShotContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA692C8B8A2320941096620 /* ShotContext.swift */; };
+		1441349503E0C36C18AAF4D0 /* BagSettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E6027F204A3760F5AFC39EA /* BagSettingsScreen.swift */; };
+		17D8C3A50D8B0236F9AC76A6 /* CourseSelectionScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32AB8E6B3D824ABF58DE9220 /* CourseSelectionScreen.swift */; };
 		540572457951476C7E0CE995 /* TheCaddieApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCB85E45AC65E25F07467DEF /* TheCaddieApp.swift */; };
+		63805EB11EEA960E6B7DB7F3 /* HoleScore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 094D985C226954A8F91D0F95 /* HoleScore.swift */; };
 		67236306E6CCA9800719A08B /* CaddieScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3964C2A32522B0526393FE6 /* CaddieScreen.swift */; };
 		6908A2B1D539C587D966E3D3 /* CaddieRecommendationPacket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B8A4DF5DD11A65A042E3F89 /* CaddieRecommendationPacket.swift */; };
 		6C943C19F3CCBC1200F1719E /* RoundState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D2B48CCFF0BF2C9D2FE98B1 /* RoundState.swift */; };
@@ -17,25 +20,30 @@
 		BAEEC84335FCD756D00E96DD /* CaddieViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F51A9202B8B3C33D1888CEE5 /* CaddieViewModel.swift */; };
 		BE10429D649F77D66E173863 /* CourseModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA35B4D0FF9CDA29A0A1D6BD /* CourseModels.swift */; };
 		C182ABABB2BB4704E1CE96AB /* PlayerContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 843D312CDD78BD6866E43222 /* PlayerContext.swift */; };
-		D4A51C87F1A24B32A18F7311 /* KungsbackaNyaCourse.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4A51C86F1A24B32A18F7311 /* KungsbackaNyaCourse.swift */; };
+		DD1DAF2007E7EE827313FCC3 /* KungsbackaNyaCourse.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7129F2ADDE54CF6A56AFECE /* KungsbackaNyaCourse.swift */; };
 		E87EF79C30106C1793116C54 /* CaddieResponseText.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2B9209D8D15CF686A13EF5E /* CaddieResponseText.swift */; };
 		EBF3403236BDA80613E40381 /* TheCaddieDomain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07169DF33B018813C1DFFC36 /* TheCaddieDomain.swift */; };
 		F233325B14293B71D04D35BE /* SampleRound.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B9976FD3ECBE39451751AC /* SampleRound.swift */; };
+		FD93214ED96523E29CA1AE21 /* ScorecardScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395B87B12860BE9C03C63013 /* ScorecardScreen.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		07169DF33B018813C1DFFC36 /* TheCaddieDomain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheCaddieDomain.swift; sourceTree = "<group>"; };
+		094D985C226954A8F91D0F95 /* HoleScore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoleScore.swift; sourceTree = "<group>"; };
 		0D2B48CCFF0BF2C9D2FE98B1 /* RoundState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundState.swift; sourceTree = "<group>"; };
 		2B8A4DF5DD11A65A042E3F89 /* CaddieRecommendationPacket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieRecommendationPacket.swift; sourceTree = "<group>"; };
 		2E68CFB3A5BA460118498AED /* TrueCaddie.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TrueCaddie.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		32AB8E6B3D824ABF58DE9220 /* CourseSelectionScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseSelectionScreen.swift; sourceTree = "<group>"; };
+		395B87B12860BE9C03C63013 /* ScorecardScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScorecardScreen.swift; sourceTree = "<group>"; };
 		5CA692C8B8A2320941096620 /* ShotContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShotContext.swift; sourceTree = "<group>"; };
+		5E6027F204A3760F5AFC39EA /* BagSettingsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BagSettingsScreen.swift; sourceTree = "<group>"; };
 		6FEC945E340732A1306496C5 /* CaddieViewState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieViewState.swift; sourceTree = "<group>"; };
 		74B9976FD3ECBE39451751AC /* SampleRound.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleRound.swift; sourceTree = "<group>"; };
 		843D312CDD78BD6866E43222 /* PlayerContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerContext.swift; sourceTree = "<group>"; };
 		8F8D7BDD0C9A11619579B74E /* CaddieRecommendationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieRecommendationEngine.swift; sourceTree = "<group>"; };
 		AA35B4D0FF9CDA29A0A1D6BD /* CourseModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseModels.swift; sourceTree = "<group>"; };
 		C3964C2A32522B0526393FE6 /* CaddieScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieScreen.swift; sourceTree = "<group>"; };
-		D4A51C86F1A24B32A18F7311 /* KungsbackaNyaCourse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KungsbackaNyaCourse.swift; sourceTree = "<group>"; };
+		D7129F2ADDE54CF6A56AFECE /* KungsbackaNyaCourse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KungsbackaNyaCourse.swift; sourceTree = "<group>"; };
 		E2B9209D8D15CF686A13EF5E /* CaddieResponseText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieResponseText.swift; sourceTree = "<group>"; };
 		F51A9202B8B3C33D1888CEE5 /* CaddieViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieViewModel.swift; sourceTree = "<group>"; };
 		FCB85E45AC65E25F07467DEF /* TheCaddieApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheCaddieApp.swift; sourceTree = "<group>"; };
@@ -56,6 +64,7 @@
 			isa = PBXGroup;
 			children = (
 				AA35B4D0FF9CDA29A0A1D6BD /* CourseModels.swift */,
+				094D985C226954A8F91D0F95 /* HoleScore.swift */,
 				843D312CDD78BD6866E43222 /* PlayerContext.swift */,
 				0D2B48CCFF0BF2C9D2FE98B1 /* RoundState.swift */,
 				5CA692C8B8A2320941096620 /* ShotContext.swift */,
@@ -66,8 +75,11 @@
 		37B077DC9F613BE0633E57C3 /* TheCaddie */ = {
 			isa = PBXGroup;
 			children = (
+				5E6027F204A3760F5AFC39EA /* BagSettingsScreen.swift */,
 				C3964C2A32522B0526393FE6 /* CaddieScreen.swift */,
 				F51A9202B8B3C33D1888CEE5 /* CaddieViewModel.swift */,
+				32AB8E6B3D824ABF58DE9220 /* CourseSelectionScreen.swift */,
+				395B87B12860BE9C03C63013 /* ScorecardScreen.swift */,
 				FCB85E45AC65E25F07467DEF /* TheCaddieApp.swift */,
 				FECF0EAF69D95DCA89C137F7 /* TrueCaddie.entitlements */,
 			);
@@ -117,7 +129,7 @@
 		C5957279815E1B4B71DD0342 /* SampleData */ = {
 			isa = PBXGroup;
 			children = (
-				D4A51C86F1A24B32A18F7311 /* KungsbackaNyaCourse.swift */,
+				D7129F2ADDE54CF6A56AFECE /* KungsbackaNyaCourse.swift */,
 				74B9976FD3ECBE39451751AC /* SampleRound.swift */,
 			);
 			path = SampleData;
@@ -182,6 +194,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1441349503E0C36C18AAF4D0 /* BagSettingsScreen.swift in Sources */,
 				87896163D7A8667BBC7E4A57 /* CaddieRecommendationEngine.swift in Sources */,
 				6908A2B1D539C587D966E3D3 /* CaddieRecommendationPacket.swift in Sources */,
 				E87EF79C30106C1793116C54 /* CaddieResponseText.swift in Sources */,
@@ -189,10 +202,13 @@
 				BAEEC84335FCD756D00E96DD /* CaddieViewModel.swift in Sources */,
 				6CA3C05B747CF936F94B77FF /* CaddieViewState.swift in Sources */,
 				BE10429D649F77D66E173863 /* CourseModels.swift in Sources */,
+				17D8C3A50D8B0236F9AC76A6 /* CourseSelectionScreen.swift in Sources */,
+				63805EB11EEA960E6B7DB7F3 /* HoleScore.swift in Sources */,
+				DD1DAF2007E7EE827313FCC3 /* KungsbackaNyaCourse.swift in Sources */,
 				C182ABABB2BB4704E1CE96AB /* PlayerContext.swift in Sources */,
-				D4A51C87F1A24B32A18F7311 /* KungsbackaNyaCourse.swift in Sources */,
 				6C943C19F3CCBC1200F1719E /* RoundState.swift in Sources */,
 				F233325B14293B71D04D35BE /* SampleRound.swift in Sources */,
+				FD93214ED96523E29CA1AE21 /* ScorecardScreen.swift in Sources */,
 				07C670B847375C84D17F2600 /* ShotContext.swift in Sources */,
 				540572457951476C7E0CE995 /* TheCaddieApp.swift in Sources */,
 				EBF3403236BDA80613E40381 /* TheCaddieDomain.swift in Sources */,
