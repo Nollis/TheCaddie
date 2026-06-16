@@ -202,7 +202,7 @@ private func teePacket(
     #expect(packet.riskNote == nil)
 }
 
-@Test func bunkerLieSwitchesToRecoveryIntentWithPlayableRecoveryClub() {
+@Test func bunkerLieSwitchesToRecoveryIntentWithMostLoftedReachingWedge() {
     let roundState = SampleRound.roundState.updateShotContext(
         ShotContext(
             shotNumber: 3,
@@ -218,12 +218,35 @@ private func teePacket(
         roundState: roundState
     )
 
+    // PW (105m) and 50W (85m) both reach 72m; loft beats distance from sand,
+    // so the more lofted 50W is the recovery club, not the longer PW.
     #expect(packet.status == .ready)
     #expect(packet.shotIntent == .recovery)
-    #expect(packet.recommendedClub == "PW")
+    #expect(packet.recommendedClub == "50W")
     #expect(packet.target == "safe recovery window")
-    #expect(packet.primaryReason == "PW is the safest recovery club from this lie.")
+    #expect(packet.primaryReason == "50W is the safest recovery club from this lie.")
     #expect(packet.confidence == .low)
+}
+
+@Test func longBunkerShotTakesLongestWedgeWhenLoftCannotReach() {
+    let roundState = SampleRound.roundState.updateShotContext(
+        ShotContext(
+            shotNumber: 3,
+            remainingDistanceM: .known(95),
+            lie: .known(.bunker),
+            wind: nil
+        )
+    )
+
+    let packet = CaddieRecommendationEngine.build(
+        course: SampleRound.course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    // Only PW (105m) reaches 95m; 50W (85m) cannot, so the longer wedge wins.
+    #expect(packet.shotIntent == .recovery)
+    #expect(packet.recommendedClub == "PW")
 }
 
 @Test func playerCanOverrideClubPlayabilityAndDispersionForLearnedProfile() {

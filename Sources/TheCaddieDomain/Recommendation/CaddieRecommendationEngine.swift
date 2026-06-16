@@ -294,6 +294,29 @@ public enum CaddieRecommendationEngine {
         )
     }
 
+    private static func recoveryClub(
+        from clubs: [PlayerClub],
+        remainingDistanceM: Double
+    ) -> PlayerClub? {
+        // From sand or a recovery lie, loft beats distance: take the most lofted
+        // club — approximated by the shortest carry — that can still reach, so a
+        // greenside escape uses the sand wedge rather than a longer, lower-lofted
+        // wedge. If nothing reaches, take the longest club to get as close as
+        // possible.
+        let shortestReaching = clubs
+            .filter { $0.carryDistanceM >= remainingDistanceM }
+            .min { lhs, rhs in
+                lhs.carryDistanceM < rhs.carryDistanceM
+            }
+        if let shortestReaching {
+            return shortestReaching
+        }
+
+        return clubs.max { lhs, rhs in
+            lhs.carryDistanceM < rhs.carryDistanceM
+        }
+    }
+
     private static func recoveryPacket(
         course: Course,
         hole: CourseHole,
@@ -303,9 +326,10 @@ public enum CaddieRecommendationEngine {
         lie: ShotLie
     ) -> CaddieRecommendationPacket {
         let playableClubs = playableClubs(from: player.clubs, lie: lie)
-        guard let club = playableClubs.sorted(by: { lhs, rhs in
-            lhs.carryDistanceM > rhs.carryDistanceM
-        }).first else {
+        guard let club = recoveryClub(
+            from: playableClubs,
+            remainingDistanceM: remainingDistanceM
+        ) else {
             return contextPacket(
                 status: .unavailable,
                 course: course,
