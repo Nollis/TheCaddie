@@ -52,12 +52,31 @@ public struct PlayerClub: Equatable, Sendable, Identifiable {
         if normalized.contains("driver") {
             return [.tee]
         }
-        if normalized == "pw"
-            || normalized.contains("wedge")
-            || isLoftedWedgeName(normalized) {
+        if isWedgeName(normalized) {
             return [.tee, .fairway, .rough, .bunker, .recovery]
         }
-        return [.tee, .fairway, .rough]
+
+        if normalized.contains("wood")
+            || normalized.contains("hybrid")
+            || normalized.contains("iron") {
+            return [.tee, .fairway, .rough, .bunker]
+        }
+
+        return [.tee, .fairway, .rough, .bunker]
+    }
+
+    private static func isWedgeName(_ normalized: String) -> Bool {
+        if normalized == "pw"
+            || normalized == "gw"
+            || normalized == "aw"
+            || normalized == "sw"
+            || normalized == "lw"
+            || normalized == "uw"
+            || normalized.contains("wedge") {
+            return true
+        }
+
+        return isLoftedWedgeName(normalized)
     }
 
     private static func isLoftedWedgeName(_ normalized: String) -> Bool {

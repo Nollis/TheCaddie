@@ -50,7 +50,7 @@ public enum KungsbackaNyaCourse {
                 5,
                 par: 4,
                 teeLengthM: 350,
-                fairway: FairwayContext(landingWidthM: 28, drivingZoneEndM: 210),
+                fairway: FairwayContext(landingWidthM: 30, drivingZoneEndM: 185),
                 hazards: [
                     hazard("h5-water-left-104", .water, "left 104m", "Water left appears early in the hole."),
                     hazard("h5-bunker-right-303", .bunker, "right 303m", "Right bunker can catch the stronger tee shot."),

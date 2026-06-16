@@ -26,6 +26,7 @@ import TheCaddieDomain
     )))
     #expect(hole1.fairway == FairwayContext(landingWidthM: 56, drivingZoneEndM: nil))
     #expect(hole3.fairway == FairwayContext(landingWidthM: 23.5, drivingZoneEndM: 146))
+    #expect(KungsbackaNyaCourse.course.hole(number: 5)?.fairway == FairwayContext(landingWidthM: 30, drivingZoneEndM: 185))
     #expect(hole1.hazards.contains { $0.kind == .bunker && $0.position == "left 240m" })
     #expect(hole8.hazards == [
         Hazard(
@@ -147,4 +148,20 @@ import TheCaddieDomain
     #expect(packet.shotIntent == .teePosition)
     #expect(packet.recommendedClub == "8 Iron")
     #expect(packet.primaryReason == "8 Iron advances the ball about 150m and leaves roughly 130m in.")
+}
+
+@Test func kungsbackaHoleFiveClubsDownToFiveIronFromTheTee() {
+    let roundState = KungsbackaNyaCourse.openingRoundState.selectHole(5)
+
+    let packet = CaddieRecommendationEngine.build(
+        course: KungsbackaNyaCourse.course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    #expect(packet.status == .ready)
+    #expect(packet.shotIntent == .teePosition)
+    #expect(packet.recommendedClub == "5 Iron")
+    #expect(packet.target == "right-center fairway")
+    #expect(packet.primaryReason == "5 Iron advances the ball about 160m and leaves roughly 190m in.")
 }

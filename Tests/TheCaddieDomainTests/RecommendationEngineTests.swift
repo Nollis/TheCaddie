@@ -228,6 +228,27 @@ private func teePacket(
     #expect(packet.confidence == .low)
 }
 
+@Test func longBunkerShotCanUseAnIronInsteadOfDefaultingToPW() {
+    let roundState = SampleRound.roundState.updateShotContext(
+        ShotContext(
+            shotNumber: 3,
+            remainingDistanceM: .known(125.2),
+            lie: .known(.bunker),
+            wind: nil
+        )
+    )
+
+    let packet = CaddieRecommendationEngine.build(
+        course: SampleRound.course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    #expect(packet.shotIntent == .recovery)
+    #expect(packet.recommendedClub != "PW")
+    #expect(packet.recommendedClub == "7 Iron")
+}
+
 @Test func longBunkerShotTakesLongestWedgeWhenLoftCannotReach() {
     let roundState = SampleRound.roundState.updateShotContext(
         ShotContext(
@@ -247,6 +268,14 @@ private func teePacket(
     // Only PW (105m) reaches 95m; 50W (85m) cannot, so the longer wedge wins.
     #expect(packet.shotIntent == .recovery)
     #expect(packet.recommendedClub == "PW")
+}
+
+@Test func wedgeAbbreviationsRemainBunkerPlayableByDefault() {
+    #expect(PlayerClub(name: "SW", carryDistanceM: 70).isPlayable(from: .bunker))
+    #expect(PlayerClub(name: "GW", carryDistanceM: 95).isPlayable(from: .bunker))
+    #expect(PlayerClub(name: "LW", carryDistanceM: 55).isPlayable(from: .bunker))
+    #expect(PlayerClub(name: "7 Iron", carryDistanceM: 135).isPlayable(from: .bunker))
+    #expect(!PlayerClub(name: "Driver", carryDistanceM: 220).isPlayable(from: .bunker))
 }
 
 @Test func playerCanOverrideClubPlayabilityAndDispersionForLearnedProfile() {
