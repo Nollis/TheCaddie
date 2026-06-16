@@ -6,6 +6,7 @@ final class CaddieViewModel: ObservableObject {
     @Published private(set) var course: Course?
     @Published private(set) var player: PlayerContext
     @Published private(set) var roundState: RoundState
+    @Published var isHandsFreeListening: Bool = false
 
     init(
         course: Course?,
@@ -158,6 +159,61 @@ final class CaddieViewModel: ObservableObject {
         }) {
             selectHole(firstOpenHole.number)
         }
+    }
+
+    func startRound(course: Course, startingHole: Int = 1) {
+        self.course = course
+        self.roundState = RoundState(
+            courseId: course.id,
+            selectedHoleNumber: startingHole,
+            shotContexts: [
+                startingHole: ShotContext(
+                    shotNumber: 1,
+                    remainingDistanceM: .known(course.hole(number: startingHole)?.teeLengthM ?? 300),
+                    lie: .known(.tee),
+                    wind: nil
+                )
+            ]
+        )
+    }
+    
+    func endRound() {
+        self.course = nil
+        self.roundState = SampleRound.roundState
+    }
+
+    func updatePlayerHandicap(_ handicap: Double) {
+        self.player = PlayerContext(
+            handicapIndex: handicap,
+            clubs: player.clubs,
+            strategyPreference: player.strategyPreference
+        )
+    }
+    
+    func updateStrategyPreference(_ strategy: StrategyPreference) {
+        self.player = PlayerContext(
+            handicapIndex: player.handicapIndex,
+            clubs: player.clubs,
+            strategyPreference: strategy
+        )
+    }
+
+    func updateHoleScore(holeNumber: Int, strokes: Int, putts: Int, fairwayHit: Bool?, gir: Bool) {
+        var updatedScores = roundState.holeScores
+        updatedScores[holeNumber] = HoleScore(
+            holeNumber: holeNumber,
+            strokes: strokes,
+            putts: putts,
+            fairwayHit: fairwayHit,
+            greenInRegulation: gir
+        )
+        self.roundState = RoundState(
+            courseId: roundState.courseId,
+            selectedHoleNumber: roundState.selectedHoleNumber,
+            shotContexts: roundState.shotContexts,
+            completedHoleNumbers: roundState.completedHoleNumbers.union([holeNumber]),
+            holeScores: updatedScores
+        )
     }
 
     private func resolvedShotContext() -> ShotContext {

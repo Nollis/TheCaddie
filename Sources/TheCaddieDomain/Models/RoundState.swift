@@ -5,17 +5,20 @@ public struct RoundState: Equatable, Sendable {
     public let selectedHoleNumber: Int
     public let shotContexts: [Int: ShotContext]
     public let completedHoleNumbers: Set<Int>
+    public let holeScores: [Int: HoleScore]
 
     public init(
         courseId: String,
         selectedHoleNumber: Int,
         shotContexts: [Int: ShotContext],
-        completedHoleNumbers: Set<Int> = []
+        completedHoleNumbers: Set<Int> = [],
+        holeScores: [Int: HoleScore] = [:]
     ) {
         self.courseId = courseId
         self.selectedHoleNumber = selectedHoleNumber
         self.shotContexts = shotContexts
         self.completedHoleNumbers = completedHoleNumbers
+        self.holeScores = holeScores
     }
 
     public func shotContext(for holeNumber: Int) -> ShotContext? {
@@ -50,7 +53,8 @@ public struct RoundState: Equatable, Sendable {
             courseId: courseId,
             selectedHoleNumber: selectedHoleNumber,
             shotContexts: updated,
-            completedHoleNumbers: completedHoleNumbers
+            completedHoleNumbers: completedHoleNumbers,
+            holeScores: holeScores
         )
     }
 
@@ -59,7 +63,8 @@ public struct RoundState: Equatable, Sendable {
             courseId: courseId,
             selectedHoleNumber: holeNumber,
             shotContexts: shotContexts,
-            completedHoleNumbers: completedHoleNumbers
+            completedHoleNumbers: completedHoleNumbers,
+            holeScores: holeScores
         )
     }
 
@@ -108,14 +113,59 @@ public struct RoundState: Equatable, Sendable {
         return updateShotContext(nextShot)
     }
 
-    public func finishCurrentHole(course: Course?) -> RoundState {
+    public func finishCurrentHole(
+        course: Course?,
+        strokes: Int? = nil,
+        putts: Int? = nil,
+        fairwayHit: Bool? = nil,
+        greenInRegulation: Bool? = nil
+    ) -> RoundState {
         guard let course,
-              course.hole(number: selectedHoleNumber) != nil else {
+              let hole = course.hole(number: selectedHoleNumber) else {
             return self
         }
 
         var completed = completedHoleNumbers
         completed.insert(selectedHoleNumber)
+
+        var updatedScores = holeScores
+        
+        // Calculate defaults from shot history if not manually provided
+        let finalStrokes: Int
+        let finalPutts: Int
+        let finalFairwayHit: Bool?
+        let finalGIR: Bool
+        
+        if let manualStrokes = strokes, let manualPutts = putts {
+            finalStrokes = manualStrokes
+            finalPutts = manualPutts
+            finalFairwayHit = fairwayHit
+            finalGIR = greenInRegulation ?? false
+        } else {
+            // Stroke count defaults to last shot number or 1 if empty
+            let lastShotNumber = shotContexts[selectedHoleNumber]?.shotNumber ?? 1
+            finalStrokes = lastShotNumber
+            
+            // Reconstructed putts: count shots where lie was .green
+            // In a real app, this is determined by counting shot contexts with lie == .green
+            // We assume a simple default of 2 putts if on green, or 1 if holed from off green.
+            let reachedGreen = shotContexts[selectedHoleNumber]?.lie.value == .green
+            finalPutts = reachedGreen ? 2 : 1
+            
+            // FIR: True if second shot was from fairway on a Par 4/5
+            finalFairwayHit = hole.par > 3 ? true : nil
+            
+            // GIR: reached green in Par - 2
+            finalGIR = finalStrokes - finalPutts <= (hole.par - 2)
+        }
+        
+        updatedScores[selectedHoleNumber] = HoleScore(
+            holeNumber: selectedHoleNumber,
+            strokes: finalStrokes,
+            putts: finalPutts,
+            fairwayHit: finalFairwayHit,
+            greenInRegulation: finalGIR
+        )
 
         let nextHoleNumber = course.nextHole(after: selectedHoleNumber)?.number
             ?? selectedHoleNumber
@@ -124,7 +174,8 @@ public struct RoundState: Equatable, Sendable {
             courseId: courseId,
             selectedHoleNumber: nextHoleNumber,
             shotContexts: shotContexts,
-            completedHoleNumbers: completed
+            completedHoleNumbers: completed,
+            holeScores: updatedScores
         )
     }
 }

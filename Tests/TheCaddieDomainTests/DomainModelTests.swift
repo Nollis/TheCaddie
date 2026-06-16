@@ -243,3 +243,26 @@ import TheCaddieDomain
     #expect(packet.primaryReason == "3 Hybrid advances the ball about 190m and leaves roughly 50m in.")
     #expect(packet.riskNote == "Bunker left is near the landing zone.")
 }
+
+@Test func roundStateTracksHoleScoresAndStats() {
+    let holeScore = HoleScore(
+        holeNumber: 1,
+        strokes: 4,
+        putts: 2,
+        fairwayHit: true,
+        greenInRegulation: true
+    )
+    
+    let roundState = RoundState(
+        courseId: "sample",
+        selectedHoleNumber: 1,
+        shotContexts: [:],
+        completedHoleNumbers: [1],
+        holeScores: [1: holeScore]
+    )
+    
+    #expect(roundState.holeScores[1]?.strokes == 4)
+    #expect(roundState.holeScores[1]?.putts == 2)
+    #expect(roundState.holeScores[1]?.fairwayHit == true)
+    #expect(roundState.holeScores[1]?.greenInRegulation == true)
+}
