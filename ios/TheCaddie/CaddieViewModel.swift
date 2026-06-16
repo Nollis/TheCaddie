@@ -141,6 +141,25 @@ final class CaddieViewModel: ObservableObject {
         roundState = roundState.finishCurrentHole(course: course)
     }
 
+    func finishHoleFromGreen(putts: Int) {
+        guard let course,
+              let hole = course.hole(number: selectedHoleNumber) else {
+            return
+        }
+        let shotNumber = roundState.currentShotContext()?.shotNumber ?? 1
+        let finalStrokes = shotNumber + putts - 1
+        let finalFairwayHit = hole.par > 3 ? true : nil
+        let finalGIR = (finalStrokes - putts) <= (hole.par - 2)
+        
+        roundState = roundState.finishCurrentHole(
+            course: course,
+            strokes: finalStrokes,
+            putts: putts,
+            fairwayHit: finalFairwayHit,
+            greenInRegulation: finalGIR
+        )
+    }
+
     func selectNextOpenHole() {
         guard let course else {
             return
@@ -196,6 +215,24 @@ final class CaddieViewModel: ObservableObject {
             clubs: player.clubs,
             strategyPreference: strategy
         )
+    }
+
+    func updateClubDistance(clubName: String, distanceM: Double) {
+        var updatedClubs = player.clubs
+        if let index = updatedClubs.firstIndex(where: { $0.name == clubName }) {
+            let original = updatedClubs[index]
+            updatedClubs[index] = PlayerClub(
+                name: original.name,
+                carryDistanceM: distanceM,
+                typicalDispersionM: original.typicalDispersionM,
+                playableLies: original.playableLies
+            )
+            self.player = PlayerContext(
+                handicapIndex: player.handicapIndex,
+                clubs: updatedClubs,
+                strategyPreference: player.strategyPreference
+            )
+        }
     }
 
     func updateHoleScore(holeNumber: Int, strokes: Int, putts: Int, fairwayHit: Bool?, gir: Bool) {
