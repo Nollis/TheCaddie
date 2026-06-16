@@ -55,13 +55,13 @@ public enum SampleRound {
         clubs: [
             PlayerClub(name: "Driver", carryDistanceM: 220),
             PlayerClub(name: "3 Hybrid", carryDistanceM: 190),
-            PlayerClub(name: "5 Iron", carryDistanceM: 160),
-            PlayerClub(name: "8 Iron", carryDistanceM: 150),
-            PlayerClub(name: "9 Iron", carryDistanceM: 140),
-            PlayerClub(name: "6 Iron", carryDistanceM: 148),
-            PlayerClub(name: "7 Iron", carryDistanceM: 135),
-            PlayerClub(name: "PW", carryDistanceM: 105),
-            PlayerClub(name: "50W", carryDistanceM: 85)
+            PlayerClub(name: "5 Iron", carryDistanceM: 170),
+            PlayerClub(name: "6 Iron", carryDistanceM: 160),
+            PlayerClub(name: "7 Iron", carryDistanceM: 150),
+            PlayerClub(name: "8 Iron", carryDistanceM: 140),
+            PlayerClub(name: "9 Iron", carryDistanceM: 130),
+            PlayerClub(name: "PW", carryDistanceM: 110),
+            PlayerClub(name: "50W", carryDistanceM: 90)
         ],
         strategyPreference: .normal
     )

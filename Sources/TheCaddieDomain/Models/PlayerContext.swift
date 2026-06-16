@@ -14,7 +14,10 @@ public struct PlayerContext: Equatable, Sendable {
     ) {
         self.handicapIndex = handicapIndex
         self.clubs = clubs.sorted { lhs, rhs in
-            lhs.carryDistanceM > rhs.carryDistanceM
+            if lhs.bagSortIndex != rhs.bagSortIndex {
+                return lhs.bagSortIndex < rhs.bagSortIndex
+            }
+            return lhs.carryDistanceM > rhs.carryDistanceM
         }
         self.strategyPreference = strategyPreference
         self.skillProfile = skillProfile ?? PlayerSkillProfile.inferred(
@@ -45,6 +48,10 @@ public struct PlayerClub: Equatable, Sendable, Identifiable {
 
     public func isPlayable(from lie: ShotLie) -> Bool {
         playableLies.contains(lie)
+    }
+
+    public var bagSortIndex: Int {
+        Self.bagSortIndex(for: name)
     }
 
     private static func defaultPlayableLies(for clubName: String) -> Set<ShotLie> {
@@ -90,6 +97,56 @@ public struct PlayerClub: Equatable, Sendable, Identifiable {
         }
 
         return loft >= 40
+    }
+
+    private static func bagSortIndex(for clubName: String) -> Int {
+        let normalized = clubName.lowercased()
+
+        if normalized.contains("driver") {
+            return 0
+        }
+
+        if let woodNumber = leadingNumber(in: normalized), normalized.contains("wood") {
+            return 10 + woodNumber
+        }
+
+        if let hybridNumber = leadingNumber(in: normalized), normalized.contains("hybrid") {
+            return 30 + hybridNumber
+        }
+
+        if let ironNumber = leadingNumber(in: normalized), normalized.contains("iron") {
+            return 40 + ironNumber
+        }
+
+        if normalized == "pw" {
+            return 90
+        }
+        if normalized == "gw" || normalized == "aw" || normalized == "uw" {
+            return 91
+        }
+        if normalized == "sw" {
+            return 92
+        }
+        if normalized == "lw" {
+            return 93
+        }
+        if let loft = leadingNumber(in: normalized), normalized.hasSuffix("w") {
+            return 100 + loft
+        }
+        if normalized.contains("wedge") {
+            return 95
+        }
+
+        return 200
+    }
+
+    private static func leadingNumber(in normalized: String) -> Int? {
+        let pattern = #"^\d+"#
+        guard let match = normalized.range(of: pattern, options: .regularExpression) else {
+            return nil
+        }
+
+        return Int(normalized[match])
     }
 }
 

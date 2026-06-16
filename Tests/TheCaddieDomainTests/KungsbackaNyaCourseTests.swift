@@ -102,7 +102,7 @@ import TheCaddieDomain
     #expect(packet.riskNote == nil)
 }
 
-@Test func kungsbackaHoleTwoUsesPlayerNineIronDistance() {
+@Test func kungsbackaHoleTwoUsesPlayerEightIronDistance() {
     let roundState = KungsbackaNyaCourse.openingRoundState.selectHole(2)
 
     let packet = CaddieRecommendationEngine.build(
@@ -113,7 +113,7 @@ import TheCaddieDomain
 
     #expect(packet.status == .ready)
     #expect(packet.shotIntent == .approach)
-    #expect(packet.recommendedClub == "9 Iron")
+    #expect(packet.recommendedClub == "8 Iron")
     #expect(packet.target == "middle-right of the green")
 }
 
@@ -146,8 +146,8 @@ import TheCaddieDomain
 
     #expect(packet.status == .ready)
     #expect(packet.shotIntent == .teePosition)
-    #expect(packet.recommendedClub == "8 Iron")
-    #expect(packet.primaryReason == "8 Iron advances the ball about 150m and leaves roughly 130m in.")
+    #expect(packet.recommendedClub == "7 Iron")
+    #expect(packet.primaryReason == "7 Iron advances the ball about 150m and leaves roughly 130m in.")
 }
 
 @Test func kungsbackaHoleFiveClubsDownToFiveIronFromTheTee() {
@@ -163,5 +163,5 @@ import TheCaddieDomain
     #expect(packet.shotIntent == .teePosition)
     #expect(packet.recommendedClub == "5 Iron")
     #expect(packet.target == "right-center fairway")
-    #expect(packet.primaryReason == "5 Iron advances the ball about 160m and leaves roughly 190m in.")
+    #expect(packet.primaryReason == "5 Iron advances the ball about 170m and leaves roughly 180m in.")
 }

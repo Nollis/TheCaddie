@@ -140,14 +140,15 @@ private func teePacket(
     #expect(packet.lie == .fairway)
     #expect(packet.strategyPreference == .normal)
     #expect(packet.shotIntent == .approach)
-    #expect(packet.recommendedClub == "8 Iron")
+    #expect(packet.recommendedClub == "7 Iron")
     #expect(packet.clubCarryDistanceM == 150)
     #expect(packet.distanceBasisM == 150)
     #expect(abs((packet.expectedDispersionM ?? 0) - 25.056) < 0.001)
     #expect(packet.target == "middle-right of the green")
-    #expect(packet.primaryReason == "8 Iron covers the 150m playing number with 4m/s hurting wind.")
+    #expect(packet.primaryReason == "7 Iron covers the 150m playing number with 4m/s hurting wind.")
     #expect(packet.riskNote == "Avoid long left water; that is the expensive miss.")
     #expect(packet.confidence == .medium)
+    #expect(packet.debugInfo?.mode == .approach)
 }
 
 @Test func safeStrategyChoosesCoveringClubBetweenTwoDistances() {
@@ -173,7 +174,7 @@ private func teePacket(
 
     #expect(packet.status == .ready)
     #expect(packet.distanceBasisM == 146)
-    #expect(packet.recommendedClub == "6 Iron")
+    #expect(packet.recommendedClub == "7 Iron")
     #expect(packet.target == "center of the green")
 }
 
@@ -246,7 +247,7 @@ private func teePacket(
 
     #expect(packet.shotIntent == .recovery)
     #expect(packet.recommendedClub != "PW")
-    #expect(packet.recommendedClub == "7 Iron")
+    #expect(packet.recommendedClub == "9 Iron")
 }
 
 @Test func longBunkerShotTakesLongestWedgeWhenLoftCannotReach() {
@@ -347,9 +348,9 @@ private func teePacket(
     )
 
     #expect(helpingPacket.distanceBasisM == 136)
-    #expect(helpingPacket.recommendedClub == "9 Iron")
+    #expect(helpingPacket.recommendedClub == "8 Iron")
     #expect(hurtingPacket.distanceBasisM == 150)
-    #expect(hurtingPacket.recommendedClub == "8 Iron")
+    #expect(hurtingPacket.recommendedClub == "7 Iron")
 }
 
 @Test func missingDistanceReturnsMissingContextPacketWithoutInventedClub() {

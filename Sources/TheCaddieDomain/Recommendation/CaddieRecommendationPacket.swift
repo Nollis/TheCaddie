@@ -18,6 +18,7 @@ public struct CaddieRecommendationPacket: Equatable, Sendable {
     public let primaryReason: String
     public let riskNote: String?
     public let confidence: RecommendationConfidence
+    public let debugInfo: RecommendationDebugInfo?
 
     public init(
         status: RecommendationStatus,
@@ -36,7 +37,8 @@ public struct CaddieRecommendationPacket: Equatable, Sendable {
         expectedDispersionM: Double?,
         primaryReason: String,
         riskNote: String?,
-        confidence: RecommendationConfidence
+        confidence: RecommendationConfidence,
+        debugInfo: RecommendationDebugInfo? = nil
     ) {
         self.status = status
         self.courseId = courseId
@@ -55,10 +57,74 @@ public struct CaddieRecommendationPacket: Equatable, Sendable {
         self.primaryReason = primaryReason
         self.riskNote = riskNote
         self.confidence = confidence
+        self.debugInfo = debugInfo
     }
 
     public var isReady: Bool {
         status == .ready
+    }
+}
+
+public struct RecommendationDebugInfo: Equatable, Sendable {
+    public let mode: RecommendationDebugMode
+    public let summary: String
+    public let clubEvaluations: [RecommendationClubEvaluation]
+
+    public init(
+        mode: RecommendationDebugMode,
+        summary: String,
+        clubEvaluations: [RecommendationClubEvaluation]
+    ) {
+        self.mode = mode
+        self.summary = summary
+        self.clubEvaluations = clubEvaluations
+    }
+}
+
+public enum RecommendationDebugMode: String, Equatable, Sendable {
+    case tee
+    case approach
+    case advancement
+    case recovery
+    case unavailable
+}
+
+public struct RecommendationClubEvaluation: Equatable, Sendable, Identifiable {
+    public let clubName: String
+    public let carryDistanceM: Double
+    public let expectedDispersionM: Double?
+    public let distanceGapM: Double?
+    public let totalRisk: Double?
+    public let widthRisk: Double?
+    public let hazardRisk: Double?
+    public let overshootRisk: Double?
+    public let isSelected: Bool
+    public let note: String
+
+    public var id: String { clubName }
+
+    public init(
+        clubName: String,
+        carryDistanceM: Double,
+        expectedDispersionM: Double?,
+        distanceGapM: Double?,
+        totalRisk: Double?,
+        widthRisk: Double?,
+        hazardRisk: Double?,
+        overshootRisk: Double?,
+        isSelected: Bool,
+        note: String
+    ) {
+        self.clubName = clubName
+        self.carryDistanceM = carryDistanceM
+        self.expectedDispersionM = expectedDispersionM
+        self.distanceGapM = distanceGapM
+        self.totalRisk = totalRisk
+        self.widthRisk = widthRisk
+        self.hazardRisk = hazardRisk
+        self.overshootRisk = overshootRisk
+        self.isSelected = isSelected
+        self.note = note
     }
 }
 

@@ -353,6 +353,7 @@ struct CaddieScreen: View {
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
+                        let debugInfo = viewModel.packet.debugInfo
                         
                         // Calculation Metrics Card
                         VStack(alignment: .leading, spacing: 12) {
@@ -374,50 +375,113 @@ struct CaddieScreen: View {
                         .padding(16)
                         .background(Color.white.opacity(0.9))
                         .cornerRadius(12)
+
+                        if let debugInfo {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Decision Summary")
+                                    .font(.system(.caption, design: .rounded).bold())
+                                    .foregroundColor(.secondary)
+
+                                HStack(spacing: 10) {
+                                    Text(debugInfo.mode.rawValue.capitalized)
+                                        .font(.system(.caption, design: .rounded).weight(.bold))
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .background(Color(red: 0.05, green: 0.38, blue: 0.19).opacity(0.1))
+                                        .foregroundColor(Color(red: 0.05, green: 0.38, blue: 0.19))
+                                        .clipShape(Capsule())
+
+                                    Text(debugInfo.summary)
+                                        .font(.system(.subheadline, design: .rounded).weight(.medium))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(16)
+                            .background(Color.white.opacity(0.9))
+                            .cornerRadius(12)
+                        }
                         
                         // Risk Budgets Card
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Club Risk Evaluation")
                                 .font(.system(.caption, design: .rounded).bold())
                                 .foregroundColor(.secondary)
-                            
-                            let currentLie = viewModel.roundState.currentShotContext()?.lie.value ?? .tee
-                            let isOffFairway = currentLie != .tee && currentLie != .fairway
-                            
-                            ForEach(viewModel.player.clubs) { club in
+
+                            ForEach(debugInfo?.clubEvaluations ?? []) { evaluation in
                                 HStack {
-                                    Text(club.name)
-                                        .font(.system(.subheadline, design: .rounded).bold())
-                                    Spacer()
-                                    Text("\(Int(club.carryDistanceM))m carry")
-                                        .font(.system(.caption, design: .rounded))
-                                        .foregroundColor(.secondary)
-                                    
-                                    // Calculate simple visual risk
-                                    let isDriver = club.name.lowercased().contains("driver")
-                                    let tooLong = viewModel.packet.remainingDistanceM != nil && club.carryDistanceM > (viewModel.packet.remainingDistanceM! + 30)
-                                    let exceedsBudget = (isDriver && isOffFairway) || tooLong
-                                    
-                                    if exceedsBudget {
-                                        Text("EXCEEDS RISK BUDGET")
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(evaluation.clubName)
+                                            .font(.system(.subheadline, design: .rounded).bold())
+
+                                        Text(evaluation.note)
+                                            .font(.system(.caption2, design: .rounded))
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(2)
+                                    }
+
+                                    Spacer(minLength: 8)
+
+                                    VStack(alignment: .trailing, spacing: 4) {
+                                        Text("\(Int(evaluation.carryDistanceM))m carry")
+                                            .font(.system(.caption, design: .rounded))
+                                            .foregroundColor(.secondary)
+
+                                        if let spread = evaluation.expectedDispersionM {
+                                            Text("±\(Int(spread))m")
+                                                .font(.system(.caption2, design: .rounded).weight(.bold))
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
+
+                                    if evaluation.isSelected {
+                                        Text("SELECTED")
                                             .font(.system(size: 8, design: .rounded).bold())
                                             .padding(.horizontal, 6)
                                             .padding(.vertical, 3)
-                                            .background(Color.red.opacity(0.1))
-                                            .foregroundColor(.red)
+                                            .background(Color(red: 0.05, green: 0.38, blue: 0.19).opacity(0.12))
+                                            .foregroundColor(Color(red: 0.05, green: 0.38, blue: 0.19))
                                             .cornerRadius(4)
-                                    } else {
-                                        let riskVal = isDriver ? 65 : (isOffFairway ? 45 : 20)
-                                        Text("\(riskVal)% risk")
+                                    } else if let totalRisk = evaluation.totalRisk {
+                                        Text(String(format: "%.2f risk", totalRisk))
                                             .font(.system(.caption2, design: .rounded).bold())
                                             .padding(.horizontal, 6)
                                             .padding(.vertical, 3)
-                                            .background(Color.green.opacity(0.1))
-                                            .foregroundColor(.green)
+                                            .background(riskBadgeColor(totalRisk).opacity(0.12))
+                                            .foregroundColor(riskBadgeColor(totalRisk))
+                                            .cornerRadius(4)
+                                    } else if let gap = evaluation.distanceGapM {
+                                        Text(gap >= 0 ? "+\(Int(gap))m" : "\(Int(gap))m")
+                                            .font(.system(.caption2, design: .rounded).bold())
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 3)
+                                            .background(Color.black.opacity(0.05))
+                                            .foregroundColor(.secondary)
                                             .cornerRadius(4)
                                     }
                                 }
                                 .padding(.vertical, 4)
+
+                                if let totalRisk = evaluation.totalRisk {
+                                    HStack(spacing: 10) {
+                                        debugBreakdownPill(label: "Total", value: totalRisk)
+                                        if let widthRisk = evaluation.widthRisk {
+                                            debugBreakdownPill(label: "Width", value: widthRisk)
+                                        }
+                                        if let hazardRisk = evaluation.hazardRisk {
+                                            debugBreakdownPill(label: "Hazard", value: hazardRisk)
+                                        }
+                                        if let overshootRisk = evaluation.overshootRisk {
+                                            debugBreakdownPill(label: "Long", value: overshootRisk)
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (debugInfo?.clubEvaluations.isEmpty ?? true) {
+                                Text("No club evaluation data for this state.")
+                                    .font(.system(.subheadline, design: .rounded).weight(.medium))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.vertical, 6)
                             }
                         }
                         .padding(16)
@@ -461,6 +525,26 @@ struct CaddieScreen: View {
                 .font(.system(size: 8, design: .rounded))
                 .foregroundColor(.secondary)
         }
+    }
+
+    private func debugBreakdownPill(label: String, value: Double) -> some View {
+        Text("\(label) \(String(format: "%.2f", value))")
+            .font(.system(size: 10, design: .rounded).weight(.bold))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(Color.black.opacity(0.05))
+            .foregroundColor(.secondary)
+            .cornerRadius(6)
+    }
+
+    private func riskBadgeColor(_ totalRisk: Double) -> Color {
+        if totalRisk <= 0.6 {
+            return Color(red: 0.06, green: 0.56, blue: 0.24)
+        }
+        if totalRisk <= 1.0 {
+            return Color(red: 0.76, green: 0.48, blue: 0.11)
+        }
+        return .red
     }
 
     private func logAction(_ action: String) {

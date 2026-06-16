@@ -11,7 +11,7 @@ import TheCaddieDomain
     let viewState = CaddieViewState.make(from: packet)
 
     #expect(viewState.kind == .ready)
-    #expect(viewState.title == "8 Iron to middle-right of the green")
+    #expect(viewState.title == "7 Iron to middle-right of the green")
     #expect(viewState.holeLabel == "Hole 1 · Par 4")
     #expect(viewState.shotLabel == "Shot 2")
     #expect(viewState.distanceLabel == "142 m")
@@ -22,7 +22,7 @@ import TheCaddieDomain
         .init(kind: .bunker, label: "Bunker"),
         .init(kind: .green, label: "Green")
     ])
-    #expect(viewState.subtitle == "8 Iron covers the 150m playing number with 4m/s hurting wind.")
+    #expect(viewState.subtitle == "7 Iron covers the 150m playing number with 4m/s hurting wind.")
     #expect(viewState.noteText == "Avoid long left water; that is the expensive miss.")
 }
 

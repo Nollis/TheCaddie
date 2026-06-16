@@ -167,6 +167,13 @@ public enum CaddieRecommendationEngine {
         let riskNote = riskNote(for: approachHazards, strategy: player.strategyPreference)
         let windPhrase = windPhrase(for: shot.wind)
         let primaryReason = "\(club.name) covers the \(formatMeters(distanceBasis))m playing number\(windPhrase)."
+        let debugInfo = approachDebugInfo(
+            clubs: playableClubs,
+            selectedClub: club,
+            distanceBasisM: distanceBasis,
+            player: player,
+            lie: lie
+        )
 
         return CaddieRecommendationPacket(
             status: .ready,
@@ -195,7 +202,8 @@ public enum CaddieRecommendationEngine {
                 lie: lie,
                 player: player,
                 hazards: approachHazards
-            )
+            ),
+            debugInfo: debugInfo
         )
     }
 
@@ -269,6 +277,26 @@ public enum CaddieRecommendationEngine {
             riskNote = advancementRiskNote(for: landingHazards, strategy: player.strategyPreference)
         }
 
+        let debugInfo = if lie == .tee, let fairway = hole.fairway {
+            teeDebugInfo(
+                clubs: teeClubs,
+                selectedClub: club,
+                player: player,
+                fairway: fairway,
+                hazards: hole.hazards,
+                currentProgressM: progressM,
+                strategy: player.strategyPreference
+            )
+        } else {
+            advancementDebugInfo(
+                clubs: teeClubs,
+                selectedClub: club,
+                player: player,
+                remainingDistanceM: remainingDistanceM,
+                lie: lie
+            )
+        }
+
         return CaddieRecommendationPacket(
             status: .ready,
             courseId: course.id,
@@ -290,7 +318,8 @@ public enum CaddieRecommendationEngine {
             ),
             primaryReason: primaryReason,
             riskNote: riskNote,
-            confidence: .medium
+            confidence: .medium,
+            debugInfo: debugInfo
         )
     }
 
@@ -341,6 +370,14 @@ public enum CaddieRecommendationEngine {
             )
         }
 
+        let debugInfo = recoveryDebugInfo(
+            clubs: playableClubs,
+            selectedClub: club,
+            remainingDistanceM: remainingDistanceM,
+            player: player,
+            lie: lie
+        )
+
         return CaddieRecommendationPacket(
             status: .ready,
             courseId: course.id,
@@ -362,7 +399,8 @@ public enum CaddieRecommendationEngine {
             ),
             primaryReason: "\(club.name) is the safest recovery club from this lie.",
             riskNote: "Get back to a playable position before chasing the green.",
-            confidence: .low
+            confidence: .low,
+            debugInfo: debugInfo
         )
     }
 
@@ -502,13 +540,13 @@ public enum CaddieRecommendationEngine {
         }
     }
 
-    private static func teeShotRisk(
+    private static func teeShotRiskBreakdown(
         club: PlayerClub,
         player: PlayerContext,
         fairway: FairwayContext,
         hazards: [Hazard],
         currentProgressM: Double
-    ) -> Double {
+    ) -> TeeRiskBreakdown {
         let landingM = currentProgressM + club.carryDistanceM
         let lateralSpread = expectedDispersion(for: club, player: player, lie: .tee)
         let halfWidth = max(1, fairway.landingWidthM / 2)
@@ -522,7 +560,11 @@ public enum CaddieRecommendationEngine {
             overshootRisk = 0
         }
 
-        return widthRisk + hazardRisk + overshootRisk
+        return TeeRiskBreakdown(
+            widthRisk: widthRisk,
+            hazardRisk: hazardRisk,
+            overshootRisk: overshootRisk
+        )
     }
 
     private static func riskGatedTeeClub(
@@ -542,13 +584,14 @@ public enum CaddieRecommendationEngine {
 
         let budget = riskBudget(for: strategy)
         let scored = candidates.map { club in
-            (club: club, risk: teeShotRisk(
+            let breakdown = teeShotRiskBreakdown(
                 club: club,
                 player: player,
                 fairway: fairway,
                 hazards: hazards,
                 currentProgressM: currentProgressM
-            ))
+            )
+            return (club: club, risk: breakdown.totalRisk)
         }
 
         if let acceptable = scored.first(where: { $0.risk <= budget }) {
@@ -561,6 +604,144 @@ public enum CaddieRecommendationEngine {
             }
             return lhs.club.carryDistanceM > rhs.club.carryDistanceM
         }?.club
+    }
+
+    private static func approachDebugInfo(
+        clubs: [PlayerClub],
+        selectedClub: PlayerClub,
+        distanceBasisM: Double,
+        player: PlayerContext,
+        lie: ShotLie
+    ) -> RecommendationDebugInfo {
+        let evaluations = clubs.map { club in
+            let gap = club.carryDistanceM - distanceBasisM
+            let note = gap >= 0
+                ? "Covers the playing number by \(formatMeters(gap))m."
+                : "Short of the playing number by \(formatMeters(abs(gap)))m."
+            return RecommendationClubEvaluation(
+                clubName: club.name,
+                carryDistanceM: club.carryDistanceM,
+                expectedDispersionM: expectedDispersion(for: club, player: player, lie: lie),
+                distanceGapM: gap,
+                totalRisk: nil,
+                widthRisk: nil,
+                hazardRisk: nil,
+                overshootRisk: nil,
+                isSelected: club.name == selectedClub.name,
+                note: note
+            )
+        }
+
+        return RecommendationDebugInfo(
+            mode: .approach,
+            summary: "Approach selection chose the closest covering club inside the normal strategy window.",
+            clubEvaluations: evaluations
+        )
+    }
+
+    private static func advancementDebugInfo(
+        clubs: [PlayerClub],
+        selectedClub: PlayerClub,
+        player: PlayerContext,
+        remainingDistanceM: Double,
+        lie: ShotLie
+    ) -> RecommendationDebugInfo {
+        let evaluations = clubs.map { club in
+            let leaveDistance = max(0, remainingDistanceM - club.carryDistanceM)
+            return RecommendationClubEvaluation(
+                clubName: club.name,
+                carryDistanceM: club.carryDistanceM,
+                expectedDispersionM: expectedDispersion(for: club, player: player, lie: lie),
+                distanceGapM: remainingDistanceM - club.carryDistanceM,
+                totalRisk: nil,
+                widthRisk: nil,
+                hazardRisk: nil,
+                overshootRisk: nil,
+                isSelected: club.name == selectedClub.name,
+                note: "Projected leave: \(formatMeters(leaveDistance))m."
+            )
+        }
+
+        return RecommendationDebugInfo(
+            mode: .advancement,
+            summary: "Advancement selection favored the club that best moves the hole forward from the current lie.",
+            clubEvaluations: evaluations
+        )
+    }
+
+    private static func recoveryDebugInfo(
+        clubs: [PlayerClub],
+        selectedClub: PlayerClub,
+        remainingDistanceM: Double,
+        player: PlayerContext,
+        lie: ShotLie
+    ) -> RecommendationDebugInfo {
+        let evaluations = clubs.map { club in
+            let canReach = club.carryDistanceM >= remainingDistanceM
+            let note = canReach
+                ? "Can reach from recovery lie."
+                : "Leaves about \(formatMeters(remainingDistanceM - club.carryDistanceM))m short."
+            return RecommendationClubEvaluation(
+                clubName: club.name,
+                carryDistanceM: club.carryDistanceM,
+                expectedDispersionM: expectedDispersion(for: club, player: player, lie: lie),
+                distanceGapM: club.carryDistanceM - remainingDistanceM,
+                totalRisk: nil,
+                widthRisk: nil,
+                hazardRisk: nil,
+                overshootRisk: nil,
+                isSelected: club.name == selectedClub.name,
+                note: note
+            )
+        }
+
+        return RecommendationDebugInfo(
+            mode: .recovery,
+            summary: "Recovery selection picked the most lofted club that still reaches, then fell back to the longest option when needed.",
+            clubEvaluations: evaluations
+        )
+    }
+
+    private static func teeDebugInfo(
+        clubs: [PlayerClub],
+        selectedClub: PlayerClub,
+        player: PlayerContext,
+        fairway: FairwayContext,
+        hazards: [Hazard],
+        currentProgressM: Double,
+        strategy: StrategyPreference
+    ) -> RecommendationDebugInfo {
+        let budget = riskBudget(for: strategy)
+        let evaluations = clubs.map { club in
+            let breakdown = teeShotRiskBreakdown(
+                club: club,
+                player: player,
+                fairway: fairway,
+                hazards: hazards,
+                currentProgressM: currentProgressM
+            )
+            let note = breakdown.totalRisk <= budget
+                ? "Inside \(strategy.rawValue) risk budget."
+                : "Outside \(strategy.rawValue) risk budget."
+            return RecommendationClubEvaluation(
+                clubName: club.name,
+                carryDistanceM: club.carryDistanceM,
+                expectedDispersionM: expectedDispersion(for: club, player: player, lie: .tee),
+                distanceGapM: nil,
+                totalRisk: breakdown.totalRisk,
+                widthRisk: breakdown.widthRisk,
+                hazardRisk: breakdown.hazardRisk,
+                overshootRisk: breakdown.overshootRisk,
+                isSelected: club.name == selectedClub.name,
+                note: note
+            )
+        }
+
+        return RecommendationDebugInfo(
+            mode: .tee,
+            summary: "Tee selection picked the longest club whose total risk stayed within the \(strategy.rawValue) budget of \(String(format: "%.2f", budget)).",
+            clubEvaluations: evaluations
+        )
     }
 
     private static func advancementClub(
@@ -1001,6 +1182,16 @@ private func formatMeters(_ value: Double) -> String {
     }
 
     return String(format: "%.1f", value)
+}
+
+private struct TeeRiskBreakdown {
+    let widthRisk: Double
+    let hazardRisk: Double
+    let overshootRisk: Double
+
+    var totalRisk: Double {
+        widthRisk + hazardRisk + overshootRisk
+    }
 }
 
 private enum AdvancementHazardRole {
