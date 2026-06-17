@@ -114,12 +114,20 @@ public struct Hazard: Equatable, Sendable, Identifiable {
     public let kind: HazardKind
     public let position: String
     public let note: String
+    public let coordinate: GeoCoordinate?
 
-    public init(id: String, kind: HazardKind, position: String, note: String) {
+    public init(
+        id: String,
+        kind: HazardKind,
+        position: String,
+        note: String,
+        coordinate: GeoCoordinate? = nil
+    ) {
         self.id = id
         self.kind = kind
         self.position = position
         self.note = note
+        self.coordinate = coordinate
     }
 }
 
@@ -200,7 +208,7 @@ public enum HoleDetector {
 
         let teeDistanceM = tee.distance(to: fix)
         let greenDistanceM = green.distance(to: fix)
-        let projection = project(fix, ontoSegmentFrom: tee, to: green)
+        let projection = GeoSegmentMath.project(fix, ontoSegmentFrom: tee, to: green)
         let minimumRelevantDistanceM = min(teeDistanceM, greenDistanceM, projection.corridorDistanceM)
 
         let score: Double
@@ -222,7 +230,68 @@ public enum HoleDetector {
         )
     }
 
-    private static func project(
+}
+
+public enum HoleLieInference {
+    private static let teeCaptureRadiusM = 22.0
+    private static let greenCaptureRadiusM = 18.0
+    private static let bunkerCaptureRadiusM = 18.0
+    private static let minimumFairwayCaptureRadiusM = 18.0
+
+    public static func inferLie(
+        fix: GeoCoordinate,
+        on hole: CourseHole
+    ) -> ShotLie? {
+        if let tee = hole.defaultTeeCoordinate,
+           tee.distance(to: fix) <= teeCaptureRadiusM {
+            return .tee
+        }
+
+        if let green = hole.green.centerCoordinate,
+           green.distance(to: fix) <= greenCaptureRadiusM {
+            return .green
+        }
+
+        let nearestBunkerDistance = hole.hazards
+            .filter { $0.kind == .bunker }
+            .compactMap(\.coordinate)
+            .map { $0.distance(to: fix) }
+            .min()
+        if let nearestBunkerDistance,
+           nearestBunkerDistance <= bunkerCaptureRadiusM {
+            return .bunker
+        }
+
+        guard let tee = hole.defaultTeeCoordinate,
+              let green = hole.green.centerCoordinate else {
+            return nil
+        }
+
+        let fairwayCaptureRadiusM = max(
+            minimumFairwayCaptureRadiusM,
+            (hole.fairway?.landingWidthM ?? 36) / 2
+        )
+        let projection = GeoSegmentMath.project(fix, ontoSegmentFrom: tee, to: green)
+        return projection.corridorDistanceM <= fairwayCaptureRadiusM ? .fairway : .rough
+    }
+}
+
+private struct HoleDetectionCandidate {
+    let holeNumber: Int
+    let score: Double
+    let teeDistanceM: Double
+    let greenDistanceM: Double
+    let corridorDistanceM: Double
+    let minimumRelevantDistanceM: Double
+}
+
+private struct SegmentProjection {
+    let corridorDistanceM: Double
+    let overshootDistanceM: Double
+}
+
+private enum GeoSegmentMath {
+    static func project(
         _ fix: GeoCoordinate,
         ontoSegmentFrom tee: GeoCoordinate,
         to green: GeoCoordinate
@@ -276,18 +345,4 @@ public enum HoleDetector {
             y: (coordinate.latitude - origin.latitude) * metersPerDegreeLatitude
         )
     }
-}
-
-private struct HoleDetectionCandidate {
-    let holeNumber: Int
-    let score: Double
-    let teeDistanceM: Double
-    let greenDistanceM: Double
-    let corridorDistanceM: Double
-    let minimumRelevantDistanceM: Double
-}
-
-private struct SegmentProjection {
-    let corridorDistanceM: Double
-    let overshootDistanceM: Double
 }

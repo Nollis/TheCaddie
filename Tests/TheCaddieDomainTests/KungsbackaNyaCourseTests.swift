@@ -33,7 +33,11 @@ import TheCaddieDomain
             id: "h8-bunker-right-115",
             kind: .bunker,
             position: "right 115m",
-            note: "Right bunker is the miss to avoid."
+            note: "Right bunker is the miss to avoid.",
+            coordinate: GeoCoordinate(
+                latitude: 57.490577362,
+                longitude: 11.993050247
+            )
         )
     ])
 }
@@ -107,6 +111,54 @@ import TheCaddieDomain
         current: 1,
         consecutiveMisses: 5
     ) == 2)
+}
+
+@Test func holeLieInferenceRecognizesMappedTeeGreenAndBunkerLies() throws {
+    let hole1 = try #require(KungsbackaNyaCourse.course.hole(number: 1))
+
+    #expect(HoleLieInference.inferLie(
+        fix: GeoCoordinate(
+            latitude: 57.49302015313067,
+            longitude: 11.986226141452791
+        ),
+        on: hole1
+    ) == .tee)
+
+    #expect(HoleLieInference.inferLie(
+        fix: GeoCoordinate(
+            latitude: 57.491023724,
+            longitude: 11.992440149
+        ),
+        on: hole1
+    ) == .green)
+
+    #expect(HoleLieInference.inferLie(
+        fix: GeoCoordinate(
+            latitude: 57.492519014,
+            longitude: 11.99041754
+        ),
+        on: hole1
+    ) == .bunker)
+}
+
+@Test func holeLieInferenceUsesFairwayCorridorAndFallsBackToRough() throws {
+    let hole1 = try #require(KungsbackaNyaCourse.course.hole(number: 1))
+
+    #expect(HoleLieInference.inferLie(
+        fix: GeoCoordinate(
+            latitude: 57.492021938565336,
+            longitude: 11.989333145226395
+        ),
+        on: hole1
+    ) == .fairway)
+
+    #expect(HoleLieInference.inferLie(
+        fix: GeoCoordinate(
+            latitude: 57.492021938565336,
+            longitude: 11.990333145226394
+        ),
+        on: hole1
+    ) == .rough)
 }
 
 @Test func kungsbackaOpeningRoundBuildsARecommendationFromRealCourse() {

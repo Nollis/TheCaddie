@@ -436,18 +436,23 @@ final class CaddieViewModel: ObservableObject {
         }
 
         liveDistanceM = distanceM
-        liveLocationStatus = autoDetectedHoleNumber == selectedHoleNumber
-            ? "Live distance synced"
-            : "Live distance synced on Hole \(selectedHoleNumber)"
-
         let currentShot = resolvedShotContext()
+        let inferredLie = HoleLieInference.inferLie(
+            fix: fix.coordinate,
+            on: activeHole
+        )
         let updatedShot = ShotContext(
             shotNumber: currentShot.shotNumber,
             remainingDistanceM: .known(distanceM),
-            lie: currentShot.lie,
+            lie: inferredLie.map(ShotLieState.known) ?? currentShot.lie,
             wind: currentShot.wind
         )
         roundState = roundState.updateShotContext(updatedShot)
+
+        let lieStatus = updatedShot.lie.value.map { " • \($0.rawValue.capitalized)" } ?? ""
+        liveLocationStatus = autoDetectedHoleNumber == selectedHoleNumber
+            ? "Live distance synced\(lieStatus)"
+            : "Live distance synced on Hole \(selectedHoleNumber)\(lieStatus)"
     }
 
     private func updateDetectedHole(from coordinate: GeoCoordinate) {
