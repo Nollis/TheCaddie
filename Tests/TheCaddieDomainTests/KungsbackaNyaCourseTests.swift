@@ -42,6 +42,10 @@ import TheCaddieDomain
     let hole1 = try #require(KungsbackaNyaCourse.course.hole(number: 1))
     let hole8 = try #require(KungsbackaNyaCourse.course.hole(number: 8))
 
+    #expect(hole1.defaultTeeCoordinate == GeoCoordinate(
+        latitude: 57.49302015313067,
+        longitude: 11.986226141452791
+    ))
     #expect(hole1.green.centerCoordinate == GeoCoordinate(
         latitude: 57.491023724,
         longitude: 11.992440149
@@ -61,6 +65,48 @@ import TheCaddieDomain
 
     let distance = try #require(hole1.green.distanceToCenter(from: whiteTee))
     #expect(abs(distance - 432.6) < 1.0)
+}
+
+@Test func holeDetectorFindsHoleAtKnownTees() {
+    let holeOneTee = GeoCoordinate(
+        latitude: 57.49302015313067,
+        longitude: 11.986226141452791
+    )
+    let holeEightTee = GeoCoordinate(
+        latitude: 57.48966856061047,
+        longitude: 11.994125031611265
+    )
+
+    #expect(HoleDetector.activeHole(
+        fix: holeOneTee,
+        course: KungsbackaNyaCourse.course,
+        current: nil
+    ) == 1)
+    #expect(HoleDetector.activeHole(
+        fix: holeEightTee,
+        course: KungsbackaNyaCourse.course,
+        current: nil
+    ) == 8)
+}
+
+@Test func holeDetectorUsesHysteresisBeforeSwitchingHoles() {
+    let holeTwoTee = GeoCoordinate(
+        latitude: 57.489451730135336,
+        longitude: 11.995965242385864
+    )
+
+    #expect(HoleDetector.activeHole(
+        fix: holeTwoTee,
+        course: KungsbackaNyaCourse.course,
+        current: 1,
+        consecutiveMisses: 4
+    ) == 1)
+    #expect(HoleDetector.activeHole(
+        fix: holeTwoTee,
+        course: KungsbackaNyaCourse.course,
+        current: 1,
+        consecutiveMisses: 5
+    ) == 2)
 }
 
 @Test func kungsbackaOpeningRoundBuildsARecommendationFromRealCourse() {

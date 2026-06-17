@@ -13,9 +13,11 @@ final class CaddieViewModel: ObservableObject {
     @Published private(set) var liveAccuracyM: Double?
     @Published private(set) var liveLocationStatus = "GPS off"
     @Published private(set) var liveLocationError: String?
+    @Published private(set) var autoDetectedHoleNumber: Int?
 
     private let locationManager: LiveRoundLocationManager
     private var cancellables = Set<AnyCancellable>()
+    private var consecutiveHoleMisses = 0
 
     init(
         course: Course?,
@@ -98,6 +100,8 @@ final class CaddieViewModel: ObservableObject {
         course = KungsbackaNyaCourse.course
         player = SampleRound.player
         roundState = KungsbackaNyaCourse.openingRoundState
+        autoDetectedHoleNumber = roundState.selectedHoleNumber
+        consecutiveHoleMisses = 0
         syncLiveDistanceIfNeeded()
     }
 
@@ -141,6 +145,8 @@ final class CaddieViewModel: ObservableObject {
         }
 
         roundState = roundState.selectHole(holeNumber)
+        autoDetectedHoleNumber = holeNumber
+        consecutiveHoleMisses = 0
         syncLiveDistanceIfNeeded()
     }
 
@@ -264,6 +270,8 @@ final class CaddieViewModel: ObservableObject {
                 )
             ]
         )
+        autoDetectedHoleNumber = startingHole
+        consecutiveHoleMisses = 0
         syncLiveDistanceIfNeeded()
     }
     
@@ -275,6 +283,8 @@ final class CaddieViewModel: ObservableObject {
         liveAccuracyM = nil
         liveLocationError = nil
         liveLocationStatus = "GPS off"
+        autoDetectedHoleNumber = nil
+        consecutiveHoleMisses = 0
     }
 
     func updatePlayerHandicap(_ handicap: Double) {
@@ -413,13 +423,22 @@ final class CaddieViewModel: ObservableObject {
             return
         }
 
-        guard let distanceM = hole.green.distanceToCenter(from: fix.coordinate) else {
+        updateDetectedHole(from: fix.coordinate)
+
+        guard let activeHole = course?.hole(number: selectedHoleNumber) else {
+            liveLocationStatus = "No active hole selected"
+            return
+        }
+
+        guard let distanceM = activeHole.green.distanceToCenter(from: fix.coordinate) else {
             liveLocationStatus = "This hole is not mapped for live GPS yet."
             return
         }
 
         liveDistanceM = distanceM
-        liveLocationStatus = "Live distance synced"
+        liveLocationStatus = autoDetectedHoleNumber == selectedHoleNumber
+            ? "Live distance synced"
+            : "Live distance synced on Hole \(selectedHoleNumber)"
 
         let currentShot = resolvedShotContext()
         let updatedShot = ShotContext(
@@ -429,6 +448,50 @@ final class CaddieViewModel: ObservableObject {
             wind: currentShot.wind
         )
         roundState = roundState.updateShotContext(updatedShot)
+    }
+
+    private func updateDetectedHole(from coordinate: GeoCoordinate) {
+        guard let course else {
+            autoDetectedHoleNumber = nil
+            consecutiveHoleMisses = 0
+            return
+        }
+
+        if let currentHole = course.hole(number: selectedHoleNumber),
+           HoleDetector.fixIsBeyondSwitchRadius(fix: coordinate, hole: currentHole) {
+            consecutiveHoleMisses += 1
+        } else {
+            consecutiveHoleMisses = 0
+        }
+
+        let detectedHole = HoleDetector.activeHole(
+            fix: coordinate,
+            course: course,
+            current: selectedHoleNumber,
+            consecutiveMisses: consecutiveHoleMisses
+        )
+        autoDetectedHoleNumber = detectedHole ?? selectedHoleNumber
+
+        guard let detectedHole,
+              detectedHole != selectedHoleNumber else {
+            return
+        }
+
+        roundState = roundState.selectHole(detectedHole)
+        consecutiveHoleMisses = 0
+    }
+
+    func injectLocationFixForTesting(
+        latitude: Double,
+        longitude: Double,
+        horizontalAccuracyM: Double = 5
+    ) {
+        let fix = LiveRoundLocationManager.LocationFix(
+            coordinate: GeoCoordinate(latitude: latitude, longitude: longitude),
+            horizontalAccuracyM: horizontalAccuracyM,
+            timestamp: Date()
+        )
+        applyLiveDistance(from: fix)
     }
 }
 

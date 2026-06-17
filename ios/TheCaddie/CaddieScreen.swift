@@ -70,7 +70,7 @@ struct CaddieScreen: View {
                         .font(.system(.headline, design: .rounded).weight(.bold))
                         .foregroundStyle(.black)
 
-                    Text(viewModel.liveLocationStatus)
+                    Text(liveDistanceStatusText)
                         .font(.system(.subheadline, design: .rounded).weight(.medium))
                         .foregroundStyle(.secondary)
                 }
@@ -643,6 +643,15 @@ struct CaddieScreen: View {
             return Color(red: 0.76, green: 0.48, blue: 0.11)
         }
         return .gray
+    }
+
+    private var liveDistanceStatusText: String {
+        if let autoDetectedHoleNumber = viewModel.autoDetectedHoleNumber,
+           viewModel.isUsingLiveDistance {
+            return "Hole \(autoDetectedHoleNumber) auto-detected • \(viewModel.liveLocationStatus)"
+        }
+
+        return viewModel.liveLocationStatus
     }
 
     private func logAction(_ action: String) {
