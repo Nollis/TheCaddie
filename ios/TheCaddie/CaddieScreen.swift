@@ -61,50 +61,59 @@ struct CaddieScreen: View {
     }
 
     private func liveDistancePanel() -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
                 Circle()
                     .fill(liveDistanceStatusColor)
-                    .frame(width: 10, height: 10)
+                    .frame(width: 8, height: 8)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Live GPS")
-                        .font(.system(.headline, design: .rounded).weight(.bold))
-                        .foregroundStyle(.black)
+                Text("GPS")
+                    .font(.system(.subheadline, design: .rounded).weight(.bold))
+                    .foregroundStyle(.black)
 
-                    Text(liveDistanceStatusText)
-                        .font(.system(.subheadline, design: .rounded).weight(.medium))
-                        .foregroundStyle(.secondary)
-                }
+                Text(liveDistanceStatusText)
+                    .font(.system(.caption, design: .rounded).weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
 
-                Spacer()
+                Spacer(minLength: 8)
 
                 if let liveDistanceLabel = viewModel.liveDistanceLabel {
                     Text(liveDistanceLabel)
-                        .font(.system(.headline, design: .rounded).weight(.bold))
+                        .font(.system(.subheadline, design: .rounded).weight(.bold))
                         .foregroundStyle(Color(red: 0.05, green: 0.38, blue: 0.19))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.white.opacity(0.82), in: Capsule())
                 }
             }
 
-            if let liveAccuracyLabel = viewModel.liveAccuracyLabel {
-                Text(liveAccuracyLabel)
-                    .font(.system(.caption, design: .rounded).weight(.medium))
-                    .foregroundStyle(.secondary)
-            }
-
-            if let liveProgressLabel = viewModel.liveProgressLabel {
-                Text(liveProgressLabel + (viewModel.liveCenterlineOffsetLabel.map { " • \($0)" } ?? ""))
-                    .font(.system(.caption, design: .rounded).weight(.medium))
-                    .foregroundStyle(.secondary)
+            if viewModel.liveAccuracyLabel != nil
+                || viewModel.liveProgressLabel != nil
+                || viewModel.liveCenterlineOffsetLabel != nil {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        if let liveAccuracyLabel = viewModel.liveAccuracyLabel {
+                            compactInfoPill(liveAccuracyLabel)
+                        }
+                        if let liveProgressLabel = viewModel.liveProgressLabel {
+                            compactInfoPill(liveProgressLabel)
+                        }
+                        if let liveCenterlineOffsetLabel = viewModel.liveCenterlineOffsetLabel {
+                            compactInfoPill(liveCenterlineOffsetLabel)
+                        }
+                    }
+                }
             }
 
             if let liveLocationError = viewModel.liveLocationError {
                 Text(liveLocationError)
-                    .font(.system(.caption, design: .rounded).weight(.medium))
+                    .font(.system(.caption2, design: .rounded).weight(.medium))
                     .foregroundStyle(Color(red: 0.70, green: 0.16, blue: 0.12))
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Button {
                     if viewModel.isUsingLiveDistance {
                         viewModel.stopLiveDistance()
@@ -115,39 +124,56 @@ struct CaddieScreen: View {
                     }
                 } label: {
                     Label(
-                        viewModel.isUsingLiveDistance ? "Pause GPS" : "Use GPS",
+                        viewModel.isUsingLiveDistance ? "Pause" : "Use GPS",
                         systemImage: viewModel.isUsingLiveDistance ? "location.slash" : "location"
                     )
-                    .font(.system(.subheadline, design: .rounded).weight(.bold))
-                    .frame(maxWidth: .infinity)
+                    .font(.system(.caption, design: .rounded).weight(.bold))
                 }
-                .buttonStyle(CaddiePillButtonStyle())
+                .buttonStyle(CaddieCompactButtonStyle())
 
                 Button {
                     viewModel.refreshLiveDistance()
                     logAction("Requested GPS refresh.")
                 } label: {
                     Label("Refresh", systemImage: "location.fill")
-                        .font(.system(.subheadline, design: .rounded).weight(.bold))
-                        .frame(maxWidth: .infinity)
+                        .font(.system(.caption, design: .rounded).weight(.bold))
                 }
-                .buttonStyle(CaddiePillButtonStyle())
+                .buttonStyle(CaddieCompactButtonStyle())
                 .disabled(!viewModel.canUseLiveDistance && !viewModel.isUsingLiveDistance)
                 .opacity((!viewModel.canUseLiveDistance && !viewModel.isUsingLiveDistance) ? 0.45 : 1)
-            }
 
-            Text(viewModel.canUseLiveDistance
-                ? "GPS updates distance to the green and infers tee, fairway, rough, bunker, or green from mapped course surfaces."
-                : "This selected course does not have live GPS mapping yet.")
-                .font(.system(.caption, design: .rounded).weight(.medium))
-                .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+
+                if !viewModel.canUseLiveDistance {
+                    Text("Not mapped")
+                        .font(.system(.caption2, design: .rounded).weight(.bold))
+                        .foregroundStyle(.secondary)
+                } else if !viewModel.isUsingLiveDistance {
+                    Text("Optional")
+                        .font(.system(.caption2, design: .rounded).weight(.bold))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(Color.black.opacity(0.05), in: Capsule())
+                }
+            }
         }
-        .padding(18)
-        .background(.white.opacity(0.78), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(.white.opacity(0.72), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(.white.opacity(0.9), lineWidth: 1)
         )
+    }
+
+    private func compactInfoPill(_ text: String) -> some View {
+        Text(text)
+            .font(.system(.caption2, design: .rounded).weight(.bold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(Color.black.opacity(0.05), in: Capsule())
     }
 
     private func header(_ viewState: CaddieViewState) -> some View {
@@ -909,6 +935,17 @@ private struct CaddiePillButtonStyle: ButtonStyle {
             .foregroundStyle(Color(red: 0.05, green: 0.38, blue: 0.19))
             .padding(.vertical, 14)
             .background(.white.opacity(configuration.isPressed ? 0.65 : 0.86), in: Capsule())
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+    }
+}
+
+private struct CaddieCompactButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(Color(red: 0.05, green: 0.38, blue: 0.19))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(.white.opacity(configuration.isPressed ? 0.62 : 0.86), in: Capsule())
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
     }
 }
