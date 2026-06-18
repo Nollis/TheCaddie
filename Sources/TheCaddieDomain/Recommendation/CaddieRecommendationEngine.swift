@@ -920,7 +920,7 @@ public enum CaddieRecommendationEngine {
         case .safe:
             return "center of the green"
         case .normal:
-            if hazards.contains(where: { $0.kind == .water && hazardSide(for: $0) == "left" }) {
+            if hazards.contains(where: { $0.kind == .water && hazardSide(for: $0).contains("left") }) {
                 return "middle-right of the green"
             }
             return "middle of the green"
@@ -942,10 +942,10 @@ public enum CaddieRecommendationEngine {
         case .safe:
             return "safe fairway window"
         case .normal:
-            if hazards.contains(where: { $0.kind == .water && hazardSide(for: $0) == "right" }) {
+            if hazards.contains(where: { $0.kind == .water && hazardSide(for: $0).contains("right") }) {
                 return "left-center fairway"
             }
-            if hazards.contains(where: { $0.kind == .water && hazardSide(for: $0) == "left" }) {
+            if hazards.contains(where: { $0.kind == .water && hazardSide(for: $0).contains("left") }) {
                 return "right-center fairway"
             }
             return "stock fairway corridor"
@@ -964,7 +964,7 @@ public enum CaddieRecommendationEngine {
         }
 
         if let water = hazards.first(where: { $0.kind == .water }) {
-            return "Avoid \(hazardReference(for: water)); that is the expensive miss."
+            return "Avoid \(conciseHazardReference(for: water)); that is the expensive miss."
         }
 
         if let bunker = hazards.first(where: { hazard in
@@ -979,8 +979,8 @@ public enum CaddieRecommendationEngine {
             return distanceM >= projectedLandingM - 15
         }) {
             return strategy == .aggressive
-                ? "The \(hazardReference(for: bunker)) is the main miss to manage."
-                : "Favor away from \(hazardReference(for: bunker))."
+                ? "The \(conciseHazardReference(for: bunker)) is the main miss to manage."
+                : "Favor away from \(conciseHazardReference(for: bunker))."
         }
 
         return hazards.first(where: { $0.kind != .bunker })?.note
@@ -1316,6 +1316,10 @@ public enum CaddieRecommendationEngine {
         }
 
         return "\(hazard.position) \(hazard.kind.rawValue)"
+    }
+
+    private static func conciseHazardReference(for hazard: Hazard) -> String {
+        "\(hazardSide(for: hazard)) \(hazard.kind.rawValue)"
     }
 
     private static func hazardSide(for hazard: Hazard) -> String {

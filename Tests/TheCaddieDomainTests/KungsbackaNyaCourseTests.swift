@@ -1,6 +1,21 @@
 import Testing
 import TheCaddieDomain
 
+private func coordinatesMatch(
+    _ lhs: [GeoCoordinate],
+    _ rhs: [GeoCoordinate],
+    tolerance: Double = 0.000_000_001
+) -> Bool {
+    guard lhs.count == rhs.count else {
+        return false
+    }
+
+    return zip(lhs, rhs).allSatisfy { left, right in
+        abs(left.latitude - right.latitude) <= tolerance
+            && abs(left.longitude - right.longitude) <= tolerance
+    }
+}
+
 @Test func kungsbackaNyaCourseIncludesNineRealHoles() throws {
     let course = KungsbackaNyaCourse.course
 
@@ -68,11 +83,14 @@ import TheCaddieDomain
         latitude: 57.490652474,
         longitude: 11.992686825
     ))
-    #expect(hole1.centerlineCoordinates == [
-        GeoCoordinate(latitude: 57.49305979230822, longitude: 11.986443400382997),
-        GeoCoordinate(latitude: 57.49239817276384, longitude: 11.990268230438234),
-        GeoCoordinate(latitude: 57.49093435096836, longitude: 11.992568224668505)
-    ])
+    #expect(coordinatesMatch(
+        hole1.centerlineCoordinates,
+        [
+            GeoCoordinate(latitude: 57.49305979230822, longitude: 11.986443400382997),
+            GeoCoordinate(latitude: 57.49239817276384, longitude: 11.990268230438234),
+            GeoCoordinate(latitude: 57.49093435096836, longitude: 11.992568224668505)
+        ]
+    ))
 }
 
 @Test func kungsbackaHoleOneGreenCoordinateReturnsExpectedGpsDistance() throws {

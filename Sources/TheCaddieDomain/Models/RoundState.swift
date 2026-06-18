@@ -204,14 +204,14 @@ private func nextRemainingDistance(
             currentProgressM: resolvedCurrentProgressM,
             projectedProgressM: projectedProgressM
         ) {
-            return max(0, hole.teeLengthM - bunkerDistanceM)
+            return max(0, (hole.teeLengthM - bunkerDistanceM).rounded())
         }
     }
 
     return max(
         0,
         currentRemainingDistanceM - (baselineAdvanceM * progressionMultiplier(for: resultingLie))
-    )
+    ).rounded()
 }
 
 private func nearestForwardHazardDistance(
