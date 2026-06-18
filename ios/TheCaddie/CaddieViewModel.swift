@@ -23,12 +23,12 @@ final class CaddieViewModel: ObservableObject {
         course: Course?,
         player: PlayerContext,
         roundState: RoundState,
-        locationManager: LiveRoundLocationManager = LiveRoundLocationManager()
+        locationManager: LiveRoundLocationManager? = nil
     ) {
         self.course = course
         self.player = player
         self.roundState = roundState
-        self.locationManager = locationManager
+        self.locationManager = locationManager ?? LiveRoundLocationManager()
         bindLocationManager()
     }
 
@@ -418,7 +418,7 @@ final class CaddieViewModel: ObservableObject {
             return
         }
 
-        guard let hole = course?.hole(number: selectedHoleNumber) else {
+        guard course?.hole(number: selectedHoleNumber) != nil else {
             liveLocationStatus = "No active hole selected"
             return
         }

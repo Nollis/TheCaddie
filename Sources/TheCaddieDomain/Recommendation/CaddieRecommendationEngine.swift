@@ -107,12 +107,13 @@ public enum CaddieRecommendationEngine {
             )
         }
 
+        let currentProgressM = currentProgressM(
+            holeLengthM: hole.teeLengthM,
+            remainingDistanceM: remainingDistance
+        )
         let approachHazards = relevantHazards(
             for: hole.hazards,
-            fromTeeProgressM: currentProgressM(
-                holeLengthM: hole.teeLengthM,
-                remainingDistanceM: remainingDistance
-            )
+            fromTeeProgressM: currentProgressM
         )
         let intent = shotIntent(
             lie: lie,
@@ -164,7 +165,12 @@ public enum CaddieRecommendationEngine {
             for: player.strategyPreference,
             hazards: approachHazards
         )
-        let riskNote = riskNote(for: approachHazards, strategy: player.strategyPreference)
+        let projectedLandingM = currentProgressM + club.carryDistanceM
+        let riskNote = riskNote(
+            for: approachHazards,
+            strategy: player.strategyPreference,
+            projectedLandingM: projectedLandingM
+        )
         let windPhrase = windPhrase(for: shot.wind)
         let primaryReason = "\(club.name) covers the \(formatMeters(distanceBasis))m playing number\(windPhrase)."
         let debugInfo = approachDebugInfo(
@@ -266,6 +272,7 @@ public enum CaddieRecommendationEngine {
             leaveDistanceM: leaveDistance
         )
         let primaryReason = "\(club.name) advances the ball about \(formatMeters(club.carryDistanceM))m and leaves roughly \(formatMeters(leaveDistance))m in."
+        let projectedLandingM = progressM + club.carryDistanceM
 
         let riskNote: String?
         if lie == .tee,
@@ -274,7 +281,11 @@ public enum CaddieRecommendationEngine {
            club.carryDistanceM < longest.carryDistanceM {
             riskNote = "\(longest.name) brings the trouble into range here — \(club.name) keeps the tee shot in play."
         } else {
-            riskNote = advancementRiskNote(for: landingHazards, strategy: player.strategyPreference)
+            riskNote = advancementRiskNote(
+                for: landingHazards,
+                strategy: player.strategyPreference,
+                projectedLandingM: projectedLandingM
+            )
         }
 
         let debugInfo = if lie == .tee, let fairway = hole.fairway {
@@ -555,7 +566,8 @@ public enum CaddieRecommendationEngine {
 
         let overshootRisk: Double
         if let endM = fairway.drivingZoneEndM, landingM > endM {
-            overshootRisk = (landingM - endM) / 50
+            let graceM = 5.0
+            overshootRisk = max(0, (landingM - endM - graceM) / 50)
         } else {
             overshootRisk = 0
         }
@@ -845,7 +857,8 @@ public enum CaddieRecommendationEngine {
 
     private static func riskNote(
         for hazards: [Hazard],
-        strategy: StrategyPreference
+        strategy: StrategyPreference,
+        projectedLandingM: Double
     ) -> String? {
         guard !hazards.isEmpty else {
             return nil
@@ -855,32 +868,64 @@ public enum CaddieRecommendationEngine {
             return "Avoid \(hazardReference(for: water)); that is the expensive miss."
         }
 
-        if let bunker = hazards.first(where: { $0.kind == .bunker }) {
+        if let bunker = hazards.first(where: { hazard in
+            guard hazard.kind == .bunker else {
+                return false
+            }
+
+            guard let distanceM = hazardDistance(for: hazard) else {
+                return true
+            }
+
+            return distanceM >= projectedLandingM - 15
+        }) {
             return strategy == .aggressive
                 ? "The \(hazardReference(for: bunker)) is the main miss to manage."
                 : "Favor away from \(hazardReference(for: bunker))."
         }
 
-        return hazards.first?.note
+        return hazards.first(where: { $0.kind != .bunker })?.note
     }
 
     private static func advancementRiskNote(
         for hazards: [Hazard],
-        strategy: StrategyPreference
+        strategy: StrategyPreference,
+        projectedLandingM: Double
     ) -> String? {
-        let water = nearestHazard(of: .water, in: hazards)
-        let bunker = nearestHazard(of: .bunker, in: hazards)
+        let water = nearestHazard(of: .water, in: hazards, projectedLandingM: projectedLandingM)
+        let landingZoneBunker = hazards
+            .filter { $0.kind == .bunker }
+            .filter { hazard in
+                guard let distanceM = hazardDistance(for: hazard) else {
+                    return true
+                }
+                return abs(distanceM - projectedLandingM) <= 25
+            }
+            .min { lhs, rhs in
+                let lhsDistance = abs((hazardDistance(for: lhs) ?? projectedLandingM) - projectedLandingM)
+                let rhsDistance = abs((hazardDistance(for: rhs) ?? projectedLandingM) - projectedLandingM)
+                return lhsDistance < rhsDistance
+            }
+        let longMissBunker = nearestHazard(
+            of: .bunker,
+            in: hazards,
+            projectedLandingM: projectedLandingM
+        )
 
-        switch (water, bunker) {
-        case let (water?, bunker?):
+        if let water, let bunker = longMissBunker {
             return "\(advancementHazardNote(for: water, role: .landingZone)) and \(advancementHazardNote(for: bunker, role: .longMiss))."
-        case let (water?, nil):
-            return "\(advancementHazardNote(for: water, role: .landingZone))."
-        case let (nil, bunker?):
-            return "\(advancementHazardNote(for: bunker, role: .landingZone))."
-        case (nil, nil):
-            return hazards.first?.note
         }
+        if let water {
+            return "\(advancementHazardNote(for: water, role: .landingZone))."
+        }
+        if let bunker = landingZoneBunker {
+            return "\(advancementHazardNote(for: bunker, role: .landingZone))."
+        }
+        if let bunker = longMissBunker {
+            return "\(advancementHazardNote(for: bunker, role: .longMiss))."
+        }
+
+        return hazards.first(where: { $0.kind != .bunker })?.note
     }
 
     private static func confidence(
@@ -897,6 +942,11 @@ public enum CaddieRecommendationEngine {
         if expectedDispersion(for: club, player: player, lie: lie) >= 35
             && hazards.contains(where: { $0.kind == .water || $0.kind == .outOfBounds }) {
             return .low
+        }
+        if hazards.contains(where: { $0.kind == .water || $0.kind == .outOfBounds }) {
+            if delta <= 6 {
+                return .medium
+            }
         }
         if delta <= 6 {
             return .high
@@ -1110,9 +1160,28 @@ public enum CaddieRecommendationEngine {
 
     private static func nearestHazard(
         of kind: HazardKind,
-        in hazards: [Hazard]
+        in hazards: [Hazard],
+        projectedLandingM: Double
     ) -> Hazard? {
-        hazards.first { $0.kind == kind }
+        hazards
+            .filter { hazard in
+                guard hazard.kind == kind else {
+                    return false
+                }
+
+                if kind == .bunker,
+                   let distanceM = hazardDistance(for: hazard),
+                   distanceM < projectedLandingM + 25 {
+                    return false
+                }
+
+                return true
+            }
+            .min { lhs, rhs in
+                let lhsDistance = abs((hazardDistance(for: lhs) ?? projectedLandingM) - projectedLandingM)
+                let rhsDistance = abs((hazardDistance(for: rhs) ?? projectedLandingM) - projectedLandingM)
+                return lhsDistance < rhsDistance
+            }
     }
 
     private static func advancementHazardNote(
