@@ -109,7 +109,8 @@ public enum CaddieRecommendationEngine {
 
         let currentProgressM = currentProgressM(
             holeLengthM: hole.teeLengthM,
-            remainingDistanceM: remainingDistance
+            remainingDistanceM: remainingDistance,
+            explicitProgressM: shot.progressM
         )
         let approachHazards = relevantHazards(
             for: hole.hazards,
@@ -178,7 +179,10 @@ public enum CaddieRecommendationEngine {
             selectedClub: club,
             distanceBasisM: distanceBasis,
             player: player,
-            lie: lie
+            lie: lie,
+            hazards: hole.hazards,
+            currentProgressM: currentProgressM,
+            projectedLandingM: projectedLandingM
         )
 
         return CaddieRecommendationPacket(
@@ -224,7 +228,8 @@ public enum CaddieRecommendationEngine {
     ) -> CaddieRecommendationPacket {
         let progressM = currentProgressM(
             holeLengthM: hole.teeLengthM,
-            remainingDistanceM: remainingDistanceM
+            remainingDistanceM: remainingDistanceM,
+            explicitProgressM: shot.progressM
         )
         let teeClubs = playableClubs(from: player.clubs, lie: lie)
 
@@ -304,7 +309,10 @@ public enum CaddieRecommendationEngine {
                 selectedClub: club,
                 player: player,
                 remainingDistanceM: remainingDistanceM,
-                lie: lie
+                lie: lie,
+                hazards: hole.hazards,
+                currentProgressM: progressM,
+                projectedLandingM: projectedLandingM
             )
         }
 
@@ -366,6 +374,11 @@ public enum CaddieRecommendationEngine {
         lie: ShotLie
     ) -> CaddieRecommendationPacket {
         let playableClubs = playableClubs(from: player.clubs, lie: lie)
+        let currentProgressM = currentProgressM(
+            holeLengthM: hole.teeLengthM,
+            remainingDistanceM: remainingDistanceM,
+            explicitProgressM: shot.progressM
+        )
         guard let club = recoveryClub(
             from: playableClubs,
             remainingDistanceM: remainingDistanceM
@@ -386,7 +399,10 @@ public enum CaddieRecommendationEngine {
             selectedClub: club,
             remainingDistanceM: remainingDistanceM,
             player: player,
-            lie: lie
+            lie: lie,
+            hazards: hole.hazards,
+            currentProgressM: currentProgressM,
+            projectedLandingM: currentProgressM + min(club.carryDistanceM, remainingDistanceM)
         )
 
         return CaddieRecommendationPacket(
@@ -535,7 +551,8 @@ public enum CaddieRecommendationEngine {
 
     private static func teeHazardRisk(
         hazards: [Hazard],
-        landingM: Double
+        landingM: Double,
+        lateralSpreadM: Double
     ) -> Double {
         let windowM = 35.0
         return hazards.reduce(0) { sum, hazard in
@@ -546,8 +563,15 @@ public enum CaddieRecommendationEngine {
             guard alongM <= windowM else {
                 return sum
             }
+            guard let lateralRelevance = lateralRelevance(
+                for: hazard,
+                corridorHalfWidthM: max(12, lateralSpreadM / 2),
+                softBufferM: 16
+            ) else {
+                return sum
+            }
             let proximity = 1 - alongM / windowM
-            return sum + severityWeight(for: hazard.kind) * proximity
+            return sum + severityWeight(for: hazard.kind) * proximity * lateralRelevance
         }
     }
 
@@ -562,7 +586,11 @@ public enum CaddieRecommendationEngine {
         let lateralSpread = expectedDispersion(for: club, player: player, lie: .tee)
         let halfWidth = max(1, fairway.landingWidthM / 2)
         let widthRisk = max(0, (lateralSpread - halfWidth) / halfWidth)
-        let hazardRisk = teeHazardRisk(hazards: hazards, landingM: landingM)
+        let hazardRisk = teeHazardRisk(
+            hazards: hazards,
+            landingM: landingM,
+            lateralSpreadM: lateralSpread
+        )
 
         let overshootRisk: Double
         if let endM = fairway.drivingZoneEndM, landingM > endM {
@@ -623,7 +651,10 @@ public enum CaddieRecommendationEngine {
         selectedClub: PlayerClub,
         distanceBasisM: Double,
         player: PlayerContext,
-        lie: ShotLie
+        lie: ShotLie,
+        hazards: [Hazard],
+        currentProgressM: Double,
+        projectedLandingM: Double
     ) -> RecommendationDebugInfo {
         let evaluations = clubs.map { club in
             let gap = club.carryDistanceM - distanceBasisM
@@ -647,7 +678,19 @@ public enum CaddieRecommendationEngine {
         return RecommendationDebugInfo(
             mode: .approach,
             summary: "Approach selection chose the closest covering club inside the normal strategy window.",
-            clubEvaluations: evaluations
+            clubEvaluations: evaluations,
+            hazardEvaluations: hazardEvaluations(
+                hazards: hazards,
+                currentProgressM: currentProgressM,
+                projectedLandingM: projectedLandingM,
+                corridorHalfWidthM: 22,
+                softBufferM: 12,
+                alongWindow: { progressM in
+                    progressM >= currentProgressM + 25
+                },
+                missingProgressIsRelevant: currentProgressM <= 25 || projectedLandingM >= currentProgressM + 80,
+                mode: .approach
+            )
         )
     }
 
@@ -656,7 +699,10 @@ public enum CaddieRecommendationEngine {
         selectedClub: PlayerClub,
         player: PlayerContext,
         remainingDistanceM: Double,
-        lie: ShotLie
+        lie: ShotLie,
+        hazards: [Hazard],
+        currentProgressM: Double,
+        projectedLandingM: Double
     ) -> RecommendationDebugInfo {
         let evaluations = clubs.map { club in
             let leaveDistance = max(0, remainingDistanceM - club.carryDistanceM)
@@ -677,7 +723,20 @@ public enum CaddieRecommendationEngine {
         return RecommendationDebugInfo(
             mode: .advancement,
             summary: "Advancement selection favored the club that best moves the hole forward from the current lie.",
-            clubEvaluations: evaluations
+            clubEvaluations: evaluations,
+            hazardEvaluations: hazardEvaluations(
+                hazards: hazards,
+                currentProgressM: currentProgressM,
+                projectedLandingM: projectedLandingM,
+                corridorHalfWidthM: 24,
+                softBufferM: 14,
+                alongWindow: { progressM in
+                    progressM >= currentProgressM + 40
+                        && progressM <= projectedLandingM + 25
+                },
+                missingProgressIsRelevant: false,
+                mode: .advancement
+            )
         )
     }
 
@@ -686,7 +745,10 @@ public enum CaddieRecommendationEngine {
         selectedClub: PlayerClub,
         remainingDistanceM: Double,
         player: PlayerContext,
-        lie: ShotLie
+        lie: ShotLie,
+        hazards: [Hazard],
+        currentProgressM: Double,
+        projectedLandingM: Double
     ) -> RecommendationDebugInfo {
         let evaluations = clubs.map { club in
             let canReach = club.carryDistanceM >= remainingDistanceM
@@ -710,7 +772,20 @@ public enum CaddieRecommendationEngine {
         return RecommendationDebugInfo(
             mode: .recovery,
             summary: "Recovery selection picked the most lofted club that still reaches, then fell back to the longest option when needed.",
-            clubEvaluations: evaluations
+            clubEvaluations: evaluations,
+            hazardEvaluations: hazardEvaluations(
+                hazards: hazards,
+                currentProgressM: currentProgressM,
+                projectedLandingM: projectedLandingM,
+                corridorHalfWidthM: 20,
+                softBufferM: 12,
+                alongWindow: { progressM in
+                    progressM >= currentProgressM - 10
+                        && progressM <= projectedLandingM + 20
+                },
+                missingProgressIsRelevant: false,
+                mode: .recovery
+            )
         )
     }
 
@@ -752,7 +827,31 @@ public enum CaddieRecommendationEngine {
         return RecommendationDebugInfo(
             mode: .tee,
             summary: "Tee selection picked the longest club whose total risk stayed within the \(strategy.rawValue) budget of \(String(format: "%.2f", budget)).",
-            clubEvaluations: evaluations
+            clubEvaluations: evaluations,
+            hazardEvaluations: teeHazardEvaluations(
+                hazards: hazards,
+                landingM: currentProgressM + selectedClub.carryDistanceM,
+                lateralSpreadM: expectedDispersion(for: selectedClub, player: player, lie: .tee)
+            )
+        )
+    }
+
+    private static func teeHazardEvaluations(
+        hazards: [Hazard],
+        landingM: Double,
+        lateralSpreadM: Double
+    ) -> [RecommendationHazardEvaluation] {
+        hazardEvaluations(
+            hazards: hazards,
+            currentProgressM: max(0, landingM - 120),
+            projectedLandingM: landingM,
+            corridorHalfWidthM: max(12, lateralSpreadM / 2),
+            softBufferM: 16,
+            alongWindow: { progressM in
+                abs(progressM - landingM) <= 35
+            },
+            missingProgressIsRelevant: false,
+            mode: .tee
         )
     }
 
@@ -821,7 +920,7 @@ public enum CaddieRecommendationEngine {
         case .safe:
             return "center of the green"
         case .normal:
-            if hazards.contains(where: { $0.kind == .water && $0.position.contains("left") }) {
+            if hazards.contains(where: { $0.kind == .water && hazardSide(for: $0) == "left" }) {
                 return "middle-right of the green"
             }
             return "middle of the green"
@@ -843,10 +942,10 @@ public enum CaddieRecommendationEngine {
         case .safe:
             return "safe fairway window"
         case .normal:
-            if hazards.contains(where: { $0.kind == .water && $0.position.contains("right") }) {
+            if hazards.contains(where: { $0.kind == .water && hazardSide(for: $0) == "right" }) {
                 return "left-center fairway"
             }
-            if hazards.contains(where: { $0.kind == .water && $0.position.contains("left") }) {
+            if hazards.contains(where: { $0.kind == .water && hazardSide(for: $0) == "left" }) {
                 return "right-center fairway"
             }
             return "stock fairway corridor"
@@ -1101,10 +1200,12 @@ public enum CaddieRecommendationEngine {
     ) -> [Hazard] {
         hazards.filter { hazard in
             guard let hazardDistanceM = hazardDistance(for: hazard) else {
-                return fromTeeProgressM <= 25 || isGreenSideHazard(hazard)
+                return (fromTeeProgressM <= 25 || isGreenSideHazard(hazard))
+                    && isLaterallyRelevant(hazard, corridorHalfWidthM: 22, softBufferM: 12)
             }
 
             return hazardDistanceM >= fromTeeProgressM + 25
+                && isLaterallyRelevant(hazard, corridorHalfWidthM: 22, softBufferM: 12)
         }
     }
 
@@ -1120,6 +1221,7 @@ public enum CaddieRecommendationEngine {
 
             return hazardDistanceM >= currentProgressM + 40
                 && hazardDistanceM <= projectedLandingM + 25
+                && isLaterallyRelevant(hazard, corridorHalfWidthM: 24, softBufferM: 14)
         }
         .sorted { lhs, rhs in
             let lhsDistance = abs((hazardDistance(for: lhs) ?? projectedLandingM) - projectedLandingM)
@@ -1141,11 +1243,12 @@ public enum CaddieRecommendationEngine {
             }
 
             guard hazardDistanceM >= currentProgressM + 35,
-                  abs(hazardDistanceM - landingM) <= bufferM else {
+                  abs(hazardDistanceM - landingM) <= bufferM,
+                  isLaterallyRelevant(hazard, corridorHalfWidthM: 26, softBufferM: 10) else {
                 return nil
             }
 
-            return hazardSide(for: hazard.position)
+            return hazardSide(for: hazard)
         }
 
         return Set(sides).isSuperset(of: ["left", "right"])
@@ -1153,9 +1256,13 @@ public enum CaddieRecommendationEngine {
 
     private static func currentProgressM(
         holeLengthM: Double,
-        remainingDistanceM: Double
+        remainingDistanceM: Double,
+        explicitProgressM: Double? = nil
     ) -> Double {
-        max(0, holeLengthM - remainingDistanceM)
+        if let explicitProgressM {
+            return max(0, min(holeLengthM, explicitProgressM))
+        }
+        return max(0, holeLengthM - remainingDistanceM)
     }
 
     private static func nearestHazard(
@@ -1175,6 +1282,10 @@ public enum CaddieRecommendationEngine {
                     return false
                 }
 
+                guard isLaterallyRelevant(hazard, corridorHalfWidthM: 24, softBufferM: 14) else {
+                    return false
+                }
+
                 return true
             }
             .min { lhs, rhs in
@@ -1188,7 +1299,7 @@ public enum CaddieRecommendationEngine {
         for hazard: Hazard,
         role: AdvancementHazardRole
     ) -> String {
-        let side = hazardSide(for: hazard.position)
+        let side = hazardSide(for: hazard)
         let label = "\(hazard.kind.rawValue.capitalized) \(side)"
         switch role {
         case .landingZone:
@@ -1199,7 +1310,7 @@ public enum CaddieRecommendationEngine {
     }
 
     private static func hazardReference(for hazard: Hazard) -> String {
-        let side = hazardSide(for: hazard.position)
+        let side = hazardSide(for: hazard)
         if let distanceM = hazardDistance(for: hazard) {
             return "\(hazard.kind.rawValue) \(side) around \(formatMeters(distanceM))m"
         }
@@ -1207,7 +1318,12 @@ public enum CaddieRecommendationEngine {
         return "\(hazard.position) \(hazard.kind.rawValue)"
     }
 
-    private static func hazardSide(for position: String) -> String {
+    private static func hazardSide(for hazard: Hazard) -> String {
+        if let side = hazard.side {
+            return side.rawValue
+        }
+
+        let position = hazard.position
         let lowered = position.lowercased()
         if lowered.contains("long left") {
             return "long left"
@@ -1231,6 +1347,10 @@ public enum CaddieRecommendationEngine {
     }
 
     private static func hazardDistance(for hazard: Hazard) -> Double? {
+        if let progressM = hazard.progressM {
+            return progressM
+        }
+
         let pattern = #"\d+(\.\d+)?"#
         guard let match = hazard.position.range(of: pattern, options: .regularExpression) else {
             return nil
@@ -1242,6 +1362,155 @@ public enum CaddieRecommendationEngine {
     private static func isGreenSideHazard(_ hazard: Hazard) -> Bool {
         let lowered = hazard.position.lowercased()
         return lowered.contains("short") || lowered.contains("long")
+    }
+
+    private static func isLaterallyRelevant(
+        _ hazard: Hazard,
+        corridorHalfWidthM: Double,
+        softBufferM: Double
+    ) -> Bool {
+        lateralRelevance(
+            for: hazard,
+            corridorHalfWidthM: corridorHalfWidthM,
+            softBufferM: softBufferM
+        ) != nil
+    }
+
+    private static func lateralRelevance(
+        for hazard: Hazard,
+        corridorHalfWidthM: Double,
+        softBufferM: Double
+    ) -> Double? {
+        guard let lateralOffsetM = hazard.lateralOffsetM else {
+            return 1
+        }
+
+        let excessM = lateralOffsetM - corridorHalfWidthM
+        if excessM <= 0 {
+            return 1
+        }
+        if excessM >= softBufferM {
+            return nil
+        }
+
+        return 1 - (excessM / softBufferM)
+    }
+
+    private static func hazardEvaluations(
+        hazards: [Hazard],
+        currentProgressM: Double,
+        projectedLandingM: Double,
+        corridorHalfWidthM: Double,
+        softBufferM: Double,
+        alongWindow: (Double) -> Bool,
+        missingProgressIsRelevant: Bool,
+        mode: RecommendationDebugMode
+    ) -> [RecommendationHazardEvaluation] {
+        hazards.map { hazard in
+            let progressM = hazardDistance(for: hazard)
+            let lateralRelevanceValue = lateralRelevance(
+                for: hazard,
+                corridorHalfWidthM: corridorHalfWidthM,
+                softBufferM: softBufferM
+            )
+            let laterallyRelevant = lateralRelevanceValue != nil
+            let alongRelevant = progressM.map(alongWindow) ?? missingProgressIsRelevant
+            let isRelevant = alongRelevant && laterallyRelevant
+
+            return RecommendationHazardEvaluation(
+                id: hazard.id,
+                label: hazardReference(for: hazard),
+                kind: hazard.kind,
+                sideLabel: hazardSide(for: hazard),
+                progressM: progressM,
+                lateralOffsetM: hazard.lateralOffsetM,
+                isRelevant: isRelevant,
+                note: hazardEvaluationNote(
+                    for: hazard,
+                    progressM: progressM,
+                    currentProgressM: currentProgressM,
+                    projectedLandingM: projectedLandingM,
+                    corridorHalfWidthM: corridorHalfWidthM,
+                    softBufferM: softBufferM,
+                    lateralRelevanceValue: lateralRelevanceValue,
+                    mode: mode
+                )
+            )
+        }
+        .sorted { lhs, rhs in
+            if lhs.isRelevant != rhs.isRelevant {
+                return lhs.isRelevant && !rhs.isRelevant
+            }
+            let lhsDistance = abs((lhs.progressM ?? projectedLandingM) - projectedLandingM)
+            let rhsDistance = abs((rhs.progressM ?? projectedLandingM) - projectedLandingM)
+            if lhsDistance != rhsDistance {
+                return lhsDistance < rhsDistance
+            }
+            return lhs.label < rhs.label
+        }
+    }
+
+    private static func hazardEvaluationNote(
+        for hazard: Hazard,
+        progressM: Double?,
+        currentProgressM: Double,
+        projectedLandingM: Double,
+        corridorHalfWidthM: Double,
+        softBufferM: Double,
+        lateralRelevanceValue: Double?,
+        mode: RecommendationDebugMode
+    ) -> String {
+        var parts: [String] = []
+
+        if let progressM {
+            let deltaFromBall = progressM - currentProgressM
+            if deltaFromBall >= 0 {
+                parts.append("Ahead \(formatMeters(deltaFromBall))m")
+            } else {
+                parts.append("Behind \(formatMeters(abs(deltaFromBall)))m")
+            }
+
+            let deltaFromLanding = progressM - projectedLandingM
+            if abs(deltaFromLanding) <= 8 {
+                parts.append("at landing")
+            } else if deltaFromLanding > 0 {
+                parts.append("lands \(formatMeters(deltaFromLanding))m short")
+            } else {
+                parts.append("carries \(formatMeters(abs(deltaFromLanding)))m past")
+            }
+        } else {
+            parts.append("No mapped progress")
+        }
+
+        if let lateralOffsetM = hazard.lateralOffsetM {
+            parts.append("Lateral \(formatMeters(lateralOffsetM))m")
+            if let lateralRelevanceValue {
+                if lateralRelevanceValue >= 0.999 {
+                    parts.append("inside corridor")
+                } else {
+                    parts.append("edge of corridor")
+                }
+            } else {
+                parts.append("outside \(formatMeters(corridorHalfWidthM + softBufferM))m corridor")
+            }
+        } else {
+            parts.append("No mapped lateral offset")
+        }
+
+        switch mode {
+        case .recovery:
+            parts.append("Recovery mode still prioritizes loft and escape")
+        case .tee:
+            parts.append("Compared against tee landing window")
+        case .approach:
+            parts.append("Compared against approach line")
+        case .advancement:
+            parts.append("Compared against advancement window")
+        case .unavailable:
+            break
+        }
+
+        return parts.joined(separator: " • ")
     }
 }
 

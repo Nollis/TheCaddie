@@ -10,13 +10,15 @@ public enum KungsbackaNyaCourse {
                 par: 5,
                 teeLengthM: 460,
                 teeCoordinate: GeoCoordinate(latitude: 57.49302015313067, longitude: 11.986226141452791),
+                centerlineCoordinates: KungsbackaNyaCenterlineData.coordinates(for: 1),
                 greenCoordinate: GeoCoordinate(latitude: 57.491023724, longitude: 11.992440149),
                 fairway: FairwayContext(landingWidthM: 56),
+                surfaces: KungsbackaNyaSurfaceData.surfaces(for: 1),
                 hazards: [
-                    hazard("h1-bunker-left-417", .bunker, "left 417m", "Bunker left near the green-side approach.", coordinate: GeoCoordinate(latitude: 57.491195459, longitude: 11.992199543)),
-                    hazard("h1-bunker-left-240", .bunker, "left 240m", "Left bunker can catch the layup line.", coordinate: GeoCoordinate(latitude: 57.492519014, longitude: 11.99041754)),
-                    hazard("h1-water-right-188", .water, "right 188m", "Water right is the expensive miss from the tee."),
-                    hazard("h1-water-right-0", .water, "right", "Water sits right of the opening corridor.")
+                    hazard("h1-bunker-left-417", .bunker, "left 417m", "Bunker left near the green-side approach.", coordinate: GeoCoordinate(latitude: 57.491195459, longitude: 11.992199543), progressM: 417.12, side: .left, lateralOffsetM: 2.59),
+                    hazard("h1-bunker-left-240", .bunker, "left 240m", "Left bunker can catch the layup line.", coordinate: GeoCoordinate(latitude: 57.492519014, longitude: 11.99041754), progressM: 240.11, side: .left, lateralOffsetM: 18.05),
+                    hazard("h1-water-right-188", .water, "right 188m", "Water right is the expensive miss from the tee.", progressM: 187.83, side: .right, lateralOffsetM: 33.04),
+                    hazard("h1-water-right-0", .water, "right", "Water sits right of the opening corridor.", progressM: 0, side: .right, lateralOffsetM: 39.18)
                 ]
             ),
             hole(
@@ -24,9 +26,11 @@ public enum KungsbackaNyaCourse {
                 par: 3,
                 teeLengthM: 140,
                 teeCoordinate: GeoCoordinate(latitude: 57.489451730135336, longitude: 11.995965242385864),
+                centerlineCoordinates: KungsbackaNyaCenterlineData.coordinates(for: 2),
                 greenCoordinate: GeoCoordinate(latitude: 57.488330174334116, longitude: 11.997032761573793),
+                surfaces: KungsbackaNyaSurfaceData.surfaces(for: 2),
                 hazards: [
-                    hazard("h2-water-left-93", .water, "left 93m", "Water guards the left side short of the green.")
+                    hazard("h2-water-left-93", .water, "left 93m", "Water guards the left side short of the green.", side: .left, lateralOffsetM: 14.05)
                 ]
             ),
             hole(
@@ -34,13 +38,15 @@ public enum KungsbackaNyaCourse {
                 par: 4,
                 teeLengthM: 280,
                 teeCoordinate: GeoCoordinate(latitude: 57.487514749927804, longitude: 11.996338556913237),
+                centerlineCoordinates: KungsbackaNyaCenterlineData.coordinates(for: 3),
                 greenCoordinate: GeoCoordinate(latitude: 57.48686546862034, longitude: 11.991813182830812),
                 fairway: FairwayContext(landingWidthM: 23.5, drivingZoneEndM: 146),
+                surfaces: KungsbackaNyaSurfaceData.surfaces(for: 3),
                 hazards: [
-                    hazard("h3-water-right-185", .water, "right 185m", "Water right shapes the tee shot."),
-                    hazard("h3-water-left-196", .water, "left 196m", "Water left punishes an over-correction."),
-                    hazard("h3-trees-right-56", .trees, "right 56m", "Trees pinch the right side early."),
-                    hazard("h3-trees-left-278", .trees, "left 278m", "Trees left protect the green end.")
+                    hazard("h3-water-right-185", .water, "right 185m", "Water right shapes the tee shot.", progressM: 185.01, side: .right, lateralOffsetM: 44.39),
+                    hazard("h3-water-left-196", .water, "left 196m", "Water left punishes an over-correction.", progressM: 196.42, side: .left, lateralOffsetM: 12.18),
+                    hazard("h3-trees-right-56", .trees, "right 56m", "Trees pinch the right side early.", progressM: 55.98, side: .right, lateralOffsetM: 35.15),
+                    hazard("h3-trees-left-278", .trees, "left 278m", "Trees left protect the green end.", progressM: 277.88, side: .left, lateralOffsetM: 30.62)
                 ]
             ),
             hole(
@@ -48,10 +54,12 @@ public enum KungsbackaNyaCourse {
                 par: 4,
                 teeLengthM: 375,
                 teeCoordinate: GeoCoordinate(latitude: 57.48572200629426, longitude: 11.992922673140438),
+                centerlineCoordinates: KungsbackaNyaCenterlineData.coordinates(for: 4),
                 greenCoordinate: GeoCoordinate(latitude: 57.486323299, longitude: 11.986988782),
                 fairway: FairwayContext(landingWidthM: 34, drivingZoneEndM: 255),
+                surfaces: KungsbackaNyaSurfaceData.surfaces(for: 4),
                 hazards: [
-                    hazard("h4-water-left-281", .water, "left 281m", "Water left is the main positional hazard.")
+                    hazard("h4-water-left-281", .water, "left 281m", "Water left is the main positional hazard.", progressM: 280.76, side: .left, lateralOffsetM: 2.79)
                 ]
             ),
             hole(
@@ -59,13 +67,15 @@ public enum KungsbackaNyaCourse {
                 par: 4,
                 teeLengthM: 350,
                 teeCoordinate: GeoCoordinate(latitude: 57.486380187746235, longitude: 11.986569349981549),
+                centerlineCoordinates: KungsbackaNyaCenterlineData.coordinates(for: 5),
                 greenCoordinate: GeoCoordinate(latitude: 57.487737089, longitude: 11.981447571),
                 fairway: FairwayContext(landingWidthM: 30, drivingZoneEndM: 185),
+                surfaces: KungsbackaNyaSurfaceData.surfaces(for: 5),
                 hazards: [
-                    hazard("h5-water-left-104", .water, "left 104m", "Water left appears early in the hole."),
-                    hazard("h5-bunker-right-303", .bunker, "right 303m", "Right bunker can catch the stronger tee shot.", coordinate: GeoCoordinate(latitude: 57.487886525, longitude: 11.981634358)),
-                    hazard("h5-trees-right-228", .trees, "right 228m", "Trees right narrow the stock corridor."),
-                    hazard("h5-trees-right-151", .trees, "right 151m", "Right trees punish a pushed layup.")
+                    hazard("h5-water-left-104", .water, "left 104m", "Water left appears early in the hole.", progressM: 104.22, side: .left, lateralOffsetM: 16.28),
+                    hazard("h5-bunker-right-303", .bunker, "right 303m", "Right bunker can catch the stronger tee shot.", coordinate: GeoCoordinate(latitude: 57.487886525, longitude: 11.981634358), progressM: 302.74, side: .right, lateralOffsetM: 19.98),
+                    hazard("h5-trees-right-228", .trees, "right 228m", "Trees right narrow the stock corridor.", progressM: 227.96, side: .right, lateralOffsetM: 14.99),
+                    hazard("h5-trees-right-151", .trees, "right 151m", "Right trees punish a pushed layup.", progressM: 150.7, side: .right, lateralOffsetM: 14.94)
                 ]
             ),
             hole(
@@ -73,11 +83,13 @@ public enum KungsbackaNyaCourse {
                 par: 4,
                 teeLengthM: 330,
                 teeCoordinate: GeoCoordinate(latitude: 57.48812186614907, longitude: 11.98154756644462),
+                centerlineCoordinates: KungsbackaNyaCenterlineData.coordinates(for: 6),
                 greenCoordinate: GeoCoordinate(latitude: 57.488013097, longitude: 11.98698928),
                 fairway: FairwayContext(landingWidthM: 42, drivingZoneEndM: 245),
+                surfaces: KungsbackaNyaSurfaceData.surfaces(for: 6),
                 hazards: [
-                    hazard("h6-bunker-right-299", .bunker, "right 299m", "Right bunker shapes the approach side.", coordinate: GeoCoordinate(latitude: 57.487987809, longitude: 11.986673002)),
-                    hazard("h6-bunker-right-312", .bunker, "right 312m", "Second right bunker protects the green side.", coordinate: GeoCoordinate(latitude: 57.487926418, longitude: 11.986875358))
+                    hazard("h6-bunker-right-299", .bunker, "right 299m", "Right bunker shapes the approach side.", coordinate: GeoCoordinate(latitude: 57.487987809, longitude: 11.986673002), progressM: 299.3, side: .right, lateralOffsetM: 3.79),
+                    hazard("h6-bunker-right-312", .bunker, "right 312m", "Second right bunker protects the green side.", coordinate: GeoCoordinate(latitude: 57.487926418, longitude: 11.986875358), progressM: 312.22, side: .right, lateralOffsetM: 9.85)
                 ]
             ),
             hole(
@@ -85,13 +97,15 @@ public enum KungsbackaNyaCourse {
                 par: 5,
                 teeLengthM: 525,
                 teeCoordinate: GeoCoordinate(latitude: 57.48772893916422, longitude: 11.986469900276397),
+                centerlineCoordinates: KungsbackaNyaCenterlineData.coordinates(for: 7),
                 greenCoordinate: GeoCoordinate(latitude: 57.487641398, longitude: 11.995076269),
                 fairway: FairwayContext(landingWidthM: 46, drivingZoneEndM: 255),
+                surfaces: KungsbackaNyaSurfaceData.surfaces(for: 7),
                 hazards: [
-                    hazard("h7-trees-right-401", .trees, "right 401m", "Trees right affect the second-shot corridor."),
-                    hazard("h7-bunker-left-481", .bunker, "left 481m", "Left bunker guards the layup/approach finish.", coordinate: GeoCoordinate(latitude: 57.487644342, longitude: 11.994656033)),
-                    hazard("h7-bunker-right-497", .bunker, "right 497m", "Right bunker narrows the green approach.", coordinate: GeoCoordinate(latitude: 57.487435349, longitude: 11.994949831)),
-                    hazard("h7-bunker-left-500", .bunker, "left 500m", "Left bunker protects the green side.", coordinate: GeoCoordinate(latitude: 57.487728233, longitude: 11.994941354))
+                    hazard("h7-trees-right-401", .trees, "right 401m", "Trees right affect the second-shot corridor.", progressM: 401.34, side: .right, lateralOffsetM: 6.42),
+                    hazard("h7-bunker-left-481", .bunker, "left 481m", "Left bunker guards the layup/approach finish.", coordinate: GeoCoordinate(latitude: 57.487644342, longitude: 11.994656033), progressM: 481.25, side: .left, lateralOffsetM: 10.4),
+                    hazard("h7-bunker-right-497", .bunker, "right 497m", "Right bunker narrows the green approach.", coordinate: GeoCoordinate(latitude: 57.487435349, longitude: 11.994949831), progressM: 496.6, side: .right, lateralOffsetM: 16.22),
+                    hazard("h7-bunker-left-500", .bunker, "left 500m", "Left bunker protects the green side.", coordinate: GeoCoordinate(latitude: 57.487728233, longitude: 11.994941354), progressM: 499.55, side: .left, lateralOffsetM: 13.29)
                 ]
             ),
             hole(
@@ -99,9 +113,11 @@ public enum KungsbackaNyaCourse {
                 par: 3,
                 teeLengthM: 130,
                 teeCoordinate: GeoCoordinate(latitude: 57.48966856061047, longitude: 11.994125031611265),
+                centerlineCoordinates: KungsbackaNyaCenterlineData.coordinates(for: 8),
                 greenCoordinate: GeoCoordinate(latitude: 57.490652474, longitude: 11.992686825),
+                surfaces: KungsbackaNyaSurfaceData.surfaces(for: 8),
                 hazards: [
-                    hazard("h8-bunker-right-115", .bunker, "right 115m", "Right bunker is the miss to avoid.", coordinate: GeoCoordinate(latitude: 57.490577362, longitude: 11.993050247))
+                    hazard("h8-bunker-right-115", .bunker, "right 115m", "Right bunker is the miss to avoid.", coordinate: GeoCoordinate(latitude: 57.490577362, longitude: 11.993050247), progressM: 114.72, side: .right, lateralOffsetM: 13.08)
                 ]
             ),
             hole(
@@ -109,11 +125,13 @@ public enum KungsbackaNyaCourse {
                 par: 4,
                 teeLengthM: 400,
                 teeCoordinate: GeoCoordinate(latitude: 57.49119783213578, longitude: 11.990969516650097),
+                centerlineCoordinates: KungsbackaNyaCenterlineData.coordinates(for: 9),
                 greenCoordinate: GeoCoordinate(latitude: 57.492651506, longitude: 11.985931091),
                 fairway: FairwayContext(landingWidthM: 30, drivingZoneEndM: 215),
+                surfaces: KungsbackaNyaSurfaceData.surfaces(for: 9),
                 hazards: [
-                    hazard("h9-water-right-106", .water, "right 106m", "Water right affects the tee corridor."),
-                    hazard("h9-water-left-298", .water, "left 298m", "Water left is the expensive miss deeper in the hole.")
+                    hazard("h9-water-right-106", .water, "right 106m", "Water right affects the tee corridor.", progressM: 105.57, side: .right, lateralOffsetM: 30.42),
+                    hazard("h9-water-left-298", .water, "left 298m", "Water left is the expensive miss deeper in the hole.", progressM: 298.3, side: .left, lateralOffsetM: 20.97)
                 ]
             )
         ]
@@ -137,8 +155,10 @@ public enum KungsbackaNyaCourse {
         par: Int,
         teeLengthM: Double,
         teeCoordinate: GeoCoordinate? = nil,
+        centerlineCoordinates: [GeoCoordinate] = [],
         greenCoordinate: GeoCoordinate? = nil,
         fairway: FairwayContext? = nil,
+        surfaces: [HoleSurface] = [],
         hazards: [Hazard]
     ) -> CourseHole {
         CourseHole(
@@ -146,6 +166,7 @@ public enum KungsbackaNyaCourse {
             par: par,
             teeLengthM: teeLengthM,
             defaultTeeCoordinate: teeCoordinate,
+            centerlineCoordinates: centerlineCoordinates,
             green: GreenContext(
                 frontDistanceM: max(1, teeLengthM - 9),
                 centerDistanceM: teeLengthM,
@@ -153,7 +174,8 @@ public enum KungsbackaNyaCourse {
                 centerCoordinate: greenCoordinate
             ),
             hazards: hazards,
-            fairway: fairway
+            fairway: fairway,
+            surfaces: surfaces
         )
     }
 
@@ -162,8 +184,11 @@ public enum KungsbackaNyaCourse {
         _ kind: HazardKind,
         _ position: String,
         _ note: String,
-        coordinate: GeoCoordinate? = nil
+        coordinate: GeoCoordinate? = nil,
+        progressM: Double? = nil,
+        side: HazardSide? = nil,
+        lateralOffsetM: Double? = nil
     ) -> Hazard {
-        Hazard(id: id, kind: kind, position: position, note: note, coordinate: coordinate)
+        Hazard(id: id, kind: kind, position: position, note: note, coordinate: coordinate, progressM: progressM, side: side, lateralOffsetM: lateralOffsetM)
     }
 }

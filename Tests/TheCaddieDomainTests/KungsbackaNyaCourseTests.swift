@@ -22,12 +22,19 @@ import TheCaddieDomain
         id: "h1-water-right-188",
         kind: .water,
         position: "right 188m",
-        note: "Water right is the expensive miss from the tee."
+        note: "Water right is the expensive miss from the tee.",
+        progressM: 187.83,
+        side: .right,
+        lateralOffsetM: 33.04
     )))
     #expect(hole1.fairway == FairwayContext(landingWidthM: 56, drivingZoneEndM: nil))
     #expect(hole3.fairway == FairwayContext(landingWidthM: 23.5, drivingZoneEndM: 146))
     #expect(KungsbackaNyaCourse.course.hole(number: 5)?.fairway == FairwayContext(landingWidthM: 30, drivingZoneEndM: 185))
     #expect(hole1.hazards.contains { $0.kind == .bunker && $0.position == "left 240m" })
+    #expect(hole1.surfaces.contains { $0.kind == .tee })
+    #expect(hole1.surfaces.contains { $0.kind == .fairway })
+    #expect(hole1.surfaces.contains { $0.kind == .green })
+    #expect(hole1.surfaces.contains { $0.kind == .water })
     #expect(hole8.hazards == [
         Hazard(
             id: "h8-bunker-right-115",
@@ -37,7 +44,10 @@ import TheCaddieDomain
             coordinate: GeoCoordinate(
                 latitude: 57.490577362,
                 longitude: 11.993050247
-            )
+            ),
+            progressM: 114.72,
+            side: .right,
+            lateralOffsetM: 13.08
         )
     ])
 }
@@ -58,6 +68,11 @@ import TheCaddieDomain
         latitude: 57.490652474,
         longitude: 11.992686825
     ))
+    #expect(hole1.centerlineCoordinates == [
+        GeoCoordinate(latitude: 57.49305979230822, longitude: 11.986443400382997),
+        GeoCoordinate(latitude: 57.49239817276384, longitude: 11.990268230438234),
+        GeoCoordinate(latitude: 57.49093435096836, longitude: 11.992568224668505)
+    ])
 }
 
 @Test func kungsbackaHoleOneGreenCoordinateReturnsExpectedGpsDistance() throws {
@@ -139,9 +154,15 @@ import TheCaddieDomain
         ),
         on: hole1
     ) == .bunker)
+
+    let waterEdge = try #require(hole1.surfaces.first(where: { $0.kind == .water })?.ring.first)
+    #expect(HoleLieInference.inferLie(
+        fix: waterEdge,
+        on: hole1
+    ) == .recovery)
 }
 
-@Test func holeLieInferenceUsesFairwayCorridorAndFallsBackToRough() throws {
+@Test func holeLieInferenceUsesMappedSurfacesAndFallsBackToRough() throws {
     let hole1 = try #require(KungsbackaNyaCourse.course.hole(number: 1))
 
     #expect(HoleLieInference.inferLie(
@@ -159,6 +180,31 @@ import TheCaddieDomain
         ),
         on: hole1
     ) == .rough)
+}
+
+@Test func holeProgressInferenceUsesMappedCenterline() throws {
+    let hole1 = try #require(KungsbackaNyaCourse.course.hole(number: 1))
+
+    let teeSample = try #require(HoleProgressInference.sample(
+        fix: GeoCoordinate(
+            latitude: 57.49302015313067,
+            longitude: 11.986226141452791
+        ),
+        on: hole1
+    ))
+    #expect(teeSample.progressM < 25)
+    #expect(teeSample.distanceFromCenterlineM < 25)
+    #expect(abs(teeSample.centerlineLengthM - 465) < 12)
+
+    let greenSample = try #require(HoleProgressInference.sample(
+        fix: GeoCoordinate(
+            latitude: 57.491023724,
+            longitude: 11.992440149
+        ),
+        on: hole1
+    ))
+    #expect(greenSample.progressM > 430)
+    #expect(greenSample.remainingCenterlineM < 20)
 }
 
 @Test func kungsbackaOpeningRoundBuildsARecommendationFromRealCourse() {

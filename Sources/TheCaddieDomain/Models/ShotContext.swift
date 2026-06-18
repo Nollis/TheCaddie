@@ -5,17 +5,20 @@ public struct ShotContext: Equatable, Sendable {
     public let remainingDistanceM: ShotDistance
     public let lie: ShotLieState
     public let wind: WindContext?
+    public let progressM: Double?
 
     public init(
         shotNumber: Int,
         remainingDistanceM: ShotDistance,
         lie: ShotLieState,
-        wind: WindContext?
+        wind: WindContext?,
+        progressM: Double? = nil
     ) {
         self.shotNumber = max(1, shotNumber)
         self.remainingDistanceM = remainingDistanceM
         self.lie = lie
         self.wind = wind
+        self.progressM = progressM
     }
 
     public var isReadyForRecommendation: Bool {

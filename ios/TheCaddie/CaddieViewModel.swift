@@ -10,6 +10,8 @@ final class CaddieViewModel: ObservableObject {
     @Published var isHandsFreeListening: Bool = false
     @Published private(set) var isUsingLiveDistance = false
     @Published private(set) var liveDistanceM: Double?
+    @Published private(set) var liveProgressM: Double?
+    @Published private(set) var liveCenterlineOffsetM: Double?
     @Published private(set) var liveAccuracyM: Double?
     @Published private(set) var liveLocationStatus = "GPS off"
     @Published private(set) var liveLocationError: String?
@@ -96,6 +98,22 @@ final class CaddieViewModel: ObservableObject {
         return "Accuracy ±\(Int(liveAccuracyM.rounded()))m"
     }
 
+    var liveProgressLabel: String? {
+        guard let liveProgressM else {
+            return nil
+        }
+
+        return "\(Int(liveProgressM.rounded())) m played"
+    }
+
+    var liveCenterlineOffsetLabel: String? {
+        guard let liveCenterlineOffsetM else {
+            return nil
+        }
+
+        return "\(Int(liveCenterlineOffsetM.rounded())) m off centerline"
+    }
+
     func loadSample() {
         course = KungsbackaNyaCourse.course
         player = SampleRound.player
@@ -111,7 +129,8 @@ final class CaddieViewModel: ObservableObject {
             shotNumber: currentShot.shotNumber,
             remainingDistanceM: currentShot.remainingDistanceM,
             lie: .known(lie),
-            wind: currentShot.wind
+            wind: currentShot.wind,
+            progressM: currentShot.progressM
         )
         roundState = roundState.updateShotContext(updatedShot)
     }
@@ -176,7 +195,8 @@ final class CaddieViewModel: ObservableObject {
             shotNumber: currentShot.shotNumber,
             remainingDistanceM: .known(distanceM),
             lie: currentShot.lie,
-            wind: currentShot.wind
+            wind: currentShot.wind,
+            progressM: currentShot.progressM
         )
         roundState = roundState.updateShotContext(updatedShot)
     }
@@ -266,7 +286,8 @@ final class CaddieViewModel: ObservableObject {
                     shotNumber: 1,
                     remainingDistanceM: .known(course.hole(number: startingHole)?.teeLengthM ?? 300),
                     lie: .known(.tee),
-                    wind: nil
+                    wind: nil,
+                    progressM: nil
                 )
             ]
         )
@@ -280,6 +301,8 @@ final class CaddieViewModel: ObservableObject {
         self.roundState = SampleRound.roundState
         stopLiveDistance()
         liveDistanceM = nil
+        liveProgressM = nil
+        liveCenterlineOffsetM = nil
         liveAccuracyM = nil
         liveLocationError = nil
         liveLocationStatus = "GPS off"
@@ -351,7 +374,8 @@ final class CaddieViewModel: ObservableObject {
                 shotNumber: 1,
                 remainingDistanceM: .known(hole.teeLengthM),
                 lie: .known(.tee),
-                wind: nil
+                wind: nil,
+                progressM: nil
             )
         }
 
@@ -436,6 +460,12 @@ final class CaddieViewModel: ObservableObject {
         }
 
         liveDistanceM = distanceM
+        let progressSample = HoleProgressInference.sample(
+            fix: fix.coordinate,
+            on: activeHole
+        )
+        liveProgressM = progressSample?.progressM
+        liveCenterlineOffsetM = progressSample?.distanceFromCenterlineM
         let currentShot = resolvedShotContext()
         let inferredLie = HoleLieInference.inferLie(
             fix: fix.coordinate,
@@ -445,14 +475,16 @@ final class CaddieViewModel: ObservableObject {
             shotNumber: currentShot.shotNumber,
             remainingDistanceM: .known(distanceM),
             lie: inferredLie.map(ShotLieState.known) ?? currentShot.lie,
-            wind: currentShot.wind
+            wind: currentShot.wind,
+            progressM: progressSample?.progressM
         )
         roundState = roundState.updateShotContext(updatedShot)
 
         let lieStatus = updatedShot.lie.value.map { " • \($0.rawValue.capitalized)" } ?? ""
+        let progressStatus = progressSample.map { " • \(Int($0.progressM.rounded()))m played" } ?? ""
         liveLocationStatus = autoDetectedHoleNumber == selectedHoleNumber
-            ? "Live distance synced\(lieStatus)"
-            : "Live distance synced on Hole \(selectedHoleNumber)\(lieStatus)"
+            ? "Live distance synced\(lieStatus)\(progressStatus)"
+            : "Live distance synced on Hole \(selectedHoleNumber)\(lieStatus)\(progressStatus)"
     }
 
     private func updateDetectedHole(from coordinate: GeoCoordinate) {

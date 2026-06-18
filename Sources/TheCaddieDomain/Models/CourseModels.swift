@@ -51,9 +51,11 @@ public struct CourseHole: Equatable, Sendable, Identifiable {
     public let par: Int
     public let teeLengthM: Double
     public let defaultTeeCoordinate: GeoCoordinate?
+    public let centerlineCoordinates: [GeoCoordinate]
     public let green: GreenContext
     public let hazards: [Hazard]
     public let fairway: FairwayContext?
+    public let surfaces: [HoleSurface]
 
     public var id: Int { number }
 
@@ -62,18 +64,61 @@ public struct CourseHole: Equatable, Sendable, Identifiable {
         par: Int,
         teeLengthM: Double,
         defaultTeeCoordinate: GeoCoordinate? = nil,
+        centerlineCoordinates: [GeoCoordinate] = [],
         green: GreenContext,
         hazards: [Hazard],
-        fairway: FairwayContext? = nil
+        fairway: FairwayContext? = nil,
+        surfaces: [HoleSurface] = []
     ) {
         self.number = number
         self.par = par
         self.teeLengthM = teeLengthM
         self.defaultTeeCoordinate = defaultTeeCoordinate
+        self.centerlineCoordinates = centerlineCoordinates
         self.green = green
         self.hazards = hazards
         self.fairway = fairway
+        self.surfaces = surfaces
     }
+}
+
+public struct HoleProgressSample: Equatable, Sendable {
+    public let progressM: Double
+    public let remainingCenterlineM: Double
+    public let distanceFromCenterlineM: Double
+    public let centerlineLengthM: Double
+
+    public init(
+        progressM: Double,
+        remainingCenterlineM: Double,
+        distanceFromCenterlineM: Double,
+        centerlineLengthM: Double
+    ) {
+        self.progressM = progressM
+        self.remainingCenterlineM = remainingCenterlineM
+        self.distanceFromCenterlineM = distanceFromCenterlineM
+        self.centerlineLengthM = centerlineLengthM
+    }
+}
+
+public struct HoleSurface: Equatable, Sendable {
+    public let kind: HoleSurfaceKind
+    public let ring: [GeoCoordinate]
+
+    public init(kind: HoleSurfaceKind, ring: [GeoCoordinate]) {
+        self.kind = kind
+        self.ring = ring
+    }
+}
+
+public enum HoleSurfaceKind: String, Equatable, Hashable, Sendable {
+    case tee
+    case fairway
+    case green
+    case bunker
+    case water
+    case woods
+    case rough
 }
 
 public struct GreenContext: Equatable, Sendable {
@@ -115,20 +160,35 @@ public struct Hazard: Equatable, Sendable, Identifiable {
     public let position: String
     public let note: String
     public let coordinate: GeoCoordinate?
+    public let progressM: Double?
+    public let side: HazardSide?
+    public let lateralOffsetM: Double?
 
     public init(
         id: String,
         kind: HazardKind,
         position: String,
         note: String,
-        coordinate: GeoCoordinate? = nil
+        coordinate: GeoCoordinate? = nil,
+        progressM: Double? = nil,
+        side: HazardSide? = nil,
+        lateralOffsetM: Double? = nil
     ) {
         self.id = id
         self.kind = kind
         self.position = position
         self.note = note
         self.coordinate = coordinate
+        self.progressM = progressM
+        self.side = side
+        self.lateralOffsetM = lateralOffsetM
     }
+}
+
+public enum HazardSide: String, Equatable, Hashable, Sendable {
+    case left
+    case right
+    case center
 }
 
 public enum HazardKind: String, Equatable, Sendable {
@@ -242,6 +302,28 @@ public enum HoleLieInference {
         fix: GeoCoordinate,
         on hole: CourseHole
     ) -> ShotLie? {
+        let containingSurfaceKinds = Set(hole.surfaces.compactMap { surface in
+            GeoPolygonMath.contains(fix, in: surface.ring) ? surface.kind : nil
+        })
+        if containingSurfaceKinds.contains(.tee) {
+            return .tee
+        }
+        if containingSurfaceKinds.contains(.bunker) {
+            return .bunker
+        }
+        if containingSurfaceKinds.contains(.water) || containingSurfaceKinds.contains(.woods) {
+            return .recovery
+        }
+        if containingSurfaceKinds.contains(.green) {
+            return .green
+        }
+        if containingSurfaceKinds.contains(.fairway) {
+            return .fairway
+        }
+        if containingSurfaceKinds.contains(.rough) {
+            return .rough
+        }
+
         if let tee = hole.defaultTeeCoordinate,
            tee.distance(to: fix) <= teeCaptureRadiusM {
             return .tee
@@ -273,6 +355,71 @@ public enum HoleLieInference {
         )
         let projection = GeoSegmentMath.project(fix, ontoSegmentFrom: tee, to: green)
         return projection.corridorDistanceM <= fairwayCaptureRadiusM ? .fairway : .rough
+    }
+}
+
+public enum HoleProgressInference {
+    public static func sample(
+        fix: GeoCoordinate,
+        on hole: CourseHole
+    ) -> HoleProgressSample? {
+        let centerline = resolvedCenterline(for: hole)
+        guard centerline.count >= 2 else {
+            return nil
+        }
+
+        let origin = centerline[0]
+        let projectedCenterline = centerline.map { GeoSegmentMath.projectedPoint(for: $0, origin: origin) }
+        let projectedFix = GeoSegmentMath.projectedPoint(for: fix, origin: origin)
+
+        var cumulativeDistanceM = 0.0
+        var bestAlongM = 0.0
+        var bestDistanceM = Double.infinity
+        var totalLengthM = 0.0
+
+        for segmentIndex in 0..<(projectedCenterline.count - 1) {
+            let start = projectedCenterline[segmentIndex]
+            let end = projectedCenterline[segmentIndex + 1]
+            let segmentX = end.x - start.x
+            let segmentY = end.y - start.y
+            let segmentLengthSquared = max(0.0001, (segmentX * segmentX) + (segmentY * segmentY))
+            let segmentLengthM = sqrt(segmentLengthSquared)
+            totalLengthM += segmentLengthM
+
+            let relativeX = projectedFix.x - start.x
+            let relativeY = projectedFix.y - start.y
+            let rawT = ((relativeX * segmentX) + (relativeY * segmentY)) / segmentLengthSquared
+            let clampedT = min(1, max(0, rawT))
+            let closestPoint = (
+                x: start.x + (segmentX * clampedT),
+                y: start.y + (segmentY * clampedT)
+            )
+            let distanceM = hypot(projectedFix.x - closestPoint.x, projectedFix.y - closestPoint.y)
+            if distanceM < bestDistanceM {
+                bestDistanceM = distanceM
+                bestAlongM = cumulativeDistanceM + (segmentLengthM * clampedT)
+            }
+
+            cumulativeDistanceM += segmentLengthM
+        }
+
+        return HoleProgressSample(
+            progressM: bestAlongM,
+            remainingCenterlineM: max(0, totalLengthM - bestAlongM),
+            distanceFromCenterlineM: bestDistanceM,
+            centerlineLengthM: totalLengthM
+        )
+    }
+
+    private static func resolvedCenterline(for hole: CourseHole) -> [GeoCoordinate] {
+        if hole.centerlineCoordinates.count >= 2 {
+            return hole.centerlineCoordinates
+        }
+        if let tee = hole.defaultTeeCoordinate,
+           let green = hole.green.centerCoordinate {
+            return [tee, green]
+        }
+        return hole.centerlineCoordinates
     }
 }
 
@@ -332,7 +479,7 @@ private enum GeoSegmentMath {
         )
     }
 
-    private static func projectedPoint(
+    static func projectedPoint(
         for coordinate: GeoCoordinate,
         origin: GeoCoordinate
     ) -> (x: Double, y: Double) {
@@ -344,5 +491,51 @@ private enum GeoSegmentMath {
             x: (coordinate.longitude - origin.longitude) * metersPerDegreeLongitude,
             y: (coordinate.latitude - origin.latitude) * metersPerDegreeLatitude
         )
+    }
+}
+
+private enum GeoPolygonMath {
+    static func contains(
+        _ coordinate: GeoCoordinate,
+        in ring: [GeoCoordinate]
+    ) -> Bool {
+        guard ring.count >= 3 else {
+            return false
+        }
+
+        let referenceLatitudeRadians = ring[0].latitude * .pi / 180
+        let cosReference = cos(referenceLatitudeRadians)
+
+        func project(_ coordinate: GeoCoordinate) -> (x: Double, y: Double) {
+            (
+                x: (coordinate.longitude - ring[0].longitude) * cosReference,
+                y: coordinate.latitude - ring[0].latitude
+            )
+        }
+
+        let target = project(coordinate)
+        let projectedRing = ring.map(project)
+
+        var inside = false
+        var previousIndex = projectedRing.count - 1
+
+        for currentIndex in projectedRing.indices {
+            let current = projectedRing[currentIndex]
+            let previous = projectedRing[previousIndex]
+
+            if current.x == target.x && current.y == target.y {
+                return true
+            }
+
+            let intersects = ((current.y > target.y) != (previous.y > target.y))
+                && (target.x < (previous.x - current.x) * (target.y - current.y) / (previous.y - current.y) + current.x)
+            if intersects {
+                inside.toggle()
+            }
+
+            previousIndex = currentIndex
+        }
+
+        return inside
     }
 }

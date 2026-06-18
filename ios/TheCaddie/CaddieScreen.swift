@@ -90,6 +90,12 @@ struct CaddieScreen: View {
                     .foregroundStyle(.secondary)
             }
 
+            if let liveProgressLabel = viewModel.liveProgressLabel {
+                Text(liveProgressLabel + (viewModel.liveCenterlineOffsetLabel.map { " • \($0)" } ?? ""))
+                    .font(.system(.caption, design: .rounded).weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+
             if let liveLocationError = viewModel.liveLocationError {
                 Text(liveLocationError)
                     .font(.system(.caption, design: .rounded).weight(.medium))
@@ -129,7 +135,7 @@ struct CaddieScreen: View {
             }
 
             Text(viewModel.canUseLiveDistance
-                ? "GPS updates distance to the selected hole's green center. Lie stays manual for now."
+                ? "GPS updates distance to the green and infers tee, fairway, rough, bunker, or green from mapped course surfaces."
                 : "This selected course does not have live GPS mapping yet.")
                 .font(.system(.caption, design: .rounded).weight(.medium))
                 .foregroundStyle(.secondary)
@@ -449,11 +455,13 @@ struct CaddieScreen: View {
                             HStack {
                                 metricItem(label: "GPS Distance", value: viewModel.packet.remainingDistanceM != nil ? "\(Int(viewModel.packet.remainingDistanceM!))m" : "--")
                                 Spacer()
+                                metricItem(label: "Progress", value: viewModel.liveProgressLabel ?? "--")
+                                Spacer()
                                 metricItem(label: "Wind", value: viewModel.roundState.currentShotContext()?.wind?.direction.rawValue.capitalized ?? "None")
                                 Spacer()
                                 metricItem(label: "Adjusted Basis", value: viewModel.packet.distanceBasisM != nil ? "\(Int(viewModel.packet.distanceBasisM!))m" : "--")
                                 Spacer()
-                                metricItem(label: "Dispersion Spread", value: viewModel.packet.expectedDispersionM != nil ? "±\(Int(viewModel.packet.expectedDispersionM!))m" : "--")
+                                metricItem(label: "Centerline", value: viewModel.liveCenterlineOffsetLabel ?? "--")
                             }
                             .padding(.vertical, 8)
                         }
@@ -479,6 +487,55 @@ struct CaddieScreen: View {
                                     Text(debugInfo.summary)
                                         .font(.system(.subheadline, design: .rounded).weight(.medium))
                                         .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(16)
+                            .background(Color.white.opacity(0.9))
+                            .cornerRadius(12)
+                        }
+
+                        if let debugInfo, !debugInfo.hazardEvaluations.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Hazard Relevance")
+                                    .font(.system(.caption, design: .rounded).bold())
+                                    .foregroundColor(.secondary)
+
+                                ForEach(debugInfo.hazardEvaluations) { evaluation in
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        HStack(alignment: .top, spacing: 10) {
+                                            VStack(alignment: .leading, spacing: 3) {
+                                                Text(evaluation.label)
+                                                    .font(.system(.subheadline, design: .rounded).bold())
+
+                                                Text(evaluation.note)
+                                                    .font(.system(.caption2, design: .rounded))
+                                                    .foregroundColor(.secondary)
+                                                    .fixedSize(horizontal: false, vertical: true)
+                                            }
+
+                                            Spacer(minLength: 8)
+
+                                            Text(evaluation.isRelevant ? "RELEVANT" : "IGNORED")
+                                                .font(.system(size: 8, design: .rounded).bold())
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 3)
+                                                .background(hazardBadgeColor(evaluation.isRelevant).opacity(0.12))
+                                                .foregroundColor(hazardBadgeColor(evaluation.isRelevant))
+                                                .cornerRadius(4)
+                                        }
+
+                                        HStack(spacing: 10) {
+                                            debugMetaPill(label: "Kind", value: evaluation.kind.rawValue.capitalized)
+                                            debugMetaPill(label: "Side", value: evaluation.sideLabel.capitalized)
+                                            if let progressM = evaluation.progressM {
+                                                debugMetaPill(label: "Progress", value: "\(Int(progressM.rounded()))m")
+                                            }
+                                            if let lateralOffsetM = evaluation.lateralOffsetM {
+                                                debugMetaPill(label: "Lateral", value: "\(Int(lateralOffsetM.rounded()))m")
+                                            }
+                                        }
+                                    }
+                                    .padding(.vertical, 4)
                                 }
                             }
                             .padding(16)
@@ -622,6 +679,16 @@ struct CaddieScreen: View {
             .cornerRadius(6)
     }
 
+    private func debugMetaPill(label: String, value: String) -> some View {
+        Text("\(label) \(value)")
+            .font(.system(size: 10, design: .rounded).weight(.bold))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(Color.black.opacity(0.05))
+            .foregroundColor(.secondary)
+            .cornerRadius(6)
+    }
+
     private func riskBadgeColor(_ totalRisk: Double) -> Color {
         if totalRisk <= 0.6 {
             return Color(red: 0.06, green: 0.56, blue: 0.24)
@@ -630,6 +697,12 @@ struct CaddieScreen: View {
             return Color(red: 0.76, green: 0.48, blue: 0.11)
         }
         return .red
+    }
+
+    private func hazardBadgeColor(_ isRelevant: Bool) -> Color {
+        isRelevant
+            ? Color(red: 0.06, green: 0.56, blue: 0.24)
+            : Color(red: 0.47, green: 0.50, blue: 0.53)
     }
 
     private var liveDistanceStatusColor: Color {

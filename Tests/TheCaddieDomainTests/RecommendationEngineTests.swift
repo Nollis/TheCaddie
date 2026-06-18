@@ -203,6 +203,208 @@ private func teePacket(
     #expect(packet.riskNote == nil)
 }
 
+@Test func explicitProgressOverrideKeepsAheadHazardsRelevantOnDoglegs() {
+    let hole = CourseHole(
+        number: 1,
+        par: 4,
+        teeLengthM: 400,
+        green: GreenContext(
+            frontDistanceM: 390,
+            centerDistanceM: 400,
+            backDistanceM: 410
+        ),
+        hazards: [
+            Hazard(
+                id: "dogleg-water-right",
+                kind: .water,
+                position: "right 250m",
+                note: "Water right is still in play."
+            )
+        ],
+        fairway: FairwayContext(landingWidthM: 36, drivingZoneEndM: nil)
+    )
+    let course = Course(id: "dogleg-test", name: "Dogleg Test", holes: [hole])
+
+    let heuristicPacket = CaddieRecommendationEngine.build(
+        course: course,
+        player: SampleRound.player,
+        roundState: RoundState(
+            courseId: course.id,
+            selectedHoleNumber: 1,
+            shotContexts: [
+                1: ShotContext(
+                    shotNumber: 2,
+                    remainingDistanceM: .known(120),
+                    lie: .known(.fairway),
+                    wind: nil
+                )
+            ]
+        )
+    )
+
+    let progressPacket = CaddieRecommendationEngine.build(
+        course: course,
+        player: SampleRound.player,
+        roundState: RoundState(
+            courseId: course.id,
+            selectedHoleNumber: 1,
+            shotContexts: [
+                1: ShotContext(
+                    shotNumber: 2,
+                    remainingDistanceM: .known(120),
+                    lie: .known(.fairway),
+                    wind: nil,
+                    progressM: 220
+                )
+            ]
+        )
+    )
+
+    #expect(heuristicPacket.shotIntent == .approach)
+    #expect(progressPacket.shotIntent == .approach)
+    #expect(heuristicPacket.recommendedClub == progressPacket.recommendedClub)
+    #expect(heuristicPacket.riskNote == nil)
+    #expect(progressPacket.riskNote == "Avoid right water; that is the expensive miss.")
+}
+
+@Test func mappedHazardProgressOverridesMisleadingPositionText() {
+    let hole = CourseHole(
+        number: 1,
+        par: 4,
+        teeLengthM: 400,
+        green: GreenContext(
+            frontDistanceM: 390,
+            centerDistanceM: 400,
+            backDistanceM: 410
+        ),
+        hazards: [
+            Hazard(
+                id: "mapped-water-right",
+                kind: .water,
+                position: "right 90m",
+                note: "Water right is still in play.",
+                progressM: 250
+            )
+        ],
+        fairway: FairwayContext(landingWidthM: 36, drivingZoneEndM: nil)
+    )
+    let course = Course(id: "mapped-progress-test", name: "Mapped Progress Test", holes: [hole])
+    let packet = CaddieRecommendationEngine.build(
+        course: course,
+        player: SampleRound.player,
+        roundState: RoundState(
+            courseId: course.id,
+            selectedHoleNumber: 1,
+            shotContexts: [
+                1: ShotContext(
+                    shotNumber: 2,
+                    remainingDistanceM: .known(120),
+                    lie: .known(.fairway),
+                    wind: nil,
+                    progressM: 220
+                )
+            ]
+        )
+    )
+
+    #expect(packet.shotIntent == .approach)
+    #expect(packet.riskNote == "Avoid right water; that is the expensive miss.")
+}
+
+@Test func mappedHazardSideOverridesMisleadingPositionText() {
+    let hole = CourseHole(
+        number: 1,
+        par: 4,
+        teeLengthM: 360,
+        green: GreenContext(
+            frontDistanceM: 350,
+            centerDistanceM: 360,
+            backDistanceM: 370
+        ),
+        hazards: [
+            Hazard(
+                id: "mapped-water-left",
+                kind: .water,
+                position: "right 180m",
+                note: "Water left shapes the tee shot.",
+                progressM: 180,
+                side: .left
+            )
+        ],
+        fairway: FairwayContext(landingWidthM: 36, drivingZoneEndM: nil)
+    )
+    let course = Course(id: "mapped-side-test", name: "Mapped Side Test", holes: [hole])
+    let packet = CaddieRecommendationEngine.build(
+        course: course,
+        player: SampleRound.player,
+        roundState: RoundState(
+            courseId: course.id,
+            selectedHoleNumber: 1,
+            shotContexts: [
+                1: ShotContext(
+                    shotNumber: 1,
+                    remainingDistanceM: .known(360),
+                    lie: .known(.tee),
+                    wind: nil
+                )
+            ]
+        )
+    )
+
+    #expect(packet.shotIntent == .teePosition)
+    #expect(packet.target == "right-center fairway")
+}
+
+@Test func laterallyDistantHazardStopsBiasingTargeting() {
+    let hole = CourseHole(
+        number: 1,
+        par: 4,
+        teeLengthM: 360,
+        green: GreenContext(
+            frontDistanceM: 350,
+            centerDistanceM: 360,
+            backDistanceM: 370
+        ),
+        hazards: [
+            Hazard(
+                id: "far-water-left",
+                kind: .water,
+                position: "left 150m",
+                note: "Far-left water is outside the normal corridor.",
+                progressM: 150,
+                side: .left,
+                lateralOffsetM: 40
+            )
+        ],
+        fairway: FairwayContext(landingWidthM: 36, drivingZoneEndM: nil)
+    )
+    let course = Course(id: "lateral-distance-test", name: "Lateral Distance Test", holes: [hole])
+    let packet = CaddieRecommendationEngine.build(
+        course: course,
+        player: SampleRound.player,
+        roundState: RoundState(
+            courseId: course.id,
+            selectedHoleNumber: 1,
+            shotContexts: [
+                1: ShotContext(
+                    shotNumber: 2,
+                    remainingDistanceM: .known(142),
+                    lie: .known(.fairway),
+                    wind: nil,
+                    progressM: 180
+                )
+            ]
+        )
+    )
+
+    #expect(packet.shotIntent == .approach)
+    #expect(packet.target == "middle of the green")
+    #expect(packet.riskNote == nil)
+    #expect(packet.debugInfo?.hazardEvaluations.count == 1)
+    #expect(packet.debugInfo?.hazardEvaluations.first?.label == "water left around 150m")
+    #expect(packet.debugInfo?.hazardEvaluations.first?.isRelevant == false)
+}
+
 @Test func bunkerLieSwitchesToRecoveryIntentWithMostLoftedReachingWedge() {
     let roundState = SampleRound.roundState.updateShotContext(
         ShotContext(

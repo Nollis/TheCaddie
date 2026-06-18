@@ -100,6 +100,7 @@ public struct RoundState: Equatable, Sendable {
         let nextRemainingDistanceM = nextRemainingDistance(
             hole: course?.hole(number: selectedHoleNumber),
             currentRemainingDistanceM: remainingDistanceM,
+            currentProgressM: currentShot.progressM,
             baselineAdvanceM: baselineAdvanceM,
             resultingLie: resultingLie
         )
@@ -107,7 +108,8 @@ public struct RoundState: Equatable, Sendable {
             shotNumber: currentShot.shotNumber + 1,
             remainingDistanceM: .known(nextRemainingDistanceM),
             lie: .known(resultingLie),
-            wind: currentShot.wind
+            wind: currentShot.wind,
+            progressM: nil
         )
 
         return updateShotContext(nextShot)
@@ -183,6 +185,7 @@ public struct RoundState: Equatable, Sendable {
 private func nextRemainingDistance(
     hole: CourseHole?,
     currentRemainingDistanceM: Double,
+    currentProgressM: Double?,
     baselineAdvanceM: Double,
     resultingLie: ShotLie
 ) -> Double {
@@ -192,13 +195,13 @@ private func nextRemainingDistance(
 
     if resultingLie == .bunker,
        let hole {
-        let currentProgressM = max(0, hole.teeLengthM - currentRemainingDistanceM)
-        let projectedProgressM = min(hole.teeLengthM, currentProgressM + baselineAdvanceM)
+        let resolvedCurrentProgressM = max(0, min(hole.teeLengthM, currentProgressM ?? (hole.teeLengthM - currentRemainingDistanceM)))
+        let projectedProgressM = min(hole.teeLengthM, resolvedCurrentProgressM + baselineAdvanceM)
 
         if let bunkerDistanceM = nearestForwardHazardDistance(
             kind: .bunker,
             hazards: hole.hazards,
-            currentProgressM: currentProgressM,
+            currentProgressM: resolvedCurrentProgressM,
             projectedProgressM: projectedProgressM
         ) {
             return max(0, hole.teeLengthM - bunkerDistanceM)
@@ -232,6 +235,10 @@ private func nearestForwardHazardDistance(
 }
 
 private func hazardDistance(for hazard: Hazard) -> Double? {
+    if let progressM = hazard.progressM {
+        return progressM
+    }
+
     let pattern = #"\d+(\.\d+)?"#
     guard let match = hazard.position.range(of: pattern, options: .regularExpression) else {
         return nil
@@ -264,7 +271,8 @@ public enum CurrentShotContext: Equatable, Sendable {
             shotNumber: 1,
             remainingDistanceM: .known(hole.teeLengthM),
             lie: .known(.tee),
-            wind: nil
+            wind: nil,
+            progressM: nil
         )
 
         if shot.remainingDistanceM.value == nil {

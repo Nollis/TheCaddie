@@ -69,15 +69,18 @@ public struct RecommendationDebugInfo: Equatable, Sendable {
     public let mode: RecommendationDebugMode
     public let summary: String
     public let clubEvaluations: [RecommendationClubEvaluation]
+    public let hazardEvaluations: [RecommendationHazardEvaluation]
 
     public init(
         mode: RecommendationDebugMode,
         summary: String,
-        clubEvaluations: [RecommendationClubEvaluation]
+        clubEvaluations: [RecommendationClubEvaluation],
+        hazardEvaluations: [RecommendationHazardEvaluation] = []
     ) {
         self.mode = mode
         self.summary = summary
         self.clubEvaluations = clubEvaluations
+        self.hazardEvaluations = hazardEvaluations
     }
 }
 
@@ -124,6 +127,37 @@ public struct RecommendationClubEvaluation: Equatable, Sendable, Identifiable {
         self.hazardRisk = hazardRisk
         self.overshootRisk = overshootRisk
         self.isSelected = isSelected
+        self.note = note
+    }
+}
+
+public struct RecommendationHazardEvaluation: Equatable, Sendable, Identifiable {
+    public let id: String
+    public let label: String
+    public let kind: HazardKind
+    public let sideLabel: String
+    public let progressM: Double?
+    public let lateralOffsetM: Double?
+    public let isRelevant: Bool
+    public let note: String
+
+    public init(
+        id: String,
+        label: String,
+        kind: HazardKind,
+        sideLabel: String,
+        progressM: Double?,
+        lateralOffsetM: Double?,
+        isRelevant: Bool,
+        note: String
+    ) {
+        self.id = id
+        self.label = label
+        self.kind = kind
+        self.sideLabel = sideLabel
+        self.progressM = progressM
+        self.lateralOffsetM = lateralOffsetM
+        self.isRelevant = isRelevant
         self.note = note
     }
 }
