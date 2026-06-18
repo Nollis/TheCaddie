@@ -177,28 +177,12 @@ struct CaddieScreen: View {
     }
 
     private func header(_ viewState: CaddieViewState) -> some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(viewState.holeLabel)
-                    .font(.system(.title3, design: .rounded).weight(.bold))
-                    .foregroundStyle(.black)
-
-                Text("Grounded by local shot context")
-                    .font(.system(.subheadline, design: .rounded).weight(.medium))
-                    .foregroundStyle(.secondary)
-
-                Text(viewState.shotLabel)
-                    .font(.system(.subheadline, design: .rounded).weight(.bold))
-                    .foregroundStyle(Color(red: 0.05, green: 0.38, blue: 0.19))
-            }
+        HStack {
+            Text(viewState.shotLabel)
+                .font(.system(.subheadline, design: .rounded).weight(.bold))
+                .foregroundStyle(Color(red: 0.05, green: 0.38, blue: 0.19))
 
             Spacer()
-
-            Text(viewState.distanceLabel)
-                .font(.system(.headline, design: .rounded).weight(.bold))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(.white.opacity(0.78), in: Capsule())
         }
     }
 
@@ -256,6 +240,21 @@ struct CaddieScreen: View {
 
     private func recommendationCard(_ viewState: CaddieViewState) -> some View {
         VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .center, spacing: 12) {
+                Text(viewState.holeLabel)
+                    .font(.system(.headline, design: .rounded).weight(.bold))
+                    .foregroundStyle(.black)
+
+                Spacer()
+
+                Text(viewState.distanceLabel)
+                    .font(.system(.subheadline, design: .rounded).weight(.bold))
+                    .foregroundStyle(Color(red: 0.05, green: 0.38, blue: 0.19))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.black.opacity(0.05), in: Capsule())
+            }
+
             Text(statusEyebrow(for: viewState.kind))
                 .font(.system(.caption, design: .rounded).weight(.black))
                 .tracking(1.1)
