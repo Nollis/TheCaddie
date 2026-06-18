@@ -13,6 +13,9 @@ final class CaddieViewModel: ObservableObject {
     @Published private(set) var liveProgressM: Double?
     @Published private(set) var liveCenterlineOffsetM: Double?
     @Published private(set) var liveAccuracyM: Double?
+    @Published private(set) var liveCoordinate: GeoCoordinate?
+    @Published private(set) var liveFixTimestamp: Date?
+    @Published private(set) var liveInferredLie: ShotLie?
     @Published private(set) var liveLocationStatus = "GPS off"
     @Published private(set) var liveLocationError: String?
     @Published private(set) var autoDetectedHoleNumber: Int?
@@ -112,6 +115,146 @@ final class CaddieViewModel: ObservableObject {
         }
 
         return "\(Int(liveCenterlineOffsetM.rounded())) m off centerline"
+    }
+
+    var liveCoordinateLabel: String? {
+        guard let liveCoordinate else {
+            return nil
+        }
+
+        return String(
+            format: "%.6f, %.6f",
+            liveCoordinate.latitude,
+            liveCoordinate.longitude
+        )
+    }
+
+    var liveFixTimestampLabel: String? {
+        guard let liveFixTimestamp else {
+            return nil
+        }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter.string(from: liveFixTimestamp)
+    }
+
+    var liveInferredLieLabel: String? {
+        guard let liveInferredLie else {
+            return nil
+        }
+
+        return liveInferredLie.rawValue.capitalized
+    }
+
+    var mappingHoleSummary: String? {
+        guard let activeHole = course?.hole(number: selectedHoleNumber) else {
+            return nil
+        }
+
+        return "Hole \(activeHole.number) • \(activeHole.centerlineCoordinates.count) centerline pts • \(activeHole.surfaces.count) surfaces • \(activeHole.hazards.count) hazards"
+    }
+
+    var liveHoleResolutionLabel: String {
+        let selected = "Selected \(selectedHoleNumber)"
+        guard let autoDetectedHoleNumber else {
+            return selected
+        }
+
+        if autoDetectedHoleNumber == selectedHoleNumber {
+            return "\(selected) • detected match"
+        }
+
+        return "\(selected) • detected \(autoDetectedHoleNumber)"
+    }
+
+    var holeSwitchMissesLabel: String {
+        "\(consecutiveHoleMisses) misses toward switch"
+    }
+
+    var debugExportText: String {
+        let packet = packet
+        let activeHole = course?.hole(number: selectedHoleNumber)
+        var lines: [String] = []
+
+        lines.append("The Caddie Debug Export")
+        lines.append("Hole: \(selectedHoleNumber)")
+        lines.append("Detected Hole: \(autoDetectedHoleNumber.map(String.init) ?? "n/a")")
+        lines.append("Status: \(packet.status.rawValue)")
+        lines.append("Intent: \(packet.shotIntent?.rawValue ?? "n/a")")
+        lines.append("Recommended Club: \(packet.recommendedClub ?? "n/a")")
+        lines.append("Target: \(packet.target ?? "n/a")")
+        lines.append("Primary Reason: \(packet.primaryReason)")
+        lines.append("Risk Note: \(packet.riskNote ?? "n/a")")
+        lines.append("Distance: \(packet.remainingDistanceM.map { formatDebugNumber($0) + "m" } ?? "n/a")")
+        lines.append("Adjusted Basis: \(packet.distanceBasisM.map { formatDebugNumber($0) + "m" } ?? "n/a")")
+        lines.append("Lie: \(packet.lie?.rawValue ?? "n/a")")
+        lines.append("Inferred Live Lie: \(liveInferredLie?.rawValue ?? "n/a")")
+        lines.append("Live Progress: \(liveProgressM.map { formatDebugNumber($0) + "m" } ?? "n/a")")
+        lines.append("Centerline Offset: \(liveCenterlineOffsetM.map { formatDebugNumber($0) + "m" } ?? "n/a")")
+        lines.append("GPS Fix: \(liveCoordinateLabel ?? "n/a")")
+        lines.append("GPS Accuracy: \(liveAccuracyM.map { "±" + formatDebugNumber($0) + "m" } ?? "n/a")")
+        lines.append("Fix Time: \(liveFixTimestampLabel ?? "n/a")")
+        lines.append("Hole Switch Misses: \(consecutiveHoleMisses)")
+
+        if let activeHole {
+            lines.append("Mapped Assets: \(activeHole.centerlineCoordinates.count) centerline pts, \(activeHole.surfaces.count) surfaces, \(activeHole.hazards.count) hazards")
+        }
+
+        if let debugInfo = packet.debugInfo {
+            lines.append("")
+            lines.append("Decision Summary")
+            lines.append("Mode: \(debugInfo.mode.rawValue)")
+            lines.append("Summary: \(debugInfo.summary)")
+
+            if !debugInfo.clubEvaluations.isEmpty {
+                lines.append("")
+                lines.append("Club Evaluations")
+                for evaluation in debugInfo.clubEvaluations {
+                    var parts = [
+                        evaluation.clubName,
+                        "carry \(formatDebugNumber(evaluation.carryDistanceM))m"
+                    ]
+                    if let spread = evaluation.expectedDispersionM {
+                        parts.append("dispersion ±\(formatDebugNumber(spread))m")
+                    }
+                    if let gap = evaluation.distanceGapM {
+                        parts.append("gap \(formatSignedDebugNumber(gap))m")
+                    }
+                    if let totalRisk = evaluation.totalRisk {
+                        parts.append("risk \(String(format: "%.2f", totalRisk))")
+                    }
+                    if evaluation.isSelected {
+                        parts.append("SELECTED")
+                    }
+                    parts.append("- \(evaluation.note)")
+                    lines.append(parts.joined(separator: " | "))
+                }
+            }
+
+            if !debugInfo.hazardEvaluations.isEmpty {
+                lines.append("")
+                lines.append("Hazard Evaluations")
+                for evaluation in debugInfo.hazardEvaluations {
+                    var parts = [
+                        evaluation.label,
+                        evaluation.isRelevant ? "RELEVANT" : "IGNORED",
+                        evaluation.kind.rawValue,
+                        evaluation.sideLabel
+                    ]
+                    if let progressM = evaluation.progressM {
+                        parts.append("progress \(formatDebugNumber(progressM))m")
+                    }
+                    if let lateralOffsetM = evaluation.lateralOffsetM {
+                        parts.append("lateral \(formatDebugNumber(lateralOffsetM))m")
+                    }
+                    parts.append("- \(evaluation.note)")
+                    lines.append(parts.joined(separator: " | "))
+                }
+            }
+        }
+
+        return lines.joined(separator: "\n")
     }
 
     func loadSample() {
@@ -304,6 +447,9 @@ final class CaddieViewModel: ObservableObject {
         liveProgressM = nil
         liveCenterlineOffsetM = nil
         liveAccuracyM = nil
+        liveCoordinate = nil
+        liveFixTimestamp = nil
+        liveInferredLie = nil
         liveLocationError = nil
         liveLocationStatus = "GPS off"
         autoDetectedHoleNumber = nil
@@ -437,6 +583,8 @@ final class CaddieViewModel: ObservableObject {
 
     private func applyLiveDistance(from fix: LiveRoundLocationManager.LocationFix) {
         liveAccuracyM = fix.horizontalAccuracyM
+        liveCoordinate = fix.coordinate
+        liveFixTimestamp = fix.timestamp
 
         guard isUsingLiveDistance else {
             return
@@ -471,6 +619,7 @@ final class CaddieViewModel: ObservableObject {
             fix: fix.coordinate,
             on: activeHole
         )
+        liveInferredLie = inferredLie
         let updatedShot = ShotContext(
             shotNumber: currentShot.shotNumber,
             remainingDistanceM: .known(distanceM),
@@ -530,6 +679,19 @@ final class CaddieViewModel: ObservableObject {
         )
         applyLiveDistance(from: fix)
     }
+}
+
+private func formatDebugNumber(_ value: Double) -> String {
+    if value.rounded() == value {
+        return String(Int(value))
+    }
+
+    return String(format: "%.1f", value)
+}
+
+private func formatSignedDebugNumber(_ value: Double) -> String {
+    let formatted = formatDebugNumber(abs(value))
+    return value >= 0 ? "+\(formatted)" : "-\(formatted)"
 }
 
 final class LiveRoundLocationManager: NSObject, CLLocationManagerDelegate {

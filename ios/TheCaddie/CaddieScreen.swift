@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct CaddieScreen: View {
     @StateObject var viewModel: CaddieViewModel
@@ -6,6 +7,7 @@ struct CaddieScreen: View {
     @State private var showDebugDrawer = false
     @State private var puttCount = 2
     @State private var actionLogs: [String] = ["Caddie screen loaded and ready."]
+    @State private var debugCopyConfirmation: String?
 
     init(viewModel: CaddieViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -431,6 +433,13 @@ struct CaddieScreen: View {
                             .foregroundColor(.secondary)
                     }
                     Spacer()
+                    Button(action: copyDebugReport) {
+                        Image(systemName: "doc.on.doc")
+                            .font(.system(.headline, design: .rounded).weight(.bold))
+                            .foregroundColor(Color(red: 0.05, green: 0.38, blue: 0.19))
+                            .frame(width: 36, height: 36)
+                            .background(Color.white.opacity(0.9), in: Circle())
+                    }
                     Button(action: {
                         showDebugDrawer = false
                     }) {
@@ -441,6 +450,12 @@ struct CaddieScreen: View {
                 }
                 
                 Divider()
+
+                if let debugCopyConfirmation {
+                    Text(debugCopyConfirmation)
+                        .font(.system(.caption, design: .rounded).weight(.bold))
+                        .foregroundColor(Color(red: 0.05, green: 0.38, blue: 0.19))
+                }
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
@@ -464,6 +479,62 @@ struct CaddieScreen: View {
                                 metricItem(label: "Centerline", value: viewModel.liveCenterlineOffsetLabel ?? "--")
                             }
                             .padding(.vertical, 8)
+                        }
+                        .padding(16)
+                        .background(Color.white.opacity(0.9))
+                        .cornerRadius(12)
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Live Mapping")
+                                .font(.system(.caption, design: .rounded).bold())
+                                .foregroundColor(.secondary)
+
+                            VStack(alignment: .leading, spacing: 10) {
+                                debugKeyValueRow(
+                                    label: "Hole Resolution",
+                                    value: viewModel.liveHoleResolutionLabel
+                                )
+
+                                if let mappingHoleSummary = viewModel.mappingHoleSummary {
+                                    debugKeyValueRow(
+                                        label: "Mapped Assets",
+                                        value: mappingHoleSummary
+                                    )
+                                }
+
+                                if let liveCoordinateLabel = viewModel.liveCoordinateLabel {
+                                    debugKeyValueRow(
+                                        label: "GPS Fix",
+                                        value: liveCoordinateLabel
+                                    )
+                                }
+
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 10) {
+                                        if let liveFixTimestampLabel = viewModel.liveFixTimestampLabel {
+                                            debugMetaPill(label: "Fix", value: liveFixTimestampLabel)
+                                        }
+                                        if let liveAccuracyLabel = viewModel.liveAccuracyLabel {
+                                            debugMetaPill(label: "Accuracy", value: liveAccuracyLabel.replacingOccurrences(of: "Accuracy ", with: ""))
+                                        }
+                                        debugMetaPill(label: "Switch", value: viewModel.holeSwitchMissesLabel)
+                                    }
+                                }
+
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 10) {
+                                        if let liveInferredLieLabel = viewModel.liveInferredLieLabel {
+                                            debugMetaPill(label: "Lie", value: liveInferredLieLabel)
+                                        }
+                                        if let liveProgressLabel = viewModel.liveProgressLabel {
+                                            debugMetaPill(label: "Progress", value: liveProgressLabel)
+                                        }
+                                        if let liveCenterlineOffsetLabel = viewModel.liveCenterlineOffsetLabel {
+                                            debugMetaPill(label: "Offset", value: liveCenterlineOffsetLabel)
+                                        }
+                                    }
+                                }
+                            }
                         }
                         .padding(16)
                         .background(Color.white.opacity(0.9))
@@ -689,6 +760,20 @@ struct CaddieScreen: View {
             .cornerRadius(6)
     }
 
+    private func debugKeyValueRow(label: String, value: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Text(label)
+                .font(.system(.caption, design: .rounded).weight(.bold))
+                .foregroundColor(.secondary)
+                .frame(width: 92, alignment: .leading)
+
+            Text(value)
+                .font(.system(.subheadline, design: .rounded).weight(.medium))
+                .foregroundColor(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
     private func riskBadgeColor(_ totalRisk: Double) -> Color {
         if totalRisk <= 0.6 {
             return Color(red: 0.06, green: 0.56, blue: 0.24)
@@ -735,6 +820,27 @@ struct CaddieScreen: View {
         if actionLogs.count > 20 {
             actionLogs.removeFirst()
         }
+    }
+
+    private func copyDebugReport() {
+        let export = buildDebugExport()
+        UIPasteboard.general.string = export
+        debugCopyConfirmation = "Copied debug report"
+        logAction("Copied debug report to clipboard.")
+    }
+
+    private func buildDebugExport() -> String {
+        let actionSection = actionLogs.joined(separator: "\n")
+        if actionSection.isEmpty {
+            return viewModel.debugExportText
+        }
+
+        return """
+        \(viewModel.debugExportText)
+
+        Activity History
+        \(actionSection)
+        """
     }
 
     private func quickUpdateTitle(for viewState: CaddieViewState) -> String {
