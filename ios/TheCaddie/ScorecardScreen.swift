@@ -27,6 +27,7 @@ struct ScorecardScreen: View {
                 if let course = viewModel.course {
                     ScrollView {
                         VStack(spacing: 20) {
+                            roundSnapshot(course: course)
                             
                             // Stats Dashboard Panel
                             statsDashboard(course: course)
@@ -40,6 +41,8 @@ struct ScorecardScreen: View {
                                 
                                 ForEach(course.holes) { hole in
                                     let score = viewModel.roundState.holeScores[hole.number]
+                                    let isCurrentHole = hole.number == viewModel.selectedHoleNumber
+                                    let isComplete = viewModel.roundState.completedHoleNumbers.contains(hole.number)
                                     
                                     Button(action: {
                                         prepareEdit(for: hole.number, defaultPar: hole.par, defaultFairway: hole.par > 3)
@@ -57,6 +60,10 @@ struct ScorecardScreen: View {
                                                 Text("Par \(hole.par) • \(Int(hole.teeLengthM))m")
                                                     .font(.system(.caption, design: .rounded))
                                                     .foregroundColor(.secondary)
+
+                                                Text(holeStatusLabel(isCurrentHole: isCurrentHole, isComplete: isComplete))
+                                                    .font(.system(.caption2, design: .rounded).weight(.bold))
+                                                    .foregroundColor(holeStatusColor(isCurrentHole: isCurrentHole, isComplete: isComplete))
                                             }
                                             
                                             Spacer()
@@ -88,6 +95,10 @@ struct ScorecardScreen: View {
                                                         Text("\(score.strokes)")
                                                             .font(.system(.title3, design: .rounded).weight(.bold))
                                                             .foregroundColor(strokeColor(strokes: score.strokes, par: hole.par))
+
+                                                        Text(scoreRelativeToPar(score.strokes, par: hole.par))
+                                                            .font(.system(.caption2, design: .rounded).weight(.bold))
+                                                            .foregroundColor(strokeColor(strokes: score.strokes, par: hole.par))
                                                         
                                                         Text("\(score.putts) \(score.putts == 1 ? "putt" : "putts")")
                                                             .font(.system(.caption2, design: .rounded))
@@ -107,7 +118,11 @@ struct ScorecardScreen: View {
                                         }
                                         .padding(.vertical, 14)
                                         .padding(.horizontal, 16)
-                                        .background(Color(white: 1.0).opacity(0.9))
+                                        .background(
+                                            isCurrentHole
+                                                ? Color(red: 0.06, green: 0.56, blue: 0.24).opacity(0.08)
+                                                : Color(white: 1.0).opacity(0.9)
+                                        )
                                         .cornerRadius(12)
                                         .shadow(color: Color.black.opacity(0.02), radius: 4, x: 0, y: 2)
                                     }
@@ -148,6 +163,44 @@ struct ScorecardScreen: View {
     }
     
     // Stats Dashboard Component
+    private func roundSnapshot(course: Course) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(course.name)
+                        .font(.system(.title3, design: .rounded).weight(.bold))
+                    Text("Current hole \(viewModel.selectedHoleNumber)")
+                        .font(.system(.subheadline, design: .rounded).weight(.medium))
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("ROUND")
+                        .font(.system(.caption, design: .rounded).bold())
+                        .foregroundColor(.secondary)
+                    Text("\(viewModel.roundState.completedHoleNumbers.count) / \(course.holes.count)")
+                        .font(.system(.headline, design: .rounded).weight(.bold))
+                }
+            }
+
+            HStack(spacing: 10) {
+                snapshotPill(label: "GPS", value: viewModel.liveStatusBadgeLabel ?? "Unavailable")
+                if let distance = viewModel.packet.remainingDistanceM {
+                    snapshotPill(label: "Yardage", value: "\(Int(distance.rounded()))m")
+                }
+                if let lie = viewModel.packet.lie {
+                    snapshotPill(label: "Lie", value: lie.rawValue.capitalized)
+                }
+            }
+        }
+        .padding(20)
+        .background(Color(white: 1.0).opacity(0.95))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+    }
+
     private func statsDashboard(course: Course) -> some View {
         let scores = viewModel.roundState.holeScores.values
         let completedCount = scores.count
@@ -422,6 +475,50 @@ struct ScorecardScreen: View {
         } else {
             return .red // Double Bogey or worse
         }
+    }
+
+    private func scoreRelativeToPar(_ strokes: Int, par: Int) -> String {
+        let diff = strokes - par
+        if diff == 0 {
+            return "E"
+        }
+        return diff > 0 ? "+\(diff)" : "\(diff)"
+    }
+
+    private func holeStatusLabel(isCurrentHole: Bool, isComplete: Bool) -> String {
+        if isCurrentHole && !isComplete {
+            return "Playing now"
+        }
+        if isComplete {
+            return "Finished"
+        }
+        return "Not started"
+    }
+
+    private func holeStatusColor(isCurrentHole: Bool, isComplete: Bool) -> Color {
+        if isCurrentHole && !isComplete {
+            return Color(red: 0.06, green: 0.56, blue: 0.24)
+        }
+        if isComplete {
+            return .secondary
+        }
+        return Color(red: 0.76, green: 0.48, blue: 0.11)
+    }
+
+    private func snapshotPill(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label.uppercased())
+                .font(.system(size: 10, design: .rounded).weight(.bold))
+                .foregroundColor(.secondary)
+            Text(value)
+                .font(.system(.subheadline, design: .rounded).weight(.bold))
+                .foregroundColor(.primary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color.black.opacity(0.03))
+        .cornerRadius(10)
     }
 }
 

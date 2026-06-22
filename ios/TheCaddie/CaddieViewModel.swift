@@ -172,20 +172,52 @@ final class CaddieViewModel: ObservableObject {
         "\(consecutiveHoleMisses) misses toward switch"
     }
 
+    var liveStatusBadgeLabel: String? {
+        guard course != nil else {
+            return nil
+        }
+
+        if isUsingLiveDistance {
+            return autoDetectedHoleNumber == selectedHoleNumber
+                ? "GPS live"
+                : "GPS on H\(autoDetectedHoleNumber ?? selectedHoleNumber)"
+        }
+
+        if canUseLiveDistance {
+            return "GPS ready"
+        }
+
+        return nil
+    }
+
+    var liveStatusBadgeTone: LiveStatusBadgeTone {
+        if liveLocationError != nil {
+            return .error
+        }
+        if isUsingLiveDistance {
+            return .active
+        }
+        return .idle
+    }
+
     var debugExportText: String {
         let packet = packet
         let activeHole = course?.hole(number: selectedHoleNumber)
         var lines: [String] = []
 
         lines.append("The Caddie Debug Export")
+        lines.append("Exported At: \(debugExportTimestamp)")
+        lines.append("Course: \(course?.name ?? "n/a")")
         lines.append("Hole: \(selectedHoleNumber)")
         lines.append("Detected Hole: \(autoDetectedHoleNumber.map(String.init) ?? "n/a")")
+        lines.append("Shot: \(packet.shotNumber.map(String.init) ?? "n/a")")
         lines.append("Status: \(packet.status.rawValue)")
         lines.append("Intent: \(packet.shotIntent?.rawValue ?? "n/a")")
         lines.append("Recommended Club: \(packet.recommendedClub ?? "n/a")")
         lines.append("Target: \(packet.target ?? "n/a")")
         lines.append("Primary Reason: \(packet.primaryReason)")
         lines.append("Risk Note: \(packet.riskNote ?? "n/a")")
+        lines.append("Confidence: \(packet.confidence.rawValue)")
         lines.append("Distance: \(packet.remainingDistanceM.map { formatDebugNumber($0) + "m" } ?? "n/a")")
         lines.append("Adjusted Basis: \(packet.distanceBasisM.map { formatDebugNumber($0) + "m" } ?? "n/a")")
         lines.append("Lie: \(packet.lie?.rawValue ?? "n/a")")
@@ -199,6 +231,11 @@ final class CaddieViewModel: ObservableObject {
 
         if let activeHole {
             lines.append("Mapped Assets: \(activeHole.centerlineCoordinates.count) centerline pts, \(activeHole.surfaces.count) surfaces, \(activeHole.hazards.count) hazards")
+        }
+
+        lines.append("Completed Holes: \(roundState.completedHoleNumbers.count)")
+        if let scoreSummary = debugScoreSummary {
+            lines.append("Score Summary: \(scoreSummary)")
         }
 
         if let debugInfo = packet.debugInfo {
@@ -254,6 +291,12 @@ final class CaddieViewModel: ObservableObject {
             }
         }
 
+        lines.append("")
+        lines.append("Field Notes")
+        lines.append("Observed Outcome: ")
+        lines.append("Expected Outcome: ")
+        lines.append("Suspected Issue: ")
+
         return lines.joined(separator: "\n")
     }
 
@@ -263,7 +306,7 @@ final class CaddieViewModel: ObservableObject {
         roundState = KungsbackaNyaCourse.openingRoundState
         autoDetectedHoleNumber = roundState.selectedHoleNumber
         consecutiveHoleMisses = 0
-        syncLiveDistanceIfNeeded()
+        enableLiveDistanceIfSupported()
     }
 
     func markLie(_ lie: ShotLie) {
@@ -436,7 +479,7 @@ final class CaddieViewModel: ObservableObject {
         )
         autoDetectedHoleNumber = startingHole
         consecutiveHoleMisses = 0
-        syncLiveDistanceIfNeeded()
+        enableLiveDistanceIfSupported()
     }
     
     func endRound() {
@@ -579,6 +622,39 @@ final class CaddieViewModel: ObservableObject {
         } else {
             locationManager.requestSingleFix()
         }
+    }
+
+    private func enableLiveDistanceIfSupported() {
+        guard canUseLiveDistance else {
+            isUsingLiveDistance = false
+            liveLocationStatus = "This course is not mapped for live GPS yet."
+            return
+        }
+
+        startLiveDistance()
+    }
+
+    private var debugExportTimestamp: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return formatter.string(from: Date())
+    }
+
+    private var debugScoreSummary: String? {
+        guard let course else {
+            return nil
+        }
+
+        let scoredHoles = course.holes.filter { roundState.holeScores[$0.number] != nil }
+        guard !scoredHoles.isEmpty else {
+            return nil
+        }
+
+        let totalStrokes = scoredHoles.compactMap { roundState.holeScores[$0.number]?.strokes }.reduce(0, +)
+        let totalPar = scoredHoles.map(\.par).reduce(0, +)
+        let diff = totalStrokes - totalPar
+        let diffText = diff == 0 ? "E" : (diff > 0 ? "+\(diff)" : "\(diff)")
+        return "\(totalStrokes) (\(diffText)) through \(scoredHoles.count)"
     }
 
     private func applyLiveDistance(from fix: LiveRoundLocationManager.LocationFix) {
@@ -852,4 +928,10 @@ extension CaddieViewModel {
             )
         )
     }
+}
+
+enum LiveStatusBadgeTone {
+    case active
+    case idle
+    case error
 }

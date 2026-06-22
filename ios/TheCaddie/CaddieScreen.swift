@@ -29,7 +29,6 @@ struct CaddieScreen: View {
 
             VStack(alignment: .leading, spacing: 20) {
                 header(viewState)
-                liveDistancePanel()
                 holeNavigator()
                 recommendationCard(viewState)
                 quickUpdates(viewState)
@@ -60,122 +59,6 @@ struct CaddieScreen: View {
         }
     }
 
-    private func liveDistancePanel() -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .center, spacing: 8) {
-                Circle()
-                    .fill(liveDistanceStatusColor)
-                    .frame(width: 8, height: 8)
-
-                Text("GPS")
-                    .font(.system(.subheadline, design: .rounded).weight(.bold))
-                    .foregroundStyle(.black)
-
-                Text(liveDistanceStatusText)
-                    .font(.system(.caption, design: .rounded).weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-
-                Spacer(minLength: 8)
-
-                if let liveDistanceLabel = viewModel.liveDistanceLabel {
-                    Text(liveDistanceLabel)
-                        .font(.system(.subheadline, design: .rounded).weight(.bold))
-                        .foregroundStyle(Color(red: 0.05, green: 0.38, blue: 0.19))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.white.opacity(0.82), in: Capsule())
-                }
-            }
-
-            if viewModel.liveAccuracyLabel != nil
-                || viewModel.liveProgressLabel != nil
-                || viewModel.liveCenterlineOffsetLabel != nil {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        if let liveAccuracyLabel = viewModel.liveAccuracyLabel {
-                            compactInfoPill(liveAccuracyLabel)
-                        }
-                        if let liveProgressLabel = viewModel.liveProgressLabel {
-                            compactInfoPill(liveProgressLabel)
-                        }
-                        if let liveCenterlineOffsetLabel = viewModel.liveCenterlineOffsetLabel {
-                            compactInfoPill(liveCenterlineOffsetLabel)
-                        }
-                    }
-                }
-            }
-
-            if let liveLocationError = viewModel.liveLocationError {
-                Text(liveLocationError)
-                    .font(.system(.caption2, design: .rounded).weight(.medium))
-                    .foregroundStyle(Color(red: 0.70, green: 0.16, blue: 0.12))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            HStack(spacing: 8) {
-                Button {
-                    if viewModel.isUsingLiveDistance {
-                        viewModel.stopLiveDistance()
-                        logAction("Paused live GPS distance.")
-                    } else {
-                        viewModel.startLiveDistance()
-                        logAction("Started live GPS distance.")
-                    }
-                } label: {
-                    Label(
-                        viewModel.isUsingLiveDistance ? "Pause" : "Use GPS",
-                        systemImage: viewModel.isUsingLiveDistance ? "location.slash" : "location"
-                    )
-                    .font(.system(.caption, design: .rounded).weight(.bold))
-                }
-                .buttonStyle(CaddieCompactButtonStyle())
-
-                Button {
-                    viewModel.refreshLiveDistance()
-                    logAction("Requested GPS refresh.")
-                } label: {
-                    Label("Refresh", systemImage: "location.fill")
-                        .font(.system(.caption, design: .rounded).weight(.bold))
-                }
-                .buttonStyle(CaddieCompactButtonStyle())
-                .disabled(!viewModel.canUseLiveDistance && !viewModel.isUsingLiveDistance)
-                .opacity((!viewModel.canUseLiveDistance && !viewModel.isUsingLiveDistance) ? 0.45 : 1)
-
-                Spacer(minLength: 0)
-
-                if !viewModel.canUseLiveDistance {
-                    Text("Not mapped")
-                        .font(.system(.caption2, design: .rounded).weight(.bold))
-                        .foregroundStyle(.secondary)
-                } else if !viewModel.isUsingLiveDistance {
-                    Text("Optional")
-                        .font(.system(.caption2, design: .rounded).weight(.bold))
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .background(Color.black.opacity(0.05), in: Capsule())
-                }
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(.white.opacity(0.72), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(.white.opacity(0.9), lineWidth: 1)
-        )
-    }
-
-    private func compactInfoPill(_ text: String) -> some View {
-        Text(text)
-            .font(.system(.caption2, design: .rounded).weight(.bold))
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(Color.black.opacity(0.05), in: Capsule())
-    }
-
     private func header(_ viewState: CaddieViewState) -> some View {
         HStack {
             Text(viewState.shotLabel)
@@ -183,6 +66,15 @@ struct CaddieScreen: View {
                 .foregroundStyle(Color(red: 0.05, green: 0.38, blue: 0.19))
 
             Spacer()
+
+            if let liveStatusBadgeLabel = viewModel.liveStatusBadgeLabel {
+                Text(liveStatusBadgeLabel)
+                    .font(.system(.caption2, design: .rounded).weight(.bold))
+                    .foregroundStyle(liveStatusBadgeColor)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(liveStatusBadgeColor.opacity(0.12), in: Capsule())
+            }
         }
     }
 
@@ -469,6 +361,22 @@ struct CaddieScreen: View {
                             .foregroundColor(.secondary)
                     }
                     Spacer()
+                    Button(action: {
+                        if viewModel.isUsingLiveDistance {
+                            viewModel.stopLiveDistance()
+                            logAction("Paused live GPS distance.")
+                        } else {
+                            viewModel.startLiveDistance()
+                            logAction("Started live GPS distance.")
+                        }
+                    }) {
+                        Image(systemName: viewModel.isUsingLiveDistance ? "location.slash" : "location")
+                            .font(.system(.headline, design: .rounded).weight(.bold))
+                            .foregroundColor(Color(red: 0.05, green: 0.38, blue: 0.19))
+                            .frame(width: 36, height: 36)
+                            .background(Color.white.opacity(0.9), in: Circle())
+                    }
+                    .disabled(!viewModel.canUseLiveDistance && !viewModel.isUsingLiveDistance)
                     Button(action: copyDebugReport) {
                         Image(systemName: "doc.on.doc")
                             .font(.system(.headline, design: .rounded).weight(.bold))
@@ -826,26 +734,15 @@ struct CaddieScreen: View {
             : Color(red: 0.47, green: 0.50, blue: 0.53)
     }
 
-    private var liveDistanceStatusColor: Color {
-        if viewModel.liveLocationError != nil {
+    private var liveStatusBadgeColor: Color {
+        switch viewModel.liveStatusBadgeTone {
+        case .active:
+            return Color(red: 0.06, green: 0.56, blue: 0.24)
+        case .idle:
+            return Color(red: 0.76, green: 0.48, blue: 0.11)
+        case .error:
             return Color(red: 0.70, green: 0.16, blue: 0.12)
         }
-        if viewModel.isUsingLiveDistance {
-            return Color(red: 0.06, green: 0.56, blue: 0.24)
-        }
-        if viewModel.canUseLiveDistance {
-            return Color(red: 0.76, green: 0.48, blue: 0.11)
-        }
-        return .gray
-    }
-
-    private var liveDistanceStatusText: String {
-        if let autoDetectedHoleNumber = viewModel.autoDetectedHoleNumber,
-           viewModel.isUsingLiveDistance {
-            return "Hole \(autoDetectedHoleNumber) auto-detected • \(viewModel.liveLocationStatus)"
-        }
-
-        return viewModel.liveLocationStatus
     }
 
     private func logAction(_ action: String) {
@@ -945,17 +842,6 @@ private struct CaddiePillButtonStyle: ButtonStyle {
             .foregroundStyle(Color(red: 0.05, green: 0.38, blue: 0.19))
             .padding(.vertical, 14)
             .background(.white.opacity(configuration.isPressed ? 0.65 : 0.86), in: Capsule())
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
-    }
-}
-
-private struct CaddieCompactButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .foregroundStyle(Color(red: 0.05, green: 0.38, blue: 0.19))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(.white.opacity(configuration.isPressed ? 0.62 : 0.86), in: Capsule())
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
     }
 }
