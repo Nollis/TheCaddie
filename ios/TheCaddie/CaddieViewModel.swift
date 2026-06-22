@@ -536,6 +536,33 @@ final class CaddieViewModel: ObservableObject {
         }
     }
 
+    func addClub(named clubName: String) {
+        guard !player.clubs.contains(where: { $0.name == clubName }) else {
+            return
+        }
+
+        let newClub = StandardBagCatalog.club(named: clubName)?.playerClub
+            ?? PlayerClub(name: clubName, carryDistanceM: 100)
+        persistPlayer(PlayerContext(
+            handicapIndex: player.handicapIndex,
+            clubs: player.clubs + [newClub],
+            strategyPreference: player.strategyPreference
+        ))
+    }
+
+    func removeClub(named clubName: String) {
+        let updatedClubs = player.clubs.filter { $0.name != clubName }
+        guard updatedClubs.count != player.clubs.count else {
+            return
+        }
+
+        persistPlayer(PlayerContext(
+            handicapIndex: player.handicapIndex,
+            clubs: updatedClubs,
+            strategyPreference: player.strategyPreference
+        ))
+    }
+
     func updateHoleScore(holeNumber: Int, strokes: Int, putts: Int, fairwayHit: Bool?, gir: Bool) {
         var updatedScores = roundState.holeScores
         updatedScores[holeNumber] = HoleScore(

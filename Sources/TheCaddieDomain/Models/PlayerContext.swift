@@ -29,11 +29,13 @@ public struct PlayerContext: Equatable, Sendable {
 public struct PlayerProfileSnapshot: Codable, Equatable, Sendable {
     public let handicapIndex: Double?
     public let strategyPreferenceRawValue: String
+    public let clubNamesInBag: [String]?
     public let clubCarryDistancesM: [String: Double]
 
     public init(player: PlayerContext) {
         self.handicapIndex = player.handicapIndex
         self.strategyPreferenceRawValue = player.strategyPreference.rawValue
+        self.clubNamesInBag = player.clubs.map(\.name)
         self.clubCarryDistancesM = Dictionary(
             uniqueKeysWithValues: player.clubs.map { ($0.name, $0.carryDistanceM) }
         )
@@ -42,12 +44,19 @@ public struct PlayerProfileSnapshot: Codable, Equatable, Sendable {
     public func resolvePlayer(base: PlayerContext) -> PlayerContext {
         let strategyPreference = StrategyPreference(rawValue: strategyPreferenceRawValue)
             ?? base.strategyPreference
-        let updatedClubs = base.clubs.map { club in
-            PlayerClub(
-                name: club.name,
-                carryDistanceM: clubCarryDistancesM[club.name] ?? club.carryDistanceM,
-                typicalDispersionM: club.typicalDispersionM,
-                playableLies: club.playableLies
+        let baseClubsByName = Dictionary(uniqueKeysWithValues: base.clubs.map { ($0.name, $0) })
+        let clubNames = clubNamesInBag ?? base.clubs.map(\.name)
+        let updatedClubs = clubNames.map { clubName in
+            let baseClub = baseClubsByName[clubName]
+            let carryDistanceM = clubCarryDistancesM[clubName]
+                ?? baseClub?.carryDistanceM
+                ?? StandardBagCatalog.club(named: clubName)?.defaultCarryDistanceM
+                ?? 100
+            return PlayerClub(
+                name: clubName,
+                carryDistanceM: carryDistanceM,
+                typicalDispersionM: baseClub?.typicalDispersionM,
+                playableLies: baseClub?.playableLies
             )
         }
 
@@ -91,6 +100,9 @@ public struct PlayerClub: Equatable, Sendable, Identifiable {
         let normalized = clubName.lowercased()
         if normalized.contains("driver") {
             return [.tee]
+        }
+        if normalized.contains("putter") {
+            return [.green]
         }
         if isWedgeName(normalized) {
             return [.tee, .fairway, .rough, .bunker, .recovery]
@@ -169,6 +181,9 @@ public struct PlayerClub: Equatable, Sendable, Identifiable {
         if normalized.contains("wedge") {
             return 95
         }
+        if normalized.contains("putter") {
+            return 300
+        }
 
         return 200
     }
@@ -180,6 +195,54 @@ public struct PlayerClub: Equatable, Sendable, Identifiable {
         }
 
         return Int(normalized[match])
+    }
+}
+
+public struct StandardBagClub: Equatable, Sendable, Identifiable {
+    public let name: String
+    public let defaultCarryDistanceM: Double
+
+    public var id: String { name }
+
+    public init(name: String, defaultCarryDistanceM: Double) {
+        self.name = name
+        self.defaultCarryDistanceM = defaultCarryDistanceM
+    }
+
+    public var playerClub: PlayerClub {
+        PlayerClub(name: name, carryDistanceM: defaultCarryDistanceM)
+    }
+}
+
+public enum StandardBagCatalog {
+    public static let clubs: [StandardBagClub] = [
+        StandardBagClub(name: "Driver", defaultCarryDistanceM: 220),
+        StandardBagClub(name: "3 Wood", defaultCarryDistanceM: 205),
+        StandardBagClub(name: "5 Wood", defaultCarryDistanceM: 195),
+        StandardBagClub(name: "7 Wood", defaultCarryDistanceM: 185),
+        StandardBagClub(name: "3 Hybrid", defaultCarryDistanceM: 190),
+        StandardBagClub(name: "4 Hybrid", defaultCarryDistanceM: 180),
+        StandardBagClub(name: "5 Hybrid", defaultCarryDistanceM: 170),
+        StandardBagClub(name: "3 Iron", defaultCarryDistanceM: 185),
+        StandardBagClub(name: "4 Iron", defaultCarryDistanceM: 178),
+        StandardBagClub(name: "5 Iron", defaultCarryDistanceM: 170),
+        StandardBagClub(name: "6 Iron", defaultCarryDistanceM: 160),
+        StandardBagClub(name: "7 Iron", defaultCarryDistanceM: 150),
+        StandardBagClub(name: "8 Iron", defaultCarryDistanceM: 140),
+        StandardBagClub(name: "9 Iron", defaultCarryDistanceM: 130),
+        StandardBagClub(name: "PW", defaultCarryDistanceM: 110),
+        StandardBagClub(name: "GW", defaultCarryDistanceM: 100),
+        StandardBagClub(name: "50W", defaultCarryDistanceM: 90),
+        StandardBagClub(name: "52W", defaultCarryDistanceM: 86),
+        StandardBagClub(name: "54W", defaultCarryDistanceM: 82),
+        StandardBagClub(name: "56W", defaultCarryDistanceM: 76),
+        StandardBagClub(name: "58W", defaultCarryDistanceM: 68),
+        StandardBagClub(name: "60W", defaultCarryDistanceM: 60),
+        StandardBagClub(name: "Putter", defaultCarryDistanceM: 10)
+    ]
+
+    public static func club(named name: String) -> StandardBagClub? {
+        clubs.first { $0.name == name }
     }
 }
 

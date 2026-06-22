@@ -451,6 +451,7 @@ import TheCaddieDomain
 
     #expect(decoded.handicapIndex == 13.4)
     #expect(decoded.strategyPreferenceRawValue == StrategyPreference.aggressive.rawValue)
+    #expect(decoded.clubNamesInBag == ["Driver", "7 Iron", "50W"])
     #expect(decoded.clubCarryDistancesM["Driver"] == 232)
     #expect(decoded.clubCarryDistancesM["7 Iron"] == 146)
     #expect(decoded.clubCarryDistancesM["50W"] == 92)
@@ -470,9 +471,17 @@ import TheCaddieDomain
     let savedSnapshot = PlayerProfileSnapshot(
         handicapIndex: 18.2,
         strategyPreferenceRawValue: StrategyPreference.safe.rawValue,
+        clubNamesInBag: [
+            "Driver",
+            "3 Wood",
+            "7 Iron",
+            "56W"
+        ],
         clubCarryDistancesM: [
             "Driver": 228,
-            "7 Iron": 144
+            "3 Wood": 201,
+            "7 Iron": 144,
+            "56W": 74
         ]
     )
 
@@ -481,7 +490,17 @@ import TheCaddieDomain
     #expect(resolved.handicapIndex == 18.2)
     #expect(resolved.strategyPreference == .safe)
     #expect(resolved.clubs.first(where: { $0.name == "Driver" })?.carryDistanceM == 228)
+    #expect(resolved.clubs.first(where: { $0.name == "3 Wood" })?.carryDistanceM == 201)
     #expect(resolved.clubs.first(where: { $0.name == "7 Iron" })?.carryDistanceM == 144)
-    #expect(resolved.clubs.first(where: { $0.name == "5 Iron" })?.carryDistanceM == 170)
-    #expect(resolved.clubs.first(where: { $0.name == "PW" })?.carryDistanceM == 110)
+    #expect(resolved.clubs.first(where: { $0.name == "56W" })?.carryDistanceM == 74)
+    #expect(resolved.clubs.first(where: { $0.name == "5 Iron" }) == nil)
+    #expect(resolved.clubs.first(where: { $0.name == "PW" }) == nil)
+}
+
+@Test func standardBagCatalogIncludesCommonClubsPeopleExpect() {
+    #expect(StandardBagCatalog.club(named: "3 Wood")?.defaultCarryDistanceM == 205)
+    #expect(StandardBagCatalog.club(named: "5 Wood")?.defaultCarryDistanceM == 195)
+    #expect(StandardBagCatalog.club(named: "4 Hybrid")?.defaultCarryDistanceM == 180)
+    #expect(StandardBagCatalog.club(named: "56W")?.defaultCarryDistanceM == 76)
+    #expect(StandardBagCatalog.club(named: "Putter")?.defaultCarryDistanceM == 10)
 }
