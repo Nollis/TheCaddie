@@ -29,12 +29,12 @@ final class CaddieViewModel: ObservableObject {
         course: Course?,
         player: PlayerContext,
         roundState: RoundState,
-        locationManager: LiveRoundLocationManager? = nil,
-        playerProfileStore: PlayerProfileStore = .shared
+        locationManager: LiveRoundLocationManager? = nil
     ) {
         self.course = course
-        self.playerProfileStore = playerProfileStore
-        self.player = playerProfileStore.loadPlayer(base: player) ?? player
+        self.playerProfileStore = .shared
+        let resolvedPlayer = self.playerProfileStore.loadPlayer(base: player) ?? player
+        self.player = resolvedPlayer
         self.roundState = roundState
         self.locationManager = locationManager ?? LiveRoundLocationManager()
         bindLocationManager()
