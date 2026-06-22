@@ -21,6 +21,7 @@ final class CaddieViewModel: ObservableObject {
     @Published private(set) var autoDetectedHoleNumber: Int?
 
     private let locationManager: LiveRoundLocationManager
+    private let playerProfileStore: PlayerProfileStore
     private var cancellables = Set<AnyCancellable>()
     private var consecutiveHoleMisses = 0
 
@@ -28,10 +29,12 @@ final class CaddieViewModel: ObservableObject {
         course: Course?,
         player: PlayerContext,
         roundState: RoundState,
-        locationManager: LiveRoundLocationManager? = nil
+        locationManager: LiveRoundLocationManager? = nil,
+        playerProfileStore: PlayerProfileStore = .shared
     ) {
         self.course = course
-        self.player = player
+        self.playerProfileStore = playerProfileStore
+        self.player = playerProfileStore.loadPlayer(base: player) ?? player
         self.roundState = roundState
         self.locationManager = locationManager ?? LiveRoundLocationManager()
         bindLocationManager()
@@ -302,7 +305,7 @@ final class CaddieViewModel: ObservableObject {
 
     func loadSample() {
         course = KungsbackaNyaCourse.course
-        player = SampleRound.player
+        player = playerProfileStore.loadPlayer(base: SampleRound.player) ?? SampleRound.player
         roundState = KungsbackaNyaCourse.openingRoundState
         autoDetectedHoleNumber = roundState.selectedHoleNumber
         consecutiveHoleMisses = 0
@@ -500,19 +503,19 @@ final class CaddieViewModel: ObservableObject {
     }
 
     func updatePlayerHandicap(_ handicap: Double) {
-        self.player = PlayerContext(
+        persistPlayer(PlayerContext(
             handicapIndex: handicap,
             clubs: player.clubs,
             strategyPreference: player.strategyPreference
-        )
+        ))
     }
     
     func updateStrategyPreference(_ strategy: StrategyPreference) {
-        self.player = PlayerContext(
+        persistPlayer(PlayerContext(
             handicapIndex: player.handicapIndex,
             clubs: player.clubs,
             strategyPreference: strategy
-        )
+        ))
     }
 
     func updateClubDistance(clubName: String, distanceM: Double) {
@@ -525,11 +528,11 @@ final class CaddieViewModel: ObservableObject {
                 typicalDispersionM: original.typicalDispersionM,
                 playableLies: original.playableLies
             )
-            self.player = PlayerContext(
+            persistPlayer(PlayerContext(
                 handicapIndex: player.handicapIndex,
                 clubs: updatedClubs,
                 strategyPreference: player.strategyPreference
-            )
+            ))
         }
     }
 
@@ -569,6 +572,11 @@ final class CaddieViewModel: ObservableObject {
         }
 
         return SampleRound.readyShot
+    }
+
+    private func persistPlayer(_ player: PlayerContext) {
+        self.player = player
+        playerProfileStore.save(player)
     }
 
     private func bindLocationManager() {
@@ -934,4 +942,38 @@ enum LiveStatusBadgeTone {
     case active
     case idle
     case error
+}
+
+private final class PlayerProfileStore {
+    static let shared = PlayerProfileStore()
+
+    private let defaults: UserDefaults
+    private let storageKey = "playerProfileSnapshot"
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    func loadPlayer(base: PlayerContext) -> PlayerContext? {
+        guard let data = defaults.data(forKey: storageKey) else {
+            return nil
+        }
+
+        do {
+            let snapshot = try JSONDecoder().decode(PlayerProfileSnapshot.self, from: data)
+            return snapshot.resolvePlayer(base: base)
+        } catch {
+            defaults.removeObject(forKey: storageKey)
+            return nil
+        }
+    }
+
+    func save(_ player: PlayerContext) {
+        do {
+            let data = try JSONEncoder().encode(PlayerProfileSnapshot(player: player))
+            defaults.set(data, forKey: storageKey)
+        } catch {
+            assertionFailure("Failed to persist player profile: \(error)")
+        }
+    }
 }

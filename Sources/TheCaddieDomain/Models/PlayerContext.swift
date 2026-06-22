@@ -26,6 +26,39 @@ public struct PlayerContext: Equatable, Sendable {
     }
 }
 
+public struct PlayerProfileSnapshot: Codable, Equatable, Sendable {
+    public let handicapIndex: Double?
+    public let strategyPreferenceRawValue: String
+    public let clubCarryDistancesM: [String: Double]
+
+    public init(player: PlayerContext) {
+        self.handicapIndex = player.handicapIndex
+        self.strategyPreferenceRawValue = player.strategyPreference.rawValue
+        self.clubCarryDistancesM = Dictionary(
+            uniqueKeysWithValues: player.clubs.map { ($0.name, $0.carryDistanceM) }
+        )
+    }
+
+    public func resolvePlayer(base: PlayerContext) -> PlayerContext {
+        let strategyPreference = StrategyPreference(rawValue: strategyPreferenceRawValue)
+            ?? base.strategyPreference
+        let updatedClubs = base.clubs.map { club in
+            PlayerClub(
+                name: club.name,
+                carryDistanceM: clubCarryDistancesM[club.name] ?? club.carryDistanceM,
+                typicalDispersionM: club.typicalDispersionM,
+                playableLies: club.playableLies
+            )
+        }
+
+        return PlayerContext(
+            handicapIndex: handicapIndex ?? base.handicapIndex,
+            clubs: updatedClubs,
+            strategyPreference: strategyPreference
+        )
+    }
+}
+
 public struct PlayerClub: Equatable, Sendable, Identifiable {
     public let name: String
     public let carryDistanceM: Double

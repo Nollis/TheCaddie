@@ -433,3 +433,55 @@ import TheCaddieDomain
     #expect(roundState.holeScores[1]?.fairwayHit == true)
     #expect(roundState.holeScores[1]?.greenInRegulation == true)
 }
+
+@Test func playerProfileSnapshotRoundTripsClubDistancesHandicapAndStrategy() throws {
+    let player = PlayerContext(
+        handicapIndex: 13.4,
+        clubs: [
+            PlayerClub(name: "Driver", carryDistanceM: 232),
+            PlayerClub(name: "7 Iron", carryDistanceM: 146),
+            PlayerClub(name: "50W", carryDistanceM: 92)
+        ],
+        strategyPreference: .aggressive
+    )
+
+    let snapshot = PlayerProfileSnapshot(player: player)
+    let encoded = try JSONEncoder().encode(snapshot)
+    let decoded = try JSONDecoder().decode(PlayerProfileSnapshot.self, from: encoded)
+
+    #expect(decoded.handicapIndex == 13.4)
+    #expect(decoded.strategyPreferenceRawValue == StrategyPreference.aggressive.rawValue)
+    #expect(decoded.clubCarryDistancesM["Driver"] == 232)
+    #expect(decoded.clubCarryDistancesM["7 Iron"] == 146)
+    #expect(decoded.clubCarryDistancesM["50W"] == 92)
+}
+
+@Test func playerProfileSnapshotAppliesSavedDistancesOntoLatestBaseBag() {
+    let basePlayer = PlayerContext(
+        handicapIndex: 21.8,
+        clubs: [
+            PlayerClub(name: "Driver", carryDistanceM: 220),
+            PlayerClub(name: "5 Iron", carryDistanceM: 170),
+            PlayerClub(name: "7 Iron", carryDistanceM: 150),
+            PlayerClub(name: "PW", carryDistanceM: 110)
+        ],
+        strategyPreference: .normal
+    )
+    let savedSnapshot = PlayerProfileSnapshot(
+        handicapIndex: 18.2,
+        strategyPreferenceRawValue: StrategyPreference.safe.rawValue,
+        clubCarryDistancesM: [
+            "Driver": 228,
+            "7 Iron": 144
+        ]
+    )
+
+    let resolved = savedSnapshot.resolvePlayer(base: basePlayer)
+
+    #expect(resolved.handicapIndex == 18.2)
+    #expect(resolved.strategyPreference == .safe)
+    #expect(resolved.clubs.first(where: { $0.name == "Driver" })?.carryDistanceM == 228)
+    #expect(resolved.clubs.first(where: { $0.name == "7 Iron" })?.carryDistanceM == 144)
+    #expect(resolved.clubs.first(where: { $0.name == "5 Iron" })?.carryDistanceM == 170)
+    #expect(resolved.clubs.first(where: { $0.name == "PW" })?.carryDistanceM == 110)
+}
