@@ -1,10 +1,12 @@
 ---
 date: 2026-06-15
-status: active
+status: superseded
 origin: docs/brainstorms/2026-06-15-native-caddie-core-requirements.md
 ---
 
 # Native Caddie Core Implementation Plan
+
+> Superseded by `docs/plans/2026-06-22-001-feature-gps-round-state-validation-plan.md` after the project moved beyond the original "minimal first slice" and implemented live GPS, hole detection, lie inference, mapped hazards, and debug export.
 
 ## Overview
 Build the fresh project around a deterministic caddie core before adding speech or model phrasing. The first slice creates a small Swift domain package, a tiny embedded sample course/player context, a recommendation packet, and a minimal SwiftUI screen that renders the packet and updates simple shot state.

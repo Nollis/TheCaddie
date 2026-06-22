@@ -97,7 +97,7 @@ public struct RoundState: Equatable, Sendable {
             return self
         }
 
-        let nextRemainingDistanceM = nextRemainingDistance(
+        let nextShotProjection = nextShotProjection(
             hole: course?.hole(number: selectedHoleNumber),
             currentRemainingDistanceM: remainingDistanceM,
             currentProgressM: currentShot.progressM,
@@ -106,10 +106,10 @@ public struct RoundState: Equatable, Sendable {
         )
         let nextShot = ShotContext(
             shotNumber: currentShot.shotNumber + 1,
-            remainingDistanceM: .known(nextRemainingDistanceM),
+            remainingDistanceM: .known(nextShotProjection.remainingDistanceM),
             lie: .known(resultingLie),
             wind: currentShot.wind,
-            progressM: nil
+            progressM: nextShotProjection.progressM
         )
 
         return updateShotContext(nextShot)
@@ -182,49 +182,94 @@ public struct RoundState: Equatable, Sendable {
     }
 }
 
-private func nextRemainingDistance(
+private func nextShotProjection(
     hole: CourseHole?,
     currentRemainingDistanceM: Double,
     currentProgressM: Double?,
     baselineAdvanceM: Double,
     resultingLie: ShotLie
-) -> Double {
+) -> ShotProjection {
     if resultingLie == .green {
-        return 0
+        return ShotProjection(
+            remainingDistanceM: 0,
+            progressM: hole.map(\.teeLengthM)
+        )
     }
 
-    if resultingLie == .bunker,
-       let hole {
-        let resolvedCurrentProgressM = max(0, min(hole.teeLengthM, currentProgressM ?? (hole.teeLengthM - currentRemainingDistanceM)))
-        let projectedProgressM = min(hole.teeLengthM, resolvedCurrentProgressM + baselineAdvanceM)
+    let projectedAdvanceM = projectedAdvanceM(
+        baselineAdvanceM: baselineAdvanceM,
+        resultingLie: resultingLie
+    )
 
+    guard let hole else {
+        return ShotProjection(
+            remainingDistanceM: max(0, currentRemainingDistanceM - projectedAdvanceM).rounded(),
+            progressM: nil
+        )
+    }
+
+    let resolvedCurrentProgressM = resolvedProgressM(
+        holeLengthM: hole.teeLengthM,
+        currentRemainingDistanceM: currentRemainingDistanceM,
+        currentProgressM: currentProgressM
+    )
+    let projectedProgressM = min(
+        hole.teeLengthM,
+        resolvedCurrentProgressM + projectedAdvanceM
+    )
+
+    if resultingLie == .bunker {
         if let bunkerDistanceM = nearestForwardHazardDistance(
             kind: .bunker,
             hazards: hole.hazards,
             currentProgressM: resolvedCurrentProgressM,
-            projectedProgressM: projectedProgressM
+            projectedProgressM: projectedProgressM,
+            maximumSnapDeltaM: 35
         ) {
-            return max(0, (hole.teeLengthM - bunkerDistanceM).rounded())
+            let snappedProgressM = min(hole.teeLengthM, bunkerDistanceM)
+            return ShotProjection(
+                remainingDistanceM: max(0, hole.teeLengthM - snappedProgressM).rounded(),
+                progressM: snappedProgressM
+            )
         }
     }
 
-    return max(
+    return ShotProjection(
+        remainingDistanceM: max(0, hole.teeLengthM - projectedProgressM).rounded(),
+        progressM: projectedProgressM
+    )
+}
+
+private func resolvedProgressM(
+    holeLengthM: Double,
+    currentRemainingDistanceM: Double,
+    currentProgressM: Double?
+) -> Double {
+    max(
         0,
-        currentRemainingDistanceM - (baselineAdvanceM * progressionMultiplier(for: resultingLie))
-    ).rounded()
+        min(
+            holeLengthM,
+            currentProgressM ?? (holeLengthM - currentRemainingDistanceM)
+        )
+    )
 }
 
 private func nearestForwardHazardDistance(
     kind: HazardKind,
     hazards: [Hazard],
     currentProgressM: Double,
-    projectedProgressM: Double
+    projectedProgressM: Double,
+    maximumSnapDeltaM: Double? = nil
 ) -> Double? {
     hazards
         .filter { $0.kind == kind }
         .compactMap { hazard -> Double? in
             guard let distanceM = hazardDistance(for: hazard),
                   distanceM > currentProgressM + 5 else {
+                return nil
+            }
+            if let maximumSnapDeltaM,
+               abs(distanceM - projectedProgressM) > maximumSnapDeltaM {
                 return nil
             }
             return distanceM
@@ -287,17 +332,36 @@ public enum CurrentShotContext: Equatable, Sendable {
     }
 }
 
-private func progressionMultiplier(for lie: ShotLie) -> Double {
-    switch lie {
-    case .tee, .fairway:
-        return 1.0
+private func projectedAdvanceM(
+    baselineAdvanceM: Double,
+    resultingLie: ShotLie
+) -> Double {
+    max(
+        1,
+        baselineAdvanceM - liePenaltyM(
+            baselineAdvanceM: baselineAdvanceM,
+            resultingLie: resultingLie
+        )
+    )
+}
+
+private func liePenaltyM(
+    baselineAdvanceM: Double,
+    resultingLie: ShotLie
+) -> Double {
+    switch resultingLie {
+    case .tee, .fairway, .green:
+        return 0
     case .rough:
-        return 0.9
+        return min(18, max(8, baselineAdvanceM * 0.12))
     case .bunker:
-        return 0.72
+        return min(50, max(20, baselineAdvanceM * 0.28))
     case .recovery:
-        return 0.58
-    case .green:
-        return 1.0
+        return min(42, max(14, baselineAdvanceM * 0.18))
     }
+}
+
+private struct ShotProjection {
+    let remainingDistanceM: Double
+    let progressM: Double?
 }

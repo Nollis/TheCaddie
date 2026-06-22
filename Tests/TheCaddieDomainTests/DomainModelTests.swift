@@ -136,6 +136,7 @@ import TheCaddieDomain
     #expect(updatedShot.shotNumber == 2)
     #expect(updatedShot.remainingDistanceM.value == 240)
     #expect(updatedShot.lie.value == .fairway)
+    #expect(updatedShot.progressM == 220)
 }
 
 @Test func roundStateCanRecordShotResultForSelectedHoleWithoutStoredShot() throws {
@@ -177,7 +178,148 @@ import TheCaddieDomain
     #expect(updatedShot.shotNumber == 3)
     #expect(updatedShot.remainingDistanceM.value == 43)
     #expect(updatedShot.lie.value == .bunker)
+    #expect(updatedShot.progressM == 417.12)
     #expect(packet.recommendedClub == "50W")
+}
+
+@Test func bunkerShotResultFallsBackToProjectedProgressWhenNoBunkerIsNearLanding() throws {
+    let hole = CourseHole(
+        number: 1,
+        par: 4,
+        teeLengthM: 300,
+        green: GreenContext(
+            frontDistanceM: 291,
+            centerDistanceM: 300,
+            backDistanceM: 309
+        ),
+        hazards: [
+            Hazard(
+                id: "far-bunker-left",
+                kind: .bunker,
+                position: "left 180m",
+                note: "This bunker is too far from the projected landing to snap to.",
+                progressM: 180
+            )
+        ]
+    )
+    let course = Course(id: "round-state-bunker-fallback", name: "Round State Bunker Fallback", holes: [hole])
+    let roundState = RoundState(
+        courseId: course.id,
+        selectedHoleNumber: 1,
+        shotContexts: [
+            1: ShotContext(
+                shotNumber: 2,
+                remainingDistanceM: .known(150),
+                lie: .known(.fairway),
+                wind: nil,
+                progressM: 150
+            )
+        ]
+    )
+
+    let updatedRound = roundState.recordShotResult(
+        course: course,
+        player: SampleRound.player,
+        resultingLie: .bunker
+    )
+    let updatedShot = try #require(updatedRound.currentShotContext())
+
+    #expect(updatedShot.shotNumber == 3)
+    #expect(updatedShot.remainingDistanceM.value == 42)
+    #expect(updatedShot.progressM == 258)
+    #expect(updatedShot.lie.value == .bunker)
+}
+
+@Test func explicitProgressDrivesNextShotDistanceMoreThanStaleRemainingDistance() throws {
+    let course = KungsbackaNyaCourse.course
+    let roundState = RoundState(
+        courseId: course.id,
+        selectedHoleNumber: 1,
+        shotContexts: [
+            1: ShotContext(
+                shotNumber: 2,
+                remainingDistanceM: .known(260),
+                lie: .known(.fairway),
+                wind: nil,
+                progressM: 260
+            )
+        ]
+    )
+
+    let updatedRound = roundState.recordShotResult(
+        course: course,
+        player: SampleRound.player,
+        resultingLie: .fairway
+    )
+    let updatedShot = try #require(updatedRound.currentShotContext())
+    let packet = CaddieRecommendationEngine.build(
+        course: course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    #expect(packet.recommendedClub == "3 Hybrid")
+    #expect(updatedShot.shotNumber == 3)
+    #expect(updatedShot.remainingDistanceM.value == 10)
+    #expect(updatedShot.progressM == 450)
+}
+
+@Test func roughShotResultUsesBoundedPenaltyInsteadOfFlatMultiplier() throws {
+    let course = KungsbackaNyaCourse.course
+    let roundState = RoundState(
+        courseId: course.id,
+        selectedHoleNumber: 1,
+        shotContexts: [
+            1: ShotContext(
+                shotNumber: 2,
+                remainingDistanceM: .known(200),
+                lie: .known(.fairway),
+                wind: nil,
+                progressM: 260
+            )
+        ]
+    )
+
+    let updatedRound = roundState.recordShotResult(
+        course: course,
+        player: SampleRound.player,
+        resultingLie: .rough
+    )
+    let updatedShot = try #require(updatedRound.currentShotContext())
+
+    #expect(updatedShot.shotNumber == 3)
+    #expect(updatedShot.remainingDistanceM.value == 28)
+    #expect(updatedShot.progressM == 432)
+    #expect(updatedShot.lie.value == .rough)
+}
+
+@Test func recoveryShotResultUsesBoundedPenaltyInsteadOfOverlyShortAdvance() throws {
+    let course = KungsbackaNyaCourse.course
+    let roundState = RoundState(
+        courseId: course.id,
+        selectedHoleNumber: 1,
+        shotContexts: [
+            1: ShotContext(
+                shotNumber: 2,
+                remainingDistanceM: .known(200),
+                lie: .known(.fairway),
+                wind: nil,
+                progressM: 260
+            )
+        ]
+    )
+
+    let updatedRound = roundState.recordShotResult(
+        course: course,
+        player: SampleRound.player,
+        resultingLie: .recovery
+    )
+    let updatedShot = try #require(updatedRound.currentShotContext())
+
+    #expect(updatedShot.shotNumber == 3)
+    #expect(updatedShot.remainingDistanceM.value == 44)
+    #expect(updatedShot.progressM == 415.8)
+    #expect(updatedShot.lie.value == .recovery)
 }
 
 @Test func greenShotResultAdvancesToGreenState() throws {
