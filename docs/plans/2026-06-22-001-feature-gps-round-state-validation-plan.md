@@ -157,12 +157,13 @@ The product rule remains unchanged: deterministic local logic owns golf decision
 
 **Decision Gate:**
 - If field testing still reveals frequent trust issues, stay on GPS/data/round-state hardening.
-- If recommendation trust is high, begin a separate voice/presentation planning document for Apple Speech and deterministic spoken guidance.
+- If recommendation trust is high, begin the presentation-layer track in `docs/plans/2026-06-22-002-feat-foundation-models-phrasing-plan.md`, starting with deterministic phrasing abstraction and optional Foundation Models explanation.
 
 ## Open Questions
 - How much of shot advancement should become GPS-derived automatically versus explicitly confirmed by the golfer?
 - Which mapping issues are isolated bad-hole data and which point to a broader geometry/modeling issue?
 - At what point is the caddie trustworthy enough to make speech the next investment rather than more domain hardening?
+- Should the Foundation Models phrasing layer land before or after the first Apple Speech command loop?
 
 ## Risks and Mitigations
 
@@ -181,3 +182,4 @@ The product rule remains unchanged: deterministic local logic owns golf decision
 ## Sources and References
 - [docs/brainstorms/2026-06-15-native-caddie-core-requirements.md](../brainstorms/2026-06-15-native-caddie-core-requirements.md)
 - [docs/plans/2026-06-15-001-feature-native-caddie-core-plan.md](./2026-06-15-001-feature-native-caddie-core-plan.md)
+- [docs/plans/2026-06-22-002-feat-foundation-models-phrasing-plan.md](./2026-06-22-002-feat-foundation-models-phrasing-plan.md)

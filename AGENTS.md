@@ -21,4 +21,5 @@ The Caddie is a fresh start from the TrueCaddie prototype. Keep this repo clean,
 ## Current Plan
 
 - Requirements: `docs/brainstorms/2026-06-15-native-caddie-core-requirements.md`
-- Implementation plan: `docs/plans/2026-06-15-001-feature-native-caddie-core-plan.md`
+- Active validation plan: `docs/plans/2026-06-22-001-feature-gps-round-state-validation-plan.md`
+- Presentation-layer plan: `docs/plans/2026-06-22-002-feat-foundation-models-phrasing-plan.md`
