@@ -191,18 +191,21 @@ struct CaddieScreen: View {
         let holes = viewModel.availableHoleNumbers
 
         if holes.count > 1 {
-            HStack(spacing: 10) {
+            HStack(spacing: 0) {
                 Button {
                     logAction("Navigated to previous hole")
                     viewModel.selectPreviousHole()
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.system(.headline, design: .rounded).weight(.black))
-                        .frame(width: 44, height: 44)
+                        .font(.system(size: 14, weight: .black, design: .rounded))
+                        .frame(width: 42, height: 38)
                 }
-                .buttonStyle(CaddieIconButtonStyle())
+                .buttonStyle(CaddieNavigatorButtonStyle())
                 .disabled(!viewModel.canSelectPreviousHole)
                 .opacity(viewModel.canSelectPreviousHole ? 1 : 0.42)
+
+                Divider()
+                    .frame(height: 18)
 
                 Menu {
                     ForEach(holes, id: \.self) { holeNumber in
@@ -214,27 +217,35 @@ struct CaddieScreen: View {
                 } label: {
                     HStack(spacing: 8) {
                         Text("Hole \(viewModel.selectedHoleNumber)")
-                            .font(.system(.headline, design: .rounded).weight(.black))
+                            .font(.system(.subheadline, design: .rounded).weight(.bold))
                         Image(systemName: "chevron.down")
-                            .font(.system(.caption, design: .rounded).weight(.black))
+                            .font(.system(size: 10, weight: .black, design: .rounded))
                     }
                     .frame(maxWidth: .infinity)
-                    .frame(height: 44)
+                    .frame(height: 38)
                 }
-                .buttonStyle(CaddiePillButtonStyle())
+                .buttonStyle(CaddieNavigatorCenterButtonStyle())
+
+                Divider()
+                    .frame(height: 18)
 
                 Button {
                     logAction("Navigated to next hole")
                     viewModel.selectNextHole()
                 } label: {
                     Image(systemName: "chevron.right")
-                        .font(.system(.headline, design: .rounded).weight(.black))
-                        .frame(width: 44, height: 44)
+                        .font(.system(size: 14, weight: .black, design: .rounded))
+                        .frame(width: 42, height: 38)
                 }
-                .buttonStyle(CaddieIconButtonStyle())
+                .buttonStyle(CaddieNavigatorButtonStyle())
                 .disabled(!viewModel.canSelectNextHole)
                 .opacity(viewModel.canSelectNextHole ? 1 : 0.42)
             }
+            .background(.white.opacity(0.78), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(.white.opacity(0.9), lineWidth: 1)
+            )
         }
     }
 
@@ -946,6 +957,24 @@ private struct CaddieCompactButtonStyle: ButtonStyle {
             .padding(.vertical, 8)
             .background(.white.opacity(configuration.isPressed ? 0.62 : 0.86), in: Capsule())
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
+    }
+}
+
+private struct CaddieNavigatorButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(Color(red: 0.05, green: 0.38, blue: 0.19))
+            .contentShape(Rectangle())
+            .background(Color.white.opacity(configuration.isPressed ? 0.62 : 0.01))
+    }
+}
+
+private struct CaddieNavigatorCenterButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(Color(red: 0.05, green: 0.38, blue: 0.19))
+            .contentShape(Rectangle())
+            .background(Color.white.opacity(configuration.isPressed ? 0.62 : 0.01))
     }
 }
 
