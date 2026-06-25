@@ -26,10 +26,7 @@ targets:
       - path: Sources/TheCaddieDomain
       - path: ios/TheCaddie
         excludes:
-          - Assets.xcassets
           - README.md
-    resources:
-      - path: ios/TheCaddie/Assets.xcassets
     entitlements:
       path: ios/TheCaddie/TrueCaddie.entitlements
     settings:

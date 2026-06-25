@@ -18,6 +18,7 @@
 		6C943C19F3CCBC1200F1719E /* RoundState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D2B48CCFF0BF2C9D2FE98B1 /* RoundState.swift */; };
 		6CA3C05B747CF936F94B77FF /* CaddieViewState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FEC945E340732A1306496C5 /* CaddieViewState.swift */; };
 		87896163D7A8667BBC7E4A57 /* CaddieRecommendationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F8D7BDD0C9A11619579B74E /* CaddieRecommendationEngine.swift */; };
+		A9E72881B49FEEA1A8D495F9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4BD7FFEEE1E876C6533F00BC /* Assets.xcassets */; };
 		BAEEC84335FCD756D00E96DD /* CaddieViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F51A9202B8B3C33D1888CEE5 /* CaddieViewModel.swift */; };
 		BE10429D649F77D66E173863 /* CourseModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA35B4D0FF9CDA29A0A1D6BD /* CourseModels.swift */; };
 		C182ABABB2BB4704E1CE96AB /* PlayerContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 843D312CDD78BD6866E43222 /* PlayerContext.swift */; };
@@ -38,6 +39,7 @@
 		2E68CFB3A5BA460118498AED /* TrueCaddie.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TrueCaddie.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		32AB8E6B3D824ABF58DE9220 /* CourseSelectionScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseSelectionScreen.swift; sourceTree = "<group>"; };
 		395B87B12860BE9C03C63013 /* ScorecardScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScorecardScreen.swift; sourceTree = "<group>"; };
+		4BD7FFEEE1E876C6533F00BC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		5CA692C8B8A2320941096620 /* ShotContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShotContext.swift; sourceTree = "<group>"; };
 		5CF19D38B70F7451322CEB11 /* KungsbackaNyaSurfaceData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KungsbackaNyaSurfaceData.swift; sourceTree = "<group>"; };
 		5E6027F204A3760F5AFC39EA /* BagSettingsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BagSettingsScreen.swift; sourceTree = "<group>"; };
@@ -89,6 +91,7 @@
 		37B077DC9F613BE0633E57C3 /* TheCaddie */ = {
 			isa = PBXGroup;
 			children = (
+				4BD7FFEEE1E876C6533F00BC /* Assets.xcassets */,
 				5E6027F204A3760F5AFC39EA /* BagSettingsScreen.swift */,
 				C3964C2A32522B0526393FE6 /* CaddieScreen.swift */,
 				F51A9202B8B3C33D1888CEE5 /* CaddieViewModel.swift */,
@@ -161,6 +164,7 @@
 			buildConfigurationList = 9A2D5061EB8131DD9184CB17 /* Build configuration list for PBXNativeTarget "TrueCaddie" */;
 			buildPhases = (
 				2EFEF96105E03FE5C9A4BD33 /* Sources */,
+				3F7D0BF74AF98DA23F657E85 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -209,6 +213,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		3F7D0BF74AF98DA23F657E85 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A9E72881B49FEEA1A8D495F9 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		2EFEF96105E03FE5C9A4BD33 /* Sources */ = {
