@@ -324,6 +324,28 @@ private func coordinatesMatch(
     #expect(packet.riskNote == "Water right is near the landing zone.")
 }
 
+@Test func kungsbackaOpeningPacketsStayAlignedWithSelectedHoleScorecardData() {
+    let course = KungsbackaNyaCourse.course
+
+    for hole in course.holes {
+        let roundState = KungsbackaNyaCourse.openingRoundState.selectHole(hole.number)
+        let packet = CaddieRecommendationEngine.build(
+            course: course,
+            player: SampleRound.player,
+            roundState: roundState
+        )
+
+        #expect(packet.status == .ready)
+        #expect(packet.holeNumber == hole.number)
+        #expect(packet.par == hole.par)
+        #expect(packet.remainingDistanceM == hole.teeLengthM)
+        #expect(packet.recommendedClub != nil)
+
+        let expectedIntent: ShotIntent = hole.par == 3 ? .approach : .teePosition
+        #expect(packet.shotIntent == expectedIntent)
+    }
+}
+
 @Test func kungsbackaHoleOneNearGreenDoesNotRepeatPassedTeeWater() {
     let roundState = KungsbackaNyaCourse.openingRoundState.updateShotContext(
         ShotContext(
@@ -364,6 +386,31 @@ private func coordinatesMatch(
     #expect(packet.status == .ready)
     #expect(packet.recommendedClub == "3 Hybrid")
     #expect(packet.riskNote == nil)
+}
+
+@Test func kungsbackaHoleOneGreensideBunkerUsesMostLoftedReachingWedge() {
+    let roundState = KungsbackaNyaCourse.openingRoundState.updateShotContext(
+        ShotContext(
+            shotNumber: 3,
+            remainingDistanceM: .known(43),
+            lie: .known(.bunker),
+            wind: nil,
+            progressM: 417.12
+        )
+    )
+
+    let packet = CaddieRecommendationEngine.build(
+        course: KungsbackaNyaCourse.course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    #expect(packet.status == .ready)
+    #expect(packet.shotIntent == .recovery)
+    #expect(packet.recommendedClub == "50W")
+    #expect(packet.target == "safe recovery window")
+    #expect(packet.primaryReason == "50W is the safest recovery club from this lie.")
+    #expect(packet.riskNote == "Get back to a playable position before chasing the green.")
 }
 
 @Test func kungsbackaHoleTwoUsesPlayerEightIronDistance() {
@@ -428,4 +475,55 @@ private func coordinatesMatch(
     #expect(packet.recommendedClub == "5 Iron")
     #expect(packet.target == "right-center fairway")
     #expect(packet.primaryReason == "5 Iron advances the ball about 170m and leaves roughly 180m in.")
+}
+
+@Test func kungsbackaHoleSixKeepsDriverOnWideOpeningCorridor() {
+    let roundState = KungsbackaNyaCourse.openingRoundState.selectHole(6)
+
+    let packet = CaddieRecommendationEngine.build(
+        course: KungsbackaNyaCourse.course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    #expect(packet.status == .ready)
+    #expect(packet.shotIntent == .teePosition)
+    #expect(packet.recommendedClub == "Driver")
+    #expect(packet.target == "stock fairway corridor")
+    #expect(packet.primaryReason == "Driver advances the ball about 220m and leaves roughly 110m in.")
+    #expect(packet.riskNote == nil)
+}
+
+@Test func kungsbackaHoleSevenKeepsDriverForParFiveStart() {
+    let roundState = KungsbackaNyaCourse.openingRoundState.selectHole(7)
+
+    let packet = CaddieRecommendationEngine.build(
+        course: KungsbackaNyaCourse.course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    #expect(packet.status == .ready)
+    #expect(packet.shotIntent == .teePosition)
+    #expect(packet.recommendedClub == "Driver")
+    #expect(packet.target == "stock fairway corridor")
+    #expect(packet.primaryReason == "Driver advances the ball about 220m and leaves roughly 305m in.")
+    #expect(packet.riskNote == nil)
+}
+
+@Test func kungsbackaHoleNineClubsDownToFiveIronThroughNarrowWaterFramedTeeShot() {
+    let roundState = KungsbackaNyaCourse.openingRoundState.selectHole(9)
+
+    let packet = CaddieRecommendationEngine.build(
+        course: KungsbackaNyaCourse.course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    #expect(packet.status == .ready)
+    #expect(packet.shotIntent == .teePosition)
+    #expect(packet.recommendedClub == "5 Iron")
+    #expect(packet.target == "left-center fairway")
+    #expect(packet.primaryReason == "5 Iron advances the ball about 170m and leaves roughly 230m in.")
+    #expect(packet.riskNote == "Driver brings the trouble into range here — 5 Iron keeps the tee shot in play.")
 }
