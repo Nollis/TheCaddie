@@ -224,7 +224,8 @@ private func nextShotProjection(
             hazards: hole.hazards,
             currentProgressM: resolvedCurrentProgressM,
             projectedProgressM: projectedProgressM,
-            maximumSnapDeltaM: 35
+            minimumSnapDistanceM: projectedProgressM - 35,
+            maximumSnapDistanceM: projectedProgressM + 60
         ) {
             let snappedProgressM = min(hole.teeLengthM, bunkerDistanceM)
             return ShotProjection(
@@ -259,7 +260,8 @@ private func nearestForwardHazardDistance(
     hazards: [Hazard],
     currentProgressM: Double,
     projectedProgressM: Double,
-    maximumSnapDeltaM: Double? = nil
+    minimumSnapDistanceM: Double? = nil,
+    maximumSnapDistanceM: Double? = nil
 ) -> Double? {
     hazards
         .filter { $0.kind == kind }
@@ -268,8 +270,12 @@ private func nearestForwardHazardDistance(
                   distanceM > currentProgressM + 5 else {
                 return nil
             }
-            if let maximumSnapDeltaM,
-               abs(distanceM - projectedProgressM) > maximumSnapDeltaM {
+            if let minimumSnapDistanceM,
+               distanceM < minimumSnapDistanceM {
+                return nil
+            }
+            if let maximumSnapDistanceM,
+               distanceM > maximumSnapDistanceM {
                 return nil
             }
             return distanceM

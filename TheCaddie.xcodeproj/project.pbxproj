@@ -32,6 +32,7 @@
 /* Begin PBXFileReference section */
 		07169DF33B018813C1DFFC36 /* TheCaddieDomain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheCaddieDomain.swift; sourceTree = "<group>"; };
 		094D985C226954A8F91D0F95 /* HoleScore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoleScore.swift; sourceTree = "<group>"; };
+		0BDCE99EA613FC3C914F08B6 /* TheCaddie */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TheCaddie; path = .; sourceTree = SOURCE_ROOT; };
 		0D2B48CCFF0BF2C9D2FE98B1 /* RoundState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundState.swift; sourceTree = "<group>"; };
 		2B8A4DF5DD11A65A042E3F89 /* CaddieRecommendationPacket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieRecommendationPacket.swift; sourceTree = "<group>"; };
 		2E68CFB3A5BA460118498AED /* TrueCaddie.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TrueCaddie.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -43,6 +44,7 @@
 		6FEC945E340732A1306496C5 /* CaddieViewState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieViewState.swift; sourceTree = "<group>"; };
 		74B9976FD3ECBE39451751AC /* SampleRound.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleRound.swift; sourceTree = "<group>"; };
 		843D312CDD78BD6866E43222 /* PlayerContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerContext.swift; sourceTree = "<group>"; };
+		899BEA1C15775FF92237BE35 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8F8D7BDD0C9A11619579B74E /* CaddieRecommendationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieRecommendationEngine.swift; sourceTree = "<group>"; };
 		AA35B4D0FF9CDA29A0A1D6BD /* CourseModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseModels.swift; sourceTree = "<group>"; };
 		C3964C2A32522B0526393FE6 /* CaddieScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieScreen.swift; sourceTree = "<group>"; };
@@ -64,6 +66,14 @@
 			path = Presentation;
 			sourceTree = "<group>";
 		};
+		0A27958917752D357FBFDBF5 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				0BDCE99EA613FC3C914F08B6 /* TheCaddie */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
 		1EBE5BD20ED3943B062F57C5 /* Models */ = {
 			isa = PBXGroup;
 			children = (
@@ -83,6 +93,7 @@
 				C3964C2A32522B0526393FE6 /* CaddieScreen.swift */,
 				F51A9202B8B3C33D1888CEE5 /* CaddieViewModel.swift */,
 				32AB8E6B3D824ABF58DE9220 /* CourseSelectionScreen.swift */,
+				899BEA1C15775FF92237BE35 /* Info.plist */,
 				395B87B12860BE9C03C63013 /* ScorecardScreen.swift */,
 				FCB85E45AC65E25F07467DEF /* TheCaddieApp.swift */,
 				FECF0EAF69D95DCA89C137F7 /* TrueCaddie.entitlements */,
@@ -115,6 +126,7 @@
 		B7045873D91A9FB85F4AB5BE = {
 			isa = PBXGroup;
 			children = (
+				0A27958917752D357FBFDBF5 /* Packages */,
 				37B077DC9F613BE0633E57C3 /* TheCaddie */,
 				6BD9C0FAAC36FF79CF8136FE /* TheCaddieDomain */,
 				4B6B19AC10E284AEFEF508B5 /* Products */,
@@ -186,6 +198,9 @@
 			);
 			mainGroup = B7045873D91A9FB85F4AB5BE;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				DA3A8CCB10EB39A682DB81F2 /* XCLocalSwiftPackageReference "." */,
+			);
 			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
@@ -302,6 +317,7 @@
 				CURRENT_PROJECT_VERSION = 3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ios/TheCaddie/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = TrueCaddie;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "TrueCaddie uses your location during a round to understand shot context.";
@@ -398,6 +414,7 @@
 				CURRENT_PROJECT_VERSION = 3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ios/TheCaddie/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = TrueCaddie;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "TrueCaddie uses your location during a round to understand shot context.";
@@ -447,6 +464,13 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		DA3A8CCB10EB39A682DB81F2 /* XCLocalSwiftPackageReference "." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = .;
+		};
+/* End XCLocalSwiftPackageReference section */
 	};
 	rootObject = 1B4B44E63AEF5E63275EDE61 /* Project object */;
 }

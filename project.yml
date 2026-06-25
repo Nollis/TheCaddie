@@ -13,6 +13,10 @@ settings:
     SDKROOT: iphoneos
     SWIFT_VERSION: 5.0
 
+packages:
+  TheCaddiePackage:
+    path: .
+
 targets:
   TrueCaddie:
     type: application
@@ -57,3 +61,12 @@ targets:
         SWIFT_EMIT_LOC_STRINGS: YES
         SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY: YES
         TARGETED_DEVICE_FAMILY: "1,2"
+
+schemes:
+  TrueCaddie:
+    build:
+      targets:
+        TrueCaddie: all
+    test:
+      targets:
+        - package: TheCaddiePackage/TheCaddieDomainTests

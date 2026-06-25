@@ -32,6 +32,18 @@ public struct PlayerProfileSnapshot: Codable, Equatable, Sendable {
     public let clubNamesInBag: [String]?
     public let clubCarryDistancesM: [String: Double]
 
+    public init(
+        handicapIndex: Double?,
+        strategyPreferenceRawValue: String,
+        clubNamesInBag: [String]?,
+        clubCarryDistancesM: [String: Double]
+    ) {
+        self.handicapIndex = handicapIndex
+        self.strategyPreferenceRawValue = strategyPreferenceRawValue
+        self.clubNamesInBag = clubNamesInBag
+        self.clubCarryDistancesM = clubCarryDistancesM
+    }
+
     public init(player: PlayerContext) {
         self.handicapIndex = player.handicapIndex
         self.strategyPreferenceRawValue = player.strategyPreference.rawValue
