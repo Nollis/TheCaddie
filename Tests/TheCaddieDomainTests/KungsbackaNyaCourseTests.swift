@@ -55,6 +55,56 @@ private func coordinatesMatch(
     #expect(course.holes.reduce(0.0) { $0 + $1.teeLengthM } == 2_990)
 }
 
+@Test func kungsbackaNyaHolesExposeExpectedCoreMappingAnchors() throws {
+    let course = KungsbackaNyaCourse.course
+
+    for hole in course.holes {
+        #expect(hole.defaultTeeCoordinate != nil)
+        #expect(hole.green.centerCoordinate != nil)
+        #expect(hole.centerlineCoordinates.count >= 2)
+        #expect(hole.surfaces.contains { $0.kind == .tee })
+        #expect(hole.surfaces.contains { $0.kind == .green })
+
+        if hole.par > 3 {
+            #expect(hole.fairway != nil)
+            #expect(hole.surfaces.contains { $0.kind == .fairway })
+        }
+    }
+}
+
+@Test func kungsbackaNyaMappedBunkerHazardsResolveToBunkerLieAtTheirCoordinates() throws {
+    let course = KungsbackaNyaCourse.course
+
+    for hole in course.holes {
+        for bunker in hole.hazards where bunker.kind == .bunker {
+            let coordinate = try #require(bunker.coordinate)
+            #expect(HoleLieInference.inferLie(
+                fix: coordinate,
+                on: hole
+            ) == .bunker)
+        }
+    }
+}
+
+@Test func kungsbackaNyaMappedTeesAndGreensResolveToExpectedLiesAcrossAllHoles() throws {
+    let course = KungsbackaNyaCourse.course
+
+    for hole in course.holes {
+        let tee = try #require(hole.defaultTeeCoordinate)
+        let green = try #require(hole.green.centerCoordinate)
+
+        #expect(HoleLieInference.inferLie(
+            fix: tee,
+            on: hole
+        ) == .tee)
+
+        #expect(HoleLieInference.inferLie(
+            fix: green,
+            on: hole
+        ) == .green)
+    }
+}
+
 @Test func kungsbackaNyaCourseCarriesHazardContextFromTrueCaddieBundle() throws {
     let hole1 = try #require(KungsbackaNyaCourse.course.hole(number: 1))
     let hole3 = try #require(KungsbackaNyaCourse.course.hole(number: 3))
