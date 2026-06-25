@@ -209,8 +209,8 @@ public struct CaddieViewState: Equatable, Sendable {
         roundState: RoundState?,
         course: Course?
     ) -> String {
-        let holeNumber = packet.holeNumber ?? roundState?.selectedHoleNumber
-        let par = packet.par ?? holeNumber.flatMap { course?.hole(number: $0)?.par }
+        let holeNumber = roundState?.selectedHoleNumber ?? packet.holeNumber
+        let par = holeNumber.flatMap { course?.hole(number: $0)?.par } ?? packet.par
 
         guard let holeNumber else {
             return "No hole"

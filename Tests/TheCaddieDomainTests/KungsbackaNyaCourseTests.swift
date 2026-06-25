@@ -1,6 +1,18 @@
 import Testing
 import TheCaddieDomain
 
+private let officialKungsbackaNyaWhiteScorecard: [(hole: Int, par: Int, teeLengthM: Double)] = [
+    (1, 5, 460),
+    (2, 3, 140),
+    (3, 4, 280),
+    (4, 4, 375),
+    (5, 4, 350),
+    (6, 4, 330),
+    (7, 5, 525),
+    (8, 3, 130),
+    (9, 4, 400)
+]
+
 private func coordinatesMatch(
     _ lhs: [GeoCoordinate],
     _ rhs: [GeoCoordinate],
@@ -22,10 +34,25 @@ private func coordinatesMatch(
     #expect(course.id == "kungsbacka-nya")
     #expect(course.name == "Kungsbacka Nya")
     #expect(course.holes.map(\.number) == Array(1...9))
-    #expect(course.holes.map(\.par) == [5, 3, 4, 4, 4, 4, 5, 3, 4])
-    #expect(course.hole(number: 1)?.teeLengthM == 460)
-    #expect(course.hole(number: 7)?.teeLengthM == 525)
-    #expect(course.hole(number: 9)?.teeLengthM == 400)
+    #expect(course.holes.map(\.par) == officialKungsbackaNyaWhiteScorecard.map(\.par))
+    #expect(course.holes.map(\.teeLengthM) == officialKungsbackaNyaWhiteScorecard.map(\.teeLengthM))
+}
+
+@Test func kungsbackaNyaWhiteScorecardMatchesPublishedHoleByHoleData() throws {
+    let course = KungsbackaNyaCourse.course
+
+    for entry in officialKungsbackaNyaWhiteScorecard {
+        let hole = try #require(course.hole(number: entry.hole))
+        #expect(hole.par == entry.par)
+        #expect(hole.teeLengthM == entry.teeLengthM)
+    }
+}
+
+@Test func kungsbackaNyaWhiteScorecardTotalsMatchPublishedFrontNine() {
+    let course = KungsbackaNyaCourse.course
+
+    #expect(course.holes.reduce(0) { $0 + $1.par } == 36)
+    #expect(course.holes.reduce(0.0) { $0 + $1.teeLengthM } == 2_990)
 }
 
 @Test func kungsbackaNyaCourseCarriesHazardContextFromTrueCaddieBundle() throws {

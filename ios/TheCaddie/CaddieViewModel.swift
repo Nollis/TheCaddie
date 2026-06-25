@@ -19,6 +19,7 @@ final class CaddieViewModel: ObservableObject {
     @Published private(set) var liveLocationStatus = "GPS off"
     @Published private(set) var liveLocationError: String?
     @Published private(set) var autoDetectedHoleNumber: Int?
+    @Published private(set) var debugLogEntries: [DebugLogEntry] = []
 
     private let locationManager: LiveRoundLocationManager
     private let playerProfileStore: PlayerProfileStore
@@ -300,7 +301,64 @@ final class CaddieViewModel: ObservableObject {
         lines.append("Expected Outcome: ")
         lines.append("Suspected Issue: ")
 
+        if !debugHoleSessionLines.isEmpty {
+            lines.append("")
+            lines.append("Hole Sessions")
+            lines.append(contentsOf: debugHoleSessionLines)
+        }
+
+        if !debugGPSTraceLines.isEmpty {
+            lines.append("")
+            lines.append("GPS Trace")
+            lines.append(contentsOf: debugGPSTraceLines)
+        }
+
+        if !debugActivityHistoryLines.isEmpty {
+            lines.append("")
+            lines.append("Recent Activity")
+            lines.append(contentsOf: debugActivityHistoryLines)
+        }
+
         return lines.joined(separator: "\n")
+    }
+
+    var debugActivityHistoryLines: [String] {
+        Array(debugLogEntries.suffix(20)).map(\.activityLine)
+    }
+
+    var debugHoleSessionLines: [String] {
+        let groupedEntries = Dictionary(grouping: debugLogEntries, by: \.holeNumber)
+        let sortedHoleNumbers = groupedEntries.keys.sorted()
+        var lines: [String] = []
+
+        for holeNumber in sortedHoleNumbers {
+            guard let entries = groupedEntries[holeNumber] else {
+                continue
+            }
+
+            lines.append("Hole \(holeNumber)")
+            lines.append(contentsOf: entries.map { "  \($0.activityLine)" })
+        }
+
+        return lines
+    }
+
+    var debugGPSTraceLines: [String] {
+        let gpsEntries = debugLogEntries.filter { $0.eventType == .gpsUpdate }
+        let groupedEntries = Dictionary(grouping: gpsEntries, by: \.holeNumber)
+        let sortedHoleNumbers = groupedEntries.keys.sorted()
+        var lines: [String] = []
+
+        for holeNumber in sortedHoleNumbers {
+            guard let entries = groupedEntries[holeNumber] else {
+                continue
+            }
+
+            lines.append("Hole \(holeNumber)")
+            lines.append(contentsOf: entries.suffix(12).map { "  \($0.gpsTraceLine)" })
+        }
+
+        return lines
     }
 
     func loadSample() {
@@ -309,6 +367,7 @@ final class CaddieViewModel: ObservableObject {
         roundState = KungsbackaNyaCourse.openingRoundState
         autoDetectedHoleNumber = roundState.selectedHoleNumber
         consecutiveHoleMisses = 0
+        debugLogEntries = []
         enableLiveDistanceIfSupported()
     }
 
@@ -330,6 +389,10 @@ final class CaddieViewModel: ObservableObject {
             player: player,
             resultingLie: lie
         )
+
+        if let liveOverrideShot = liveShotOverride(after: lie) {
+            roundState = roundState.updateShotContext(liveOverrideShot)
+        }
     }
 
     func recordQuickAction(_ action: CaddieViewState.QuickAction.Kind) {
@@ -482,6 +545,7 @@ final class CaddieViewModel: ObservableObject {
         )
         autoDetectedHoleNumber = startingHole
         consecutiveHoleMisses = 0
+        debugLogEntries = []
         enableLiveDistanceIfSupported()
     }
     
@@ -500,6 +564,7 @@ final class CaddieViewModel: ObservableObject {
         liveLocationStatus = "GPS off"
         autoDetectedHoleNumber = nil
         consecutiveHoleMisses = 0
+        debugLogEntries = []
     }
 
     func updatePlayerHandicap(_ handicap: Double) {
@@ -580,6 +645,10 @@ final class CaddieViewModel: ObservableObject {
             holeScores: updatedScores
         )
         syncLiveDistanceIfNeeded()
+    }
+
+    func logDebugEvent(_ action: String) {
+        appendDebugEntry(action: action, eventType: .userAction)
     }
 
     private func resolvedShotContext() -> ShotContext {
@@ -692,6 +761,72 @@ final class CaddieViewModel: ObservableObject {
         return "\(totalStrokes) (\(diffText)) through \(scoredHoles.count)"
     }
 
+    private func appendDebugEntry(
+        action: String,
+        eventType: DebugLogEventType,
+        coordinate: GeoCoordinate? = nil,
+        accuracyM: Double? = nil,
+        timestamp: Date = Date()
+    ) {
+        let packet = packet
+        let entry = DebugLogEntry(
+            timestamp: timestamp,
+            eventType: eventType,
+            holeNumber: selectedHoleNumber,
+            detectedHoleNumber: autoDetectedHoleNumber,
+            shotNumber: packet.shotNumber ?? roundState.currentShotContext()?.shotNumber,
+            action: action,
+            packetDistanceM: packet.remainingDistanceM,
+            adjustedBasisM: packet.distanceBasisM,
+            liveDistanceM: liveDistanceM,
+            progressM: liveProgressM,
+            centerlineOffsetM: liveCenterlineOffsetM,
+            lie: packet.lie?.rawValue,
+            inferredLiveLie: liveInferredLie?.rawValue,
+            recommendedClub: packet.recommendedClub,
+            target: packet.target,
+            primaryReason: packet.primaryReason,
+            riskNote: packet.riskNote,
+            status: packet.status.rawValue,
+            confidence: packet.confidence.rawValue,
+            coordinate: coordinate ?? liveCoordinate,
+            accuracyM: accuracyM ?? liveAccuracyM
+        )
+        debugLogEntries.append(entry)
+        if debugLogEntries.count > 400 {
+            debugLogEntries.removeFirst(debugLogEntries.count - 400)
+        }
+    }
+
+    private func liveShotOverride(after resultingLie: ShotLie) -> ShotContext? {
+        guard isUsingLiveDistance,
+              let currentShot = roundState.currentShotContext(),
+              let liveFixTimestamp,
+              Date().timeIntervalSince(liveFixTimestamp) <= 90 else {
+            return nil
+        }
+
+        let distanceM: Double
+        let progressM: Double?
+        if resultingLie == .green {
+            distanceM = 0
+            progressM = course?.hole(number: selectedHoleNumber)?.teeLengthM
+        } else if let liveDistanceM {
+            distanceM = liveDistanceM
+            progressM = liveProgressM
+        } else {
+            return nil
+        }
+
+        return ShotContext(
+            shotNumber: currentShot.shotNumber,
+            remainingDistanceM: .known(distanceM),
+            lie: .known(resultingLie),
+            wind: currentShot.wind,
+            progressM: progressM
+        )
+    }
+
     private func applyLiveDistance(from fix: LiveRoundLocationManager.LocationFix) {
         liveAccuracyM = fix.horizontalAccuracyM
         liveCoordinate = fix.coordinate
@@ -745,6 +880,14 @@ final class CaddieViewModel: ObservableObject {
         liveLocationStatus = autoDetectedHoleNumber == selectedHoleNumber
             ? "Live distance synced\(lieStatus)\(progressStatus)"
             : "Live distance synced on Hole \(selectedHoleNumber)\(lieStatus)\(progressStatus)"
+
+        appendDebugEntry(
+            action: "GPS update synced",
+            eventType: .gpsUpdate,
+            coordinate: fix.coordinate,
+            accuracyM: fix.horizontalAccuracyM,
+            timestamp: fix.timestamp
+        )
     }
 
     private func updateDetectedHole(from coordinate: GeoCoordinate) {
@@ -969,6 +1112,126 @@ enum LiveStatusBadgeTone {
     case active
     case idle
     case error
+}
+
+struct DebugLogEntry: Identifiable, Equatable {
+    let id = UUID()
+    let timestamp: Date
+    let eventType: DebugLogEventType
+    let holeNumber: Int
+    let detectedHoleNumber: Int?
+    let shotNumber: Int?
+    let action: String
+    let packetDistanceM: Double?
+    let adjustedBasisM: Double?
+    let liveDistanceM: Double?
+    let progressM: Double?
+    let centerlineOffsetM: Double?
+    let lie: String?
+    let inferredLiveLie: String?
+    let recommendedClub: String?
+    let target: String?
+    let primaryReason: String
+    let riskNote: String?
+    let status: String
+    let confidence: String
+    let coordinate: GeoCoordinate?
+    let accuracyM: Double?
+
+    var activityLine: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        let timeString = formatter.string(from: timestamp)
+
+        var parts: [String] = ["[\(timeString)]"]
+        parts.append(eventType.rawValue)
+        parts.append("H\(holeNumber)")
+        if let detectedHoleNumber {
+            parts.append("D\(detectedHoleNumber)")
+        }
+        if let shotNumber {
+            parts.append("S\(shotNumber)")
+        }
+        parts.append(action)
+
+        var context: [String] = []
+        if let packetDistanceM {
+            context.append("packet \(formatDebugNumber(packetDistanceM))m")
+        }
+        if let adjustedBasisM {
+            context.append("basis \(formatDebugNumber(adjustedBasisM))m")
+        }
+        if let liveDistanceM {
+            context.append("live \(formatDebugNumber(liveDistanceM))m")
+        }
+        if let progressM {
+            context.append("progress \(formatDebugNumber(progressM))m")
+        }
+        if let centerlineOffsetM {
+            context.append("offset \(formatDebugNumber(centerlineOffsetM))m")
+        }
+        if let lie {
+            context.append("lie \(lie)")
+        }
+        if let inferredLiveLie {
+            context.append("gps-lie \(inferredLiveLie)")
+        }
+        if let recommendedClub {
+            context.append("club \(recommendedClub)")
+        }
+        if let target {
+            context.append("target \(target)")
+        }
+        context.append("why \(primaryReason)")
+        if let riskNote {
+            context.append("risk \(riskNote)")
+        }
+        context.append("status \(status)")
+        context.append("confidence \(confidence)")
+
+        return "\(parts.joined(separator: " | ")) | \(context.joined(separator: " | "))"
+    }
+
+    var gpsTraceLine: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        let timeString = formatter.string(from: timestamp)
+
+        var parts: [String] = ["[\(timeString)]"]
+        if let coordinate {
+            parts.append(String(format: "%.6f, %.6f", coordinate.latitude, coordinate.longitude))
+        } else {
+            parts.append("no-fix")
+        }
+        if let accuracyM {
+            parts.append("±\(formatDebugNumber(accuracyM))m")
+        }
+        if let liveDistanceM {
+            parts.append("live \(formatDebugNumber(liveDistanceM))m")
+        }
+        if let progressM {
+            parts.append("progress \(formatDebugNumber(progressM))m")
+        }
+        if let centerlineOffsetM {
+            parts.append("offset \(formatDebugNumber(centerlineOffsetM))m")
+        }
+        if let inferredLiveLie {
+            parts.append("lie \(inferredLiveLie)")
+        }
+        if let recommendedClub {
+            parts.append("club \(recommendedClub)")
+        }
+        if let target {
+            parts.append("target \(target)")
+        }
+
+        return parts.joined(separator: " | ")
+    }
+}
+
+enum DebugLogEventType: String {
+    case userAction = "ACTION"
+    case gpsUpdate = "GPS"
 }
 
 private final class PlayerProfileStore {

@@ -6,7 +6,6 @@ struct CaddieScreen: View {
     
     @State private var showDebugDrawer = false
     @State private var puttCount = 2
-    @State private var actionLogs: [String] = ["Caddie screen loaded and ready."]
     @State private var debugCopyConfirmation: String?
 
     init(viewModel: CaddieViewModel) {
@@ -377,6 +376,13 @@ struct CaddieScreen: View {
                             .background(Color.white.opacity(0.9), in: Circle())
                     }
                     .disabled(!viewModel.canUseLiveDistance && !viewModel.isUsingLiveDistance)
+                    ShareLink(item: buildDebugExport()) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(.headline, design: .rounded).weight(.bold))
+                            .foregroundColor(Color(red: 0.05, green: 0.38, blue: 0.19))
+                            .frame(width: 36, height: 36)
+                            .background(Color.white.opacity(0.9), in: Circle())
+                    }
                     Button(action: copyDebugReport) {
                         Image(systemName: "doc.on.doc")
                             .font(.system(.headline, design: .rounded).weight(.bold))
@@ -647,16 +653,76 @@ struct CaddieScreen: View {
                         
                         // History Log
                         VStack(alignment: .leading, spacing: 12) {
+                            Text("Hole Sessions")
+                                .font(.system(.caption, design: .rounded).bold())
+                                .foregroundColor(.secondary)
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                if viewModel.debugHoleSessionLines.isEmpty {
+                                    Text("No logged hole activity yet.")
+                                        .font(.system(.subheadline, design: .rounded).weight(.medium))
+                                        .foregroundStyle(.secondary)
+                                } else {
+                                    ForEach(viewModel.debugHoleSessionLines, id: \.self) { log in
+                                        Text(log)
+                                            .font(.system(size: 11, design: .monospaced))
+                                            .foregroundColor(.primary)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                    }
+                                }
+                            }
+                            .padding(12)
+                            .background(Color.black.opacity(0.04))
+                            .cornerRadius(8)
+                        }
+                        .padding(16)
+                        .background(Color.white.opacity(0.9))
+                        .cornerRadius(12)
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("GPS Trace")
+                                .font(.system(.caption, design: .rounded).bold())
+                                .foregroundColor(.secondary)
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                if viewModel.debugGPSTraceLines.isEmpty {
+                                    Text("No GPS trace yet.")
+                                        .font(.system(.subheadline, design: .rounded).weight(.medium))
+                                        .foregroundStyle(.secondary)
+                                } else {
+                                    ForEach(viewModel.debugGPSTraceLines, id: \.self) { log in
+                                        Text(log)
+                                            .font(.system(size: 11, design: .monospaced))
+                                            .foregroundColor(.primary)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                    }
+                                }
+                            }
+                            .padding(12)
+                            .background(Color.black.opacity(0.04))
+                            .cornerRadius(8)
+                        }
+                        .padding(16)
+                        .background(Color.white.opacity(0.9))
+                        .cornerRadius(12)
+
+                        VStack(alignment: .leading, spacing: 12) {
                             Text("Activity History")
                                 .font(.system(.caption, design: .rounded).bold())
                                 .foregroundColor(.secondary)
                             
                             VStack(alignment: .leading, spacing: 8) {
-                                ForEach(actionLogs, id: \.self) { log in
-                                    Text(log)
-                                        .font(.system(size: 11, design: .monospaced))
-                                        .foregroundColor(.primary)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                if viewModel.debugActivityHistoryLines.isEmpty {
+                                    Text("No recent activity yet.")
+                                        .font(.system(.subheadline, design: .rounded).weight(.medium))
+                                        .foregroundStyle(.secondary)
+                                } else {
+                                    ForEach(viewModel.debugActivityHistoryLines, id: \.self) { log in
+                                        Text(log)
+                                            .font(.system(size: 11, design: .monospaced))
+                                            .foregroundColor(.primary)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                    }
                                 }
                             }
                             .padding(12)
@@ -746,13 +812,7 @@ struct CaddieScreen: View {
     }
 
     private func logAction(_ action: String) {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss"
-        let timeString = formatter.string(from: Date())
-        actionLogs.append("[\(timeString)] \(action)")
-        if actionLogs.count > 20 {
-            actionLogs.removeFirst()
-        }
+        viewModel.logDebugEvent(action)
     }
 
     private func copyDebugReport() {
@@ -763,17 +823,7 @@ struct CaddieScreen: View {
     }
 
     private func buildDebugExport() -> String {
-        let actionSection = actionLogs.joined(separator: "\n")
-        if actionSection.isEmpty {
-            return viewModel.debugExportText
-        }
-
-        return """
-        \(viewModel.debugExportText)
-
-        Activity History
-        \(actionSection)
-        """
+        return viewModel.debugExportText
     }
 
     private func quickUpdateTitle(for viewState: CaddieViewState) -> String {
