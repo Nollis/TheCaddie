@@ -11,26 +11,7 @@
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleIconName</key>
-	<string>AppIcon</string>
-	<key>CFBundleIcons</key>
-	<dict>
-		<key>CFBundlePrimaryIcon</key>
-		<dict>
-			<key>CFBundleIconFiles</key>
-			<array>
-				<string>Icon-20@2x</string>
-				<string>Icon-20@3x</string>
-				<string>Icon-29@2x</string>
-				<string>Icon-29@3x</string>
-				<string>Icon-40@2x</string>
-				<string>Icon-40@3x</string>
-				<string>Icon-60@2x</string>
-				<string>Icon-60@3x</string>
-			</array>
-			<key>CFBundleIconName</key>
-			<string>AppIcon</string>
-		</dict>
-	</dict>
+	<string>TrueCaddieAppIcon</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>

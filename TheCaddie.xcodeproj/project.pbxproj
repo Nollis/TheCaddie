@@ -309,7 +309,7 @@
 		0B5CF17B4B3D228A6355B422 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = TrueCaddieAppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = ios/TheCaddie/TrueCaddie.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
@@ -406,7 +406,7 @@
 		D1B1277CA4DD98D8312A7802 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = TrueCaddieAppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = ios/TheCaddie/TrueCaddie.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
