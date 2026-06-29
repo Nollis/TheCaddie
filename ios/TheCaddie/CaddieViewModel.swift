@@ -2,6 +2,12 @@ import Combine
 import CoreLocation
 import Foundation
 
+private enum LiveGPSTiming {
+    static let freshFixWindowS = 15.0
+    static let staleFixWindowS = 45.0
+    static let shotOverrideWindowS = 90.0
+}
+
 @MainActor
 final class CaddieViewModel: ObservableObject {
     @Published private(set) var course: Course?
@@ -20,6 +26,7 @@ final class CaddieViewModel: ObservableObject {
     @Published private(set) var liveLocationError: String?
     @Published private(set) var autoDetectedHoleNumber: Int?
     @Published private(set) var debugLogEntries: [DebugLogEntry] = []
+    @Published private var liveStatusNow = Date()
 
     private let locationManager: LiveRoundLocationManager
     private let playerProfileStore: PlayerProfileStore
@@ -39,6 +46,7 @@ final class CaddieViewModel: ObservableObject {
         self.roundState = roundState
         self.locationManager = locationManager ?? LiveRoundLocationManager()
         bindLocationManager()
+        bindLiveStatusClock()
     }
 
     var packet: CaddieRecommendationPacket {
@@ -95,6 +103,46 @@ final class CaddieViewModel: ObservableObject {
         }
 
         return String(format: "%.1f m", liveDistanceM)
+    }
+
+    var liveFixAgeS: TimeInterval? {
+        guard let liveFixTimestamp else {
+            return nil
+        }
+
+        return max(0, liveStatusNow.timeIntervalSince(liveFixTimestamp))
+    }
+
+    var hasFreshLiveFix: Bool {
+        guard let age = liveFixAgeS else {
+            return false
+        }
+
+        return age <= LiveGPSTiming.freshFixWindowS
+    }
+
+    var usingProjectedDistance: Bool {
+        !hasFreshLiveFix
+    }
+
+    var liveFixAgeLabel: String? {
+        guard let age = liveFixAgeS else {
+            return nil
+        }
+
+        return "\(Int(age.rounded()))s ago"
+    }
+
+    var packetDistanceLabel: String? {
+        guard let remainingDistanceM = packet.remainingDistanceM else {
+            return nil
+        }
+
+        if remainingDistanceM.rounded() == remainingDistanceM {
+            return "\(Int(remainingDistanceM)) m"
+        }
+
+        return String(format: "%.1f m", remainingDistanceM)
     }
 
     var liveAccuracyLabel: String? {
@@ -181,10 +229,24 @@ final class CaddieViewModel: ObservableObject {
             return nil
         }
 
+        if let liveLocationError {
+            return liveLocationError == "Location permission denied."
+                ? "GPS denied"
+                : "GPS issue"
+        }
+
         if isUsingLiveDistance {
+            guard let fixAgeS = liveFixAgeS else {
+                return "GPS seeking"
+            }
+
+            if fixAgeS > LiveGPSTiming.staleFixWindowS {
+                return "Projected"
+            }
+
             return autoDetectedHoleNumber == selectedHoleNumber
                 ? "GPS live"
-                : "GPS on H\(autoDetectedHoleNumber ?? selectedHoleNumber)"
+                : "GPS H\(autoDetectedHoleNumber ?? selectedHoleNumber)"
         }
 
         if canUseLiveDistance {
@@ -198,10 +260,40 @@ final class CaddieViewModel: ObservableObject {
         if liveLocationError != nil {
             return .error
         }
-        if isUsingLiveDistance {
+        if hasFreshLiveFix {
             return .active
         }
         return .idle
+    }
+
+    var distanceSourceSummary: String? {
+        guard course != nil else {
+            return nil
+        }
+
+        if let liveLocationError {
+            return "Projected distance. \(liveLocationError)"
+        }
+
+        if hasFreshLiveFix {
+            let fixAge = liveFixAgeLabel ?? "now"
+            let accuracy = liveAccuracyLabel ?? "Accuracy n/a"
+            return "Live GPS to green center. \(accuracy). Fix \(fixAge)."
+        }
+
+        if isUsingLiveDistance {
+            if let fixAge = liveFixAgeLabel {
+                return "Projected distance. Last GPS fix was \(fixAge)."
+            }
+
+            return "Projected distance while waiting for the first GPS fix."
+        }
+
+        if canUseLiveDistance {
+            return "Projected distance. GPS is ready but not active."
+        }
+
+        return "Projected distance. This hole is not mapped for live GPS."
     }
 
     var debugExportText: String {
@@ -228,6 +320,9 @@ final class CaddieViewModel: ObservableObject {
         lines.append("Inferred Live Lie: \(liveInferredLie?.rawValue ?? "n/a")")
         lines.append("Live Progress: \(liveProgressM.map { formatDebugNumber($0) + "m" } ?? "n/a")")
         lines.append("Centerline Offset: \(liveCenterlineOffsetM.map { formatDebugNumber($0) + "m" } ?? "n/a")")
+        lines.append("Live GPS Enabled: \(isUsingLiveDistance ? "yes" : "no")")
+        lines.append("Live GPS Status: \(liveLocationStatus)")
+        lines.append("Live GPS Error: \(liveLocationError ?? "n/a")")
         lines.append("GPS Fix: \(liveCoordinateLabel ?? "n/a")")
         lines.append("GPS Accuracy: \(liveAccuracyM.map { "±" + formatDebugNumber($0) + "m" } ?? "n/a")")
         lines.append("Fix Time: \(liveFixTimestampLabel ?? "n/a")")
@@ -696,6 +791,15 @@ final class CaddieViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
+    private func bindLiveStatusClock() {
+        Timer.publish(every: 15, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] now in
+                self?.liveStatusNow = now
+            }
+            .store(in: &cancellables)
+    }
+
     private func handleAuthorization(_ status: CLAuthorizationStatus) {
         switch status {
         case .authorizedAlways, .authorizedWhenInUse:
@@ -721,9 +825,12 @@ final class CaddieViewModel: ObservableObject {
             return
         }
 
-        if let fix = locationManager.latestFix {
+        let now = Date()
+        if let fix = locationManager.latestFix,
+           fix.isFresh(asOf: now) {
             applyLiveDistance(from: fix)
         } else {
+            liveLocationStatus = "Waiting for fresh GPS..."
             locationManager.requestSingleFix()
         }
     }
@@ -802,7 +909,7 @@ final class CaddieViewModel: ObservableObject {
         guard isUsingLiveDistance,
               let currentShot = roundState.currentShotContext(),
               let liveFixTimestamp,
-              Date().timeIntervalSince(liveFixTimestamp) <= 90 else {
+              Date().timeIntervalSince(liveFixTimestamp) <= LiveGPSTiming.shotOverrideWindowS else {
             return nil
         }
 
@@ -953,6 +1060,17 @@ final class LiveRoundLocationManager: NSObject, CLLocationManagerDelegate {
         let coordinate: GeoCoordinate
         let horizontalAccuracyM: Double
         let timestamp: Date
+
+        func age(asOf now: Date = Date()) -> TimeInterval {
+            max(0, now.timeIntervalSince(timestamp))
+        }
+
+        func isFresh(
+            asOf now: Date = Date(),
+            maxAgeS: TimeInterval = LiveGPSTiming.staleFixWindowS
+        ) -> Bool {
+            age(asOf: now) <= maxAgeS
+        }
     }
 
     @Published private(set) var authorizationStatus: CLAuthorizationStatus
@@ -1003,7 +1121,7 @@ final class LiveRoundLocationManager: NSObject, CLLocationManagerDelegate {
             return
         }
 
-        latestFix = LocationFix(
+        let fix = LocationFix(
             coordinate: GeoCoordinate(
                 latitude: location.coordinate.latitude,
                 longitude: location.coordinate.longitude
@@ -1011,6 +1129,16 @@ final class LiveRoundLocationManager: NSObject, CLLocationManagerDelegate {
             horizontalAccuracyM: location.horizontalAccuracy,
             timestamp: location.timestamp
         )
+
+        guard fix.isFresh() else {
+            if let latestFix, !latestFix.isFresh() {
+                self.latestFix = nil
+            }
+            lastError = nil
+            return
+        }
+
+        latestFix = fix
         lastError = nil
     }
 

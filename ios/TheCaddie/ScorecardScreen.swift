@@ -187,6 +187,9 @@ struct ScorecardScreen: View {
 
             HStack(spacing: 10) {
                 snapshotPill(label: "GPS", value: viewModel.liveStatusBadgeLabel ?? "Unavailable")
+                if let fixAge = viewModel.liveFixAgeLabel, viewModel.isUsingLiveDistance {
+                    snapshotPill(label: "Fix", value: fixAge)
+                }
                 if let distance = viewModel.packet.remainingDistanceM {
                     snapshotPill(label: "Yardage", value: "\(Int(distance.rounded()))m")
                 }

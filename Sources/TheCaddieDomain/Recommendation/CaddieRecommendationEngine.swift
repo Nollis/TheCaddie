@@ -86,6 +86,18 @@ public enum CaddieRecommendationEngine {
             )
         }
 
+        if remainingDistance <= 2 {
+            return contextPacket(
+                status: .unavailable,
+                course: course,
+                hole: hole,
+                player: player,
+                shot: shot,
+                reason: "At the green. Finish the hole from here.",
+                confidence: .low
+            )
+        }
+
         let distanceBasis = adjustedDistance(
             remainingDistance,
             wind: shot.wind,

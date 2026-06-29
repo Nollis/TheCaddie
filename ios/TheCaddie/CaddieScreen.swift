@@ -174,6 +174,15 @@ struct CaddieScreen: View {
                 .foregroundStyle(.secondary)
                 .lineSpacing(3)
 
+            if let distanceSourceSummary = viewModel.distanceSourceSummary {
+                Text(distanceSourceSummary)
+                    .font(.system(.footnote, design: .rounded).weight(.bold))
+                    .foregroundStyle(liveStatusBadgeColor)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(liveStatusBadgeColor.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+
             if let noteText = viewState.noteText {
                 Text(noteText)
                     .font(.system(.headline, design: .rounded).weight(.bold))
@@ -247,8 +256,8 @@ struct CaddieScreen: View {
                     .cornerRadius(20)
                     
                     Button("Save & Finish") {
-                        logAction("Finished hole with \(puttCount) putts.")
                         viewModel.finishHoleFromGreen(putts: puttCount)
+                        logAction("Finished hole with \(puttCount) putts.")
                         puttCount = 2 // Reset default for next hole
                     }
                     .buttonStyle(CaddiePrimaryButtonStyle())
@@ -271,8 +280,8 @@ struct CaddieScreen: View {
 
     private func quickUpdateButton(_ action: CaddieViewState.QuickAction) -> some View {
         Button {
-            logAction("Recorded shot result: \(action.label)")
             viewModel.recordQuickAction(action.kind)
+            logAction("Recorded shot result: \(action.label)")
         } label: {
             Text(action.label)
                 .font(.system(.headline, design: .rounded).weight(.bold))
@@ -418,7 +427,9 @@ struct CaddieScreen: View {
                                 .foregroundColor(.secondary)
                             
                             HStack {
-                                metricItem(label: "GPS Distance", value: viewModel.packet.remainingDistanceM != nil ? "\(Int(viewModel.packet.remainingDistanceM!))m" : "--")
+                                metricItem(label: "Live GPS", value: viewModel.liveDistanceLabel ?? "--")
+                                Spacer()
+                                metricItem(label: "Shot Distance", value: viewModel.packetDistanceLabel ?? "--")
                                 Spacer()
                                 metricItem(label: "Progress", value: viewModel.liveProgressLabel ?? "--")
                                 Spacer()

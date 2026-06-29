@@ -569,6 +569,29 @@ private func teePacket(
     #expect(packet.primaryReason == "Add a distance before choosing a club.")
 }
 
+@Test func nearZeroDistanceDoesNotInventWedgeRecommendation() {
+    let roundState = SampleRound.roundState.updateShotContext(
+        ShotContext(
+            shotNumber: 3,
+            remainingDistanceM: .known(1),
+            lie: .known(.fairway),
+            wind: nil
+        )
+    )
+
+    let packet = CaddieRecommendationEngine.build(
+        course: SampleRound.course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    #expect(packet.status == .unavailable)
+    #expect(packet.recommendedClub == nil)
+    #expect(packet.shotIntent == nil)
+    #expect(packet.distanceBasisM == 1)
+    #expect(packet.primaryReason == "At the green. Finish the hole from here.")
+}
+
 @Test func noSuitableClubReturnsUnavailablePacket() {
     let player = PlayerContext(
         handicapIndex: nil,
