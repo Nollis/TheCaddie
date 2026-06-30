@@ -26,7 +26,7 @@ import TheCaddieDomain
     #expect(viewState.noteText == "Avoid long left water; that is the expensive miss.")
 }
 
-@Test func noCourseViewStateInvitesLoadingSampleContext() {
+@Test func noCourseViewStateInvitesCourseSelection() {
     let packet = CaddieRecommendationEngine.build(
         course: nil,
         player: SampleRound.player,
@@ -40,7 +40,7 @@ import TheCaddieDomain
     #expect(viewState.holeLabel == "No course")
     #expect(viewState.shotLabel == "No shot")
     #expect(viewState.distanceLabel == "--")
-    #expect(viewState.primaryActionLabel == "Load sample")
+    #expect(viewState.primaryActionLabel == "Choose course")
     #expect(viewState.quickActions.isEmpty)
 }
 
@@ -95,6 +95,36 @@ import TheCaddieDomain
     #expect(viewState.title == "No recommendation")
     #expect(viewState.subtitle == "No club in the current bag covers this shot.")
     #expect(viewState.quickActions.isEmpty)
+}
+
+@Test func nearGreenUnavailableStateStillAllowsShotCorrection() {
+    let roundState = SampleRound.roundState.updateShotContext(
+        ShotContext(
+            shotNumber: 3,
+            remainingDistanceM: .known(1),
+            lie: .known(.fairway),
+            wind: nil
+        )
+    )
+    let packet = CaddieRecommendationEngine.build(
+        course: SampleRound.course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    let viewState = CaddieViewState.make(
+        from: packet,
+        roundState: roundState,
+        course: SampleRound.course
+    )
+
+    #expect(viewState.kind == .unavailable)
+    #expect(viewState.quickActions == [
+        .init(kind: .fairway, label: "Fairway"),
+        .init(kind: .rough, label: "Rough"),
+        .init(kind: .bunker, label: "Bunker"),
+        .init(kind: .green, label: "Green")
+    ])
 }
 
 @Test func onGreenViewStateSwitchesToHoleOutAction() {

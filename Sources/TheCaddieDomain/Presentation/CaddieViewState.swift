@@ -130,12 +130,12 @@ public struct CaddieViewState: Equatable, Sendable {
             return CaddieViewState(
                 kind: .noCourseLoaded,
                 title: "Choose a course",
-                subtitle: "Load sample course context to see the first grounded recommendation.",
+                subtitle: "Start a round from course setup before trusting on-course yardage.",
                 noteText: nil,
                 holeLabel: "No course",
                 shotLabel: "No shot",
                 distanceLabel: "--",
-                primaryActionLabel: "Load sample",
+                primaryActionLabel: "Choose course",
                 quickActions: []
             )
 
@@ -166,6 +166,9 @@ public struct CaddieViewState: Equatable, Sendable {
             )
 
         case .unknownHole, .unavailable:
+            let quickActions = canStillRecordShotResult(from: packet)
+                ? shotResultActions
+                : []
             return CaddieViewState(
                 kind: .unavailable,
                 title: CaddieResponseText.displayHeadline(for: packet),
@@ -175,7 +178,7 @@ public struct CaddieViewState: Equatable, Sendable {
                 shotLabel: shotLabel(for: packet, roundState: roundState),
                 distanceLabel: distanceLabel(for: packet),
                 primaryActionLabel: nil,
-                quickActions: []
+                quickActions: quickActions
             )
         }
     }
@@ -186,6 +189,18 @@ public struct CaddieViewState: Equatable, Sendable {
         .init(kind: .bunker, label: "Bunker"),
         .init(kind: .green, label: "Green")
     ]
+
+    private static func canStillRecordShotResult(
+        from packet: CaddieRecommendationPacket
+    ) -> Bool {
+        guard packet.status == .unavailable,
+              packet.lie != .green,
+              let remainingDistanceM = packet.remainingDistanceM else {
+            return false
+        }
+
+        return remainingDistanceM <= 2
+    }
 
     private static func currentLie(
         for packet: CaddieRecommendationPacket,

@@ -14,11 +14,14 @@ struct CourseSelectionScreen: View {
         KungsbackaNyaCourse.course,
         SampleRound.course
     ]
+
+    private var featuredCourse: Course? {
+        courses.first
+    }
     
     var body: some View {
         NavigationView {
             ZStack {
-                // Background Gradient
                 LinearGradient(
                     colors: [
                         Color(red: 0.94, green: 0.98, blue: 0.93),
@@ -30,47 +33,21 @@ struct CourseSelectionScreen: View {
                 .ignoresSafeArea()
                 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        
-                        // Active Round Panel
+                    VStack(alignment: .leading, spacing: 22) {
+                        welcomeHeader
+
                         if let activeCourse = viewModel.course {
-                            VStack(alignment: .leading, spacing: 16) {
-                                HStack {
-                                    Image(systemName: "flag.fill")
-                                        .foregroundColor(Color(red: 0.06, green: 0.56, blue: 0.24))
-                                    Text("ACTIVE ROUND")
-                                        .font(.system(.caption, design: .rounded).bold())
-                                        .foregroundColor(Color(red: 0.06, green: 0.56, blue: 0.24))
-                                }
-                                
-                                Text(activeCourse.name)
-                                    .font(.system(.title3, design: .rounded).weight(.bold))
-                                    .foregroundColor(.primary)
-                                
-                                Text("Currently playing Hole \(viewModel.selectedHoleNumber)")
-                                    .font(.system(.subheadline, design: .rounded))
-                                    .foregroundColor(.secondary)
-                                
-                                Button(action: {
-                                    viewModel.endRound()
-                                }) {
-                                    Text("End Active Round")
-                                        .font(.system(.body, design: .rounded).bold())
-                                        .foregroundColor(.red)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 12)
-                                        .background(Color.red.opacity(0.1))
-                                        .cornerRadius(10)
-                                }
-                            }
-                            .padding(20)
-                            .background(Color(white: 1.0).opacity(0.9))
-                            .cornerRadius(16)
-                            .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+                            activeRoundPanel(for: activeCourse)
                         }
-                        
-                        Text("Available Courses")
-                            .font(.system(.title2, design: .rounded).weight(.bold))
+
+                        if let featuredCourse {
+                            closestCoursePanel(for: featuredCourse)
+                        }
+
+                        readinessStrip
+
+                        Text("All Courses")
+                            .font(.system(.title3, design: .rounded).weight(.black))
                             .foregroundColor(.primary)
                         
                         ForEach(courses, id: \.id) { course in
@@ -80,11 +57,176 @@ struct CourseSelectionScreen: View {
                     .padding(22)
                 }
             }
-            .navigationTitle("Select Course")
+            .navigationTitle("Courses")
             .sheet(item: $selectedCourse) { course in
                 setupWizardView(for: course)
             }
         }
+    }
+
+    private var welcomeHeader: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("The Caddie")
+                .font(.system(size: 38, weight: .black, design: .rounded))
+                .foregroundColor(.primary)
+
+            Text("Start a round, confirm your setup, then let the caddie brain stay grounded in the course map.")
+                .font(.system(.headline, design: .rounded).weight(.semibold))
+                .foregroundColor(.secondary)
+                .lineSpacing(3)
+        }
+        .padding(.top, 4)
+    }
+
+    private var readinessStrip: some View {
+        HStack(spacing: 10) {
+            readinessPill(
+                icon: "location.fill",
+                title: "GPS",
+                value: viewModel.course == nil ? "Starts with round" : viewModel.liveStatusBadgeLabel ?? "Ready"
+            )
+            readinessPill(
+                icon: "person.fill",
+                title: "Player",
+                value: String(format: "%.1f hcp", viewModel.player.handicapIndex ?? 18.0)
+            )
+            readinessPill(
+                icon: "slider.horizontal.3",
+                title: "Mode",
+                value: viewModel.player.strategyPreference.rawValue.capitalized
+            )
+        }
+    }
+
+    private func readinessPill(
+        icon: String,
+        title: String,
+        value: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(.caption, design: .rounded).weight(.bold))
+                .foregroundColor(Color(red: 0.06, green: 0.56, blue: 0.24))
+
+            Text(title)
+                .font(.system(size: 9, design: .rounded).weight(.black))
+                .foregroundColor(.secondary)
+                .textCase(.uppercase)
+
+            Text(value)
+                .font(.system(.caption, design: .rounded).weight(.bold))
+                .foregroundColor(.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color.white.opacity(0.86))
+        .cornerRadius(14)
+        .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 3)
+    }
+
+    private func activeRoundPanel(for course: Course) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("Active round", systemImage: "flag.fill")
+                .font(.system(.caption, design: .rounded).bold())
+                .foregroundColor(Color(red: 0.06, green: 0.56, blue: 0.24))
+
+            Text(course.name)
+                .font(.system(.title3, design: .rounded).weight(.bold))
+                .foregroundColor(.primary)
+
+            Text("Currently playing Hole \(viewModel.selectedHoleNumber)")
+                .font(.system(.subheadline, design: .rounded))
+                .foregroundColor(.secondary)
+
+            Button(action: {
+                viewModel.endRound()
+            }) {
+                Text("End Active Round")
+                    .font(.system(.body, design: .rounded).bold())
+                    .foregroundColor(.red)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.red.opacity(0.1))
+                    .cornerRadius(10)
+            }
+        }
+        .padding(18)
+        .background(Color.white.opacity(0.9))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+    }
+
+    private func closestCoursePanel(for course: Course) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Label("Suggested mapped course", systemImage: "location.circle.fill")
+                    .font(.system(.caption, design: .rounded).bold())
+                    .foregroundColor(Color(red: 0.06, green: 0.56, blue: 0.24))
+
+                Spacer()
+
+                Text(mappedStatus(for: course))
+                    .font(.system(size: 10, design: .rounded).weight(.black))
+                    .foregroundColor(Color(red: 0.05, green: 0.38, blue: 0.19))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(Color(red: 0.06, green: 0.56, blue: 0.24).opacity(0.12))
+                    .cornerRadius(8)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(course.name)
+                    .font(.system(size: 30, weight: .black, design: .rounded))
+                    .foregroundColor(.primary)
+                    .minimumScaleFactor(0.8)
+                    .lineLimit(2)
+
+                Text(courseSummary(for: course))
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                    .foregroundColor(.secondary)
+            }
+
+            HStack(spacing: 10) {
+                courseMetric(label: "Holes", value: "\(course.holes.count)")
+                courseMetric(label: "Par", value: "\(totalPar(for: course))")
+                courseMetric(label: "Mapped", value: "\(mappedHoleCount(for: course))")
+            }
+
+            Button(action: {
+                prepareSetup(for: course)
+            }) {
+                Text("Start Round")
+                    .font(.system(.headline, design: .rounded).weight(.bold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(Color(red: 0.06, green: 0.56, blue: 0.24))
+                    .cornerRadius(14)
+            }
+        }
+        .padding(20)
+        .background(Color.white.opacity(0.92))
+        .cornerRadius(18)
+        .shadow(color: Color.black.opacity(0.06), radius: 14, x: 0, y: 8)
+    }
+
+    private func courseMetric(label: String, value: String) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.system(.title3, design: .rounded).weight(.black))
+                .foregroundColor(Color(red: 0.05, green: 0.38, blue: 0.19))
+
+            Text(label)
+                .font(.system(size: 9, design: .rounded).weight(.bold))
+                .foregroundColor(.secondary)
+                .textCase(.uppercase)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(Color.black.opacity(0.04))
+        .cornerRadius(10)
     }
 
     private func courseRow(for course: Course) -> some View {
@@ -93,11 +235,7 @@ struct CourseSelectionScreen: View {
         let parText = "Par \(totalPar)"
 
         return Button(action: {
-            // Initialize local setup state from current view model values
-            handicap = viewModel.player.handicapIndex ?? 18.0
-            strategyPreference = viewModel.player.strategyPreference
-            voiceToggle = viewModel.isHandsFreeListening
-            selectedCourse = course
+            prepareSetup(for: course)
         }) {
             HStack {
                 VStack(alignment: .leading, spacing: 6) {
@@ -108,6 +246,7 @@ struct CourseSelectionScreen: View {
                     HStack(spacing: 12) {
                         Label(holeCountText, systemImage: "flag")
                         Label(parText, systemImage: "sparkles")
+                        Label(mappedStatus(for: course), systemImage: "location")
                     }
                     .font(.system(.caption, design: .rounded))
                     .foregroundColor(.secondary)
@@ -121,6 +260,35 @@ struct CourseSelectionScreen: View {
             .cornerRadius(16)
             .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
         }
+    }
+
+    private func prepareSetup(for course: Course) {
+        handicap = viewModel.player.handicapIndex ?? 18.0
+        strategyPreference = viewModel.player.strategyPreference
+        voiceToggle = viewModel.isHandsFreeListening
+        selectedCourse = course
+    }
+
+    private func totalPar(for course: Course) -> Int {
+        course.holes.reduce(0) { $0 + $1.par }
+    }
+
+    private func mappedHoleCount(for course: Course) -> Int {
+        course.holes.filter { hole in
+            hole.green.centerCoordinate != nil
+                && !hole.centerlineCoordinates.isEmpty
+        }.count
+    }
+
+    private func mappedStatus(for course: Course) -> String {
+        let mappedCount = mappedHoleCount(for: course)
+        return mappedCount == course.holes.count
+            ? "GPS mapped"
+            : "\(mappedCount)/\(course.holes.count) mapped"
+    }
+
+    private func courseSummary(for course: Course) -> String {
+        "\(course.holes.count) holes - Par \(totalPar(for: course)) - \(mappedStatus(for: course))"
     }
     
     private func setupWizardView(for course: Course) -> some View {

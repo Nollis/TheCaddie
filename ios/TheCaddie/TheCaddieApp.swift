@@ -2,13 +2,18 @@ import SwiftUI
 
 @main
 struct TheCaddieApp: App {
-    @StateObject private var viewModel = CaddieViewModel.sample()
-    @State private var selectedTab = 0
+    @StateObject private var viewModel = CaddieViewModel.noCourseLoaded()
+    @State private var selectedTab = 3
     
     var body: some Scene {
         WindowGroup {
             TabView(selection: $selectedTab) {
-                CaddieScreen(viewModel: viewModel)
+                CaddieScreen(
+                    viewModel: viewModel,
+                    onChooseCourse: {
+                        selectedTab = 3
+                    }
+                )
                     .tabItem {
                         Label("Caddie", systemImage: "target")
                     }

@@ -3,13 +3,18 @@ import UIKit
 
 struct CaddieScreen: View {
     @StateObject var viewModel: CaddieViewModel
+    var onChooseCourse: (() -> Void)?
     
     @State private var showDebugDrawer = false
     @State private var puttCount = 2
     @State private var debugCopyConfirmation: String?
 
-    init(viewModel: CaddieViewModel) {
+    init(
+        viewModel: CaddieViewModel,
+        onChooseCourse: (() -> Void)? = nil
+    ) {
         _viewModel = StateObject(wrappedValue: viewModel)
+        self.onChooseCourse = onChooseCourse
     }
 
     var body: some View {
@@ -295,8 +300,8 @@ struct CaddieScreen: View {
     private func handlePrimaryAction() {
         switch viewModel.viewState.kind {
         case .noCourseLoaded:
-            logAction("Loaded sample course.")
-            viewModel.loadSample()
+            logAction("Opened course selection.")
+            onChooseCourse?()
         case .missingContext:
             switch viewModel.packet.status {
             case .missingDistance:

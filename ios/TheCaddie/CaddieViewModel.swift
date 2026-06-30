@@ -456,16 +456,6 @@ final class CaddieViewModel: ObservableObject {
         return lines
     }
 
-    func loadSample() {
-        course = KungsbackaNyaCourse.course
-        player = playerProfileStore.loadPlayer(base: SampleRound.player) ?? SampleRound.player
-        roundState = KungsbackaNyaCourse.openingRoundState
-        autoDetectedHoleNumber = roundState.selectedHoleNumber
-        consecutiveHoleMisses = 0
-        debugLogEntries = []
-        enableLiveDistanceIfSupported()
-    }
-
     func markLie(_ lie: ShotLie) {
         let currentShot = resolvedShotContext()
         let updatedShot = ShotContext(
@@ -562,6 +552,8 @@ final class CaddieViewModel: ObservableObject {
         isUsingLiveDistance = false
         locationManager.deactivate()
         liveLocationStatus = "GPS paused"
+        autoDetectedHoleNumber = selectedHoleNumber
+        consecutiveHoleMisses = 0
     }
 
     func refreshLiveDistance() {
