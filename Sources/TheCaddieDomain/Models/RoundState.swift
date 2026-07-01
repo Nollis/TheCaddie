@@ -115,6 +115,53 @@ public struct RoundState: Equatable, Sendable {
         return updateShotContext(nextShot)
     }
 
+    public func recordPenaltyDrop(
+        course: Course?,
+        player: PlayerContext
+    ) -> RoundState {
+        let context = CurrentShotContext.resolve(
+            course: course,
+            player: player,
+            roundState: self
+        )
+
+        guard case let .ready(_, _, _, currentShot) = context,
+              let remainingDistanceM = currentShot.remainingDistanceM.value else {
+            return self
+        }
+
+        let packet = CaddieRecommendationEngine.build(
+            course: course,
+            player: player,
+            roundState: self
+        )
+        let baselineAdvanceM = packet.clubCarryDistanceM
+            ?? player.clubs.first?.carryDistanceM
+            ?? 0
+
+        guard baselineAdvanceM > 0 else {
+            return self
+        }
+
+        let nextShotProjection = nextShotProjection(
+            hole: course?.hole(number: selectedHoleNumber),
+            currentRemainingDistanceM: remainingDistanceM,
+            currentProgressM: currentShot.progressM,
+            baselineAdvanceM: baselineAdvanceM,
+            resultingLie: .recovery,
+            snapHazardKind: .water
+        )
+        let nextShot = ShotContext(
+            shotNumber: currentShot.shotNumber + 2,
+            remainingDistanceM: .known(nextShotProjection.remainingDistanceM),
+            lie: .known(.recovery),
+            wind: currentShot.wind,
+            progressM: nextShotProjection.progressM
+        )
+
+        return updateShotContext(nextShot)
+    }
+
     public func finishCurrentHole(
         course: Course?,
         strokes: Int? = nil,
@@ -187,7 +234,8 @@ private func nextShotProjection(
     currentRemainingDistanceM: Double,
     currentProgressM: Double?,
     baselineAdvanceM: Double,
-    resultingLie: ShotLie
+    resultingLie: ShotLie,
+    snapHazardKind: HazardKind? = nil
 ) -> ShotProjection {
     if resultingLie == .green {
         return ShotProjection(
@@ -218,16 +266,17 @@ private func nextShotProjection(
         resolvedCurrentProgressM + projectedAdvanceM
     )
 
-    if resultingLie == .bunker {
-        if let bunkerDistanceM = nearestForwardHazardDistance(
-            kind: .bunker,
+    let hazardSnapKind = snapHazardKind ?? (resultingLie == .bunker ? .bunker : nil)
+    if let hazardSnapKind {
+        if let hazardDistanceM = nearestForwardHazardDistance(
+            kind: hazardSnapKind,
             hazards: hole.hazards,
             currentProgressM: resolvedCurrentProgressM,
             projectedProgressM: projectedProgressM,
             minimumSnapDistanceM: projectedProgressM - 35,
             maximumSnapDistanceM: projectedProgressM + 60
         ) {
-            let snappedProgressM = min(hole.teeLengthM, bunkerDistanceM)
+            let snappedProgressM = min(hole.teeLengthM, hazardDistanceM)
             return ShotProjection(
                 remainingDistanceM: max(0, hole.teeLengthM - snappedProgressM).rounded(),
                 progressM: snappedProgressM

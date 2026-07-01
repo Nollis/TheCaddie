@@ -272,7 +272,10 @@ struct CaddieScreen: View {
                     .font(.system(.title3, design: .rounded).weight(.black))
                     .foregroundStyle(.black)
 
-                HStack(spacing: 10) {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 96), spacing: 10)],
+                    spacing: 10
+                ) {
                     ForEach(viewState.quickActions, id: \.kind) { action in
                         quickUpdateButton(action)
                     }
@@ -286,7 +289,7 @@ struct CaddieScreen: View {
     private func quickUpdateButton(_ action: CaddieViewState.QuickAction) -> some View {
         Button {
             viewModel.recordQuickAction(action.kind)
-            logAction("Recorded shot result: \(action.label)")
+            logAction(debugActionText(for: action))
         } label: {
             Text(action.label)
                 .font(.system(.headline, design: .rounded).weight(.bold))
@@ -295,6 +298,14 @@ struct CaddieScreen: View {
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(CaddiePillButtonStyle())
+    }
+
+    private func debugActionText(for action: CaddieViewState.QuickAction) -> String {
+        if action.kind == .water {
+            return "Recorded penalty drop: Water"
+        }
+
+        return "Recorded shot result: \(action.label)"
     }
 
     private func handlePrimaryAction() {

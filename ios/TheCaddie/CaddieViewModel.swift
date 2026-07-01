@@ -30,6 +30,7 @@ final class CaddieViewModel: ObservableObject {
 
     private let locationManager: LiveRoundLocationManager
     private let playerProfileStore: PlayerProfileStore
+    private let debugLogStore: DebugLogStore
     private var cancellables = Set<AnyCancellable>()
     private var consecutiveHoleMisses = 0
 
@@ -41,10 +42,12 @@ final class CaddieViewModel: ObservableObject {
     ) {
         self.course = course
         self.playerProfileStore = .shared
+        self.debugLogStore = .shared
         let resolvedPlayer = self.playerProfileStore.loadPlayer(base: player) ?? player
         self.player = resolvedPlayer
         self.roundState = roundState
         self.locationManager = locationManager ?? LiveRoundLocationManager()
+        self.debugLogEntries = debugLogStore.load()
         bindLocationManager()
         bindLiveStatusClock()
     }
@@ -480,6 +483,17 @@ final class CaddieViewModel: ObservableObject {
         }
     }
 
+    func recordPenaltyDrop() {
+        roundState = roundState.recordPenaltyDrop(
+            course: course,
+            player: player
+        )
+
+        if let liveOverrideShot = liveShotOverride(after: .recovery) {
+            roundState = roundState.updateShotContext(liveOverrideShot)
+        }
+    }
+
     func recordQuickAction(_ action: CaddieViewState.QuickAction.Kind) {
         switch action {
         case .fairway:
@@ -490,6 +504,8 @@ final class CaddieViewModel: ObservableObject {
             recordShotResult(.bunker)
         case .green:
             recordShotResult(.green)
+        case .water:
+            recordPenaltyDrop()
         case .holed:
             finishCurrentHole()
         }
@@ -632,7 +648,7 @@ final class CaddieViewModel: ObservableObject {
         )
         autoDetectedHoleNumber = startingHole
         consecutiveHoleMisses = 0
-        debugLogEntries = []
+        clearDebugLog()
         enableLiveDistanceIfSupported()
     }
     
@@ -651,7 +667,6 @@ final class CaddieViewModel: ObservableObject {
         liveLocationStatus = "GPS off"
         autoDetectedHoleNumber = nil
         consecutiveHoleMisses = 0
-        debugLogEntries = []
     }
 
     func updatePlayerHandicap(_ handicap: Double) {
@@ -895,6 +910,12 @@ final class CaddieViewModel: ObservableObject {
         if debugLogEntries.count > 400 {
             debugLogEntries.removeFirst(debugLogEntries.count - 400)
         }
+        debugLogStore.save(debugLogEntries)
+    }
+
+    private func clearDebugLog() {
+        debugLogEntries = []
+        debugLogStore.save(debugLogEntries)
     }
 
     private func liveShotOverride(after resultingLie: ShotLie) -> ShotContext? {
@@ -968,17 +989,18 @@ final class CaddieViewModel: ObservableObject {
         let updatedShot = ShotContext(
             shotNumber: currentShot.shotNumber,
             remainingDistanceM: .known(distanceM),
-            lie: inferredLie.map(ShotLieState.known) ?? currentShot.lie,
+            lie: currentShot.lie,
             wind: currentShot.wind,
             progressM: progressSample?.progressM
         )
         roundState = roundState.updateShotContext(updatedShot)
 
         let lieStatus = updatedShot.lie.value.map { " • \($0.rawValue.capitalized)" } ?? ""
+        let inferredStatus = inferredLie.map { " • GPS \($0.rawValue.capitalized)" } ?? ""
         let progressStatus = progressSample.map { " • \(Int($0.progressM.rounded()))m played" } ?? ""
         liveLocationStatus = autoDetectedHoleNumber == selectedHoleNumber
-            ? "Live distance synced\(lieStatus)\(progressStatus)"
-            : "Live distance synced on Hole \(selectedHoleNumber)\(lieStatus)\(progressStatus)"
+            ? "Live distance synced\(lieStatus)\(inferredStatus)\(progressStatus)"
+            : "Live distance synced on Hole \(selectedHoleNumber)\(lieStatus)\(inferredStatus)\(progressStatus)"
 
         appendDebugEntry(
             action: "GPS update synced",
@@ -1234,8 +1256,8 @@ enum LiveStatusBadgeTone {
     case error
 }
 
-struct DebugLogEntry: Identifiable, Equatable {
-    let id = UUID()
+struct DebugLogEntry: Codable, Identifiable, Equatable {
+    let id: UUID
     let timestamp: Date
     let eventType: DebugLogEventType
     let holeNumber: Int
@@ -1257,6 +1279,54 @@ struct DebugLogEntry: Identifiable, Equatable {
     let confidence: String
     let coordinate: GeoCoordinate?
     let accuracyM: Double?
+
+    init(
+        id: UUID = UUID(),
+        timestamp: Date,
+        eventType: DebugLogEventType,
+        holeNumber: Int,
+        detectedHoleNumber: Int?,
+        shotNumber: Int?,
+        action: String,
+        packetDistanceM: Double?,
+        adjustedBasisM: Double?,
+        liveDistanceM: Double?,
+        progressM: Double?,
+        centerlineOffsetM: Double?,
+        lie: String?,
+        inferredLiveLie: String?,
+        recommendedClub: String?,
+        target: String?,
+        primaryReason: String,
+        riskNote: String?,
+        status: String,
+        confidence: String,
+        coordinate: GeoCoordinate?,
+        accuracyM: Double?
+    ) {
+        self.id = id
+        self.timestamp = timestamp
+        self.eventType = eventType
+        self.holeNumber = holeNumber
+        self.detectedHoleNumber = detectedHoleNumber
+        self.shotNumber = shotNumber
+        self.action = action
+        self.packetDistanceM = packetDistanceM
+        self.adjustedBasisM = adjustedBasisM
+        self.liveDistanceM = liveDistanceM
+        self.progressM = progressM
+        self.centerlineOffsetM = centerlineOffsetM
+        self.lie = lie
+        self.inferredLiveLie = inferredLiveLie
+        self.recommendedClub = recommendedClub
+        self.target = target
+        self.primaryReason = primaryReason
+        self.riskNote = riskNote
+        self.status = status
+        self.confidence = confidence
+        self.coordinate = coordinate
+        self.accuracyM = accuracyM
+    }
 
     var activityLine: String {
         let formatter = DateFormatter()
@@ -1349,9 +1419,36 @@ struct DebugLogEntry: Identifiable, Equatable {
     }
 }
 
-enum DebugLogEventType: String {
+enum DebugLogEventType: String, Codable {
     case userAction = "ACTION"
     case gpsUpdate = "GPS"
+}
+
+private final class DebugLogStore {
+    static let shared = DebugLogStore()
+
+    private let defaults: UserDefaults
+    private let storageKey = "debugLogEntriesSnapshot"
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    func load() -> [DebugLogEntry] {
+        guard let data = defaults.data(forKey: storageKey) else {
+            return []
+        }
+
+        return (try? JSONDecoder().decode([DebugLogEntry].self, from: data)) ?? []
+    }
+
+    func save(_ entries: [DebugLogEntry]) {
+        guard let data = try? JSONEncoder().encode(entries) else {
+            return
+        }
+
+        defaults.set(data, forKey: storageKey)
+    }
 }
 
 private final class PlayerProfileStore {

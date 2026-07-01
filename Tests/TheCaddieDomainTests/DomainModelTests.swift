@@ -323,6 +323,64 @@ import TheCaddieDomain
     #expect(updatedShot.lie.value == .recovery)
 }
 
+@Test func waterPenaltyDropAddsPenaltyStrokeAndSnapsToMappedWater() throws {
+    let hole = CourseHole(
+        number: 1,
+        par: 4,
+        teeLengthM: 300,
+        green: GreenContext(
+            frontDistanceM: 291,
+            centerDistanceM: 300,
+            backDistanceM: 309
+        ),
+        hazards: [
+            Hazard(
+                id: "water-crossing",
+                kind: .water,
+                position: "center 190m",
+                note: "Water crossing near the projected landing.",
+                progressM: 190
+            )
+        ]
+    )
+    let course = Course(id: "water-penalty-test", name: "Water Penalty Test", holes: [hole])
+    let player = PlayerContext(
+        handicapIndex: nil,
+        clubs: [
+            PlayerClub(
+                name: "9 Iron",
+                carryDistanceM: 90,
+                playableLies: [.fairway, .recovery]
+            )
+        ],
+        strategyPreference: .normal
+    )
+    let roundState = RoundState(
+        courseId: course.id,
+        selectedHoleNumber: 1,
+        shotContexts: [
+            1: ShotContext(
+                shotNumber: 1,
+                remainingDistanceM: .known(200),
+                lie: .known(.fairway),
+                wind: nil,
+                progressM: 100
+            )
+        ]
+    )
+
+    let updatedRound = roundState.recordPenaltyDrop(
+        course: course,
+        player: player
+    )
+    let updatedShot = try #require(updatedRound.currentShotContext())
+
+    #expect(updatedShot.shotNumber == 3)
+    #expect(updatedShot.remainingDistanceM.value == 110)
+    #expect(updatedShot.progressM == 190)
+    #expect(updatedShot.lie.value == .recovery)
+}
+
 @Test func greenShotResultAdvancesToGreenState() throws {
     let updatedRound = KungsbackaNyaCourse.openingRoundState
         .selectHole(8)
