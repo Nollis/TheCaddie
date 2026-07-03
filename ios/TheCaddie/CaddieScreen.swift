@@ -261,8 +261,8 @@ struct CaddieScreen: View {
                     .cornerRadius(20)
                     
                     Button("Save & Finish") {
-                        viewModel.finishHoleFromGreen(putts: puttCount)
                         logAction("Finished hole with \(puttCount) putts.")
+                        viewModel.finishHoleFromGreen(putts: puttCount)
                         puttCount = 2 // Reset default for next hole
                     }
                     .buttonStyle(CaddiePrimaryButtonStyle())

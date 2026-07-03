@@ -8,6 +8,10 @@ private enum LiveGPSTiming {
     static let shotOverrideWindowS = 90.0
 }
 
+private enum LiveGPSQuality {
+    static let maximumHorizontalAccuracyM = 30.0
+}
+
 @MainActor
 final class CaddieViewModel: ObservableObject {
     @Published private(set) var course: Course?
@@ -948,6 +952,11 @@ final class CaddieViewModel: ObservableObject {
     }
 
     private func applyLiveDistance(from fix: LiveRoundLocationManager.LocationFix) {
+        guard fix.isUsable() else {
+            liveLocationStatus = "Waiting for accurate GPS..."
+            return
+        }
+
         liveAccuracyM = fix.horizontalAccuracyM
         liveCoordinate = fix.coordinate
         liveFixTimestamp = fix.timestamp
@@ -958,6 +967,21 @@ final class CaddieViewModel: ObservableObject {
 
         guard course?.hole(number: selectedHoleNumber) != nil else {
             liveLocationStatus = "No active hole selected"
+            return
+        }
+
+        guard !roundState.isHoleComplete(selectedHoleNumber) else {
+            liveLocationStatus = "Hole complete"
+            return
+        }
+
+        if resolvedShotContext().lie.value == .green {
+            guard let activeHole = course?.hole(number: selectedHoleNumber) else {
+                liveLocationStatus = "No active hole selected"
+                return
+            }
+
+            syncGreenLiveDistance(from: fix, on: activeHole, canShowHoleMismatch: false)
             return
         }
 
@@ -986,6 +1010,12 @@ final class CaddieViewModel: ObservableObject {
             on: activeHole
         )
         liveInferredLie = inferredLie
+
+        if currentShot.lie.value == .green {
+            syncGreenLiveDistance(from: fix, on: activeHole, canShowHoleMismatch: true)
+            return
+        }
+
         let updatedShot = ShotContext(
             shotNumber: currentShot.shotNumber,
             remainingDistanceM: .known(distanceM),
@@ -1001,6 +1031,45 @@ final class CaddieViewModel: ObservableObject {
         liveLocationStatus = autoDetectedHoleNumber == selectedHoleNumber
             ? "Live distance synced\(lieStatus)\(inferredStatus)\(progressStatus)"
             : "Live distance synced on Hole \(selectedHoleNumber)\(lieStatus)\(inferredStatus)\(progressStatus)"
+
+        appendDebugEntry(
+            action: "GPS update synced",
+            eventType: .gpsUpdate,
+            coordinate: fix.coordinate,
+            accuracyM: fix.horizontalAccuracyM,
+            timestamp: fix.timestamp
+        )
+    }
+
+    private func syncGreenLiveDistance(
+        from fix: LiveRoundLocationManager.LocationFix,
+        on activeHole: CourseHole,
+        canShowHoleMismatch: Bool
+    ) {
+        guard let distanceM = activeHole.green.distanceToCenter(from: fix.coordinate) else {
+            liveLocationStatus = "This hole is not mapped for live GPS yet."
+            return
+        }
+
+        liveDistanceM = distanceM
+        let progressSample = HoleProgressInference.sample(
+            fix: fix.coordinate,
+            on: activeHole
+        )
+        liveProgressM = progressSample?.progressM
+        liveCenterlineOffsetM = progressSample?.distanceFromCenterlineM
+        let inferredLie = HoleLieInference.inferLie(
+            fix: fix.coordinate,
+            on: activeHole
+        )
+        liveInferredLie = inferredLie
+
+        let inferredStatus = inferredLie.map { " • GPS \($0.rawValue.capitalized)" } ?? ""
+        let progressStatus = progressSample.map { " • \(Int($0.progressM.rounded()))m played" } ?? ""
+        let statusPrefix = canShowHoleMismatch && autoDetectedHoleNumber != selectedHoleNumber
+            ? "Live distance synced on Hole \(selectedHoleNumber)"
+            : "Live distance synced"
+        liveLocationStatus = "\(statusPrefix) • Green\(inferredStatus)\(progressStatus)"
 
         appendDebugEntry(
             action: "GPS update synced",
@@ -1085,6 +1154,22 @@ final class LiveRoundLocationManager: NSObject, CLLocationManagerDelegate {
         ) -> Bool {
             age(asOf: now) <= maxAgeS
         }
+
+        func hasUsableAccuracy(
+            maxHorizontalAccuracyM: Double = LiveGPSQuality.maximumHorizontalAccuracyM
+        ) -> Bool {
+            horizontalAccuracyM >= 0
+                && horizontalAccuracyM <= maxHorizontalAccuracyM
+        }
+
+        func isUsable(
+            asOf now: Date = Date(),
+            maxAgeS: TimeInterval = LiveGPSTiming.staleFixWindowS,
+            maxHorizontalAccuracyM: Double = LiveGPSQuality.maximumHorizontalAccuracyM
+        ) -> Bool {
+            isFresh(asOf: now, maxAgeS: maxAgeS)
+                && hasUsableAccuracy(maxHorizontalAccuracyM: maxHorizontalAccuracyM)
+        }
     }
 
     @Published private(set) var authorizationStatus: CLAuthorizationStatus
@@ -1146,6 +1231,14 @@ final class LiveRoundLocationManager: NSObject, CLLocationManagerDelegate {
 
         guard fix.isFresh() else {
             if let latestFix, !latestFix.isFresh() {
+                self.latestFix = nil
+            }
+            lastError = nil
+            return
+        }
+
+        guard fix.hasUsableAccuracy() else {
+            if let latestFix, !latestFix.isUsable() {
                 self.latestFix = nil
             }
             lastError = nil
