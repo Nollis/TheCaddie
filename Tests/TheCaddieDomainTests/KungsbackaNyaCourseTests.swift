@@ -388,6 +388,59 @@ private func coordinatesMatch(
     #expect(packet.riskNote == nil)
 }
 
+@Test func kungsbackaHoleFourSecondShotLaysUpBeforeLineWaterForHighHandicap() {
+    let roundState = KungsbackaNyaCourse.openingRoundState
+        .selectHole(4)
+        .updateShotContext(
+            ShotContext(
+                shotNumber: 2,
+                remainingDistanceM: .known(174.7),
+                lie: .known(.fairway),
+                wind: nil
+            )
+        )
+
+    let packet = CaddieRecommendationEngine.build(
+        course: KungsbackaNyaCourse.course,
+        player: SampleRound.player,
+        roundState: roundState
+    )
+
+    #expect(packet.status == .ready)
+    #expect(packet.shotIntent == .layup)
+    #expect(packet.recommendedClub == "50W")
+    #expect(packet.recommendedClub != "5 Iron")
+    #expect(packet.riskNote == "Water left is near the landing zone.")
+}
+
+@Test func kungsbackaHoleFourSecondShotCanAttackLineWaterForLowHandicap() {
+    let player = PlayerContext(
+        handicapIndex: 2,
+        clubs: SampleRound.player.clubs,
+        strategyPreference: .normal
+    )
+    let roundState = KungsbackaNyaCourse.openingRoundState
+        .selectHole(4)
+        .updateShotContext(
+            ShotContext(
+                shotNumber: 2,
+                remainingDistanceM: .known(174.7),
+                lie: .known(.fairway),
+                wind: nil
+            )
+        )
+
+    let packet = CaddieRecommendationEngine.build(
+        course: KungsbackaNyaCourse.course,
+        player: player,
+        roundState: roundState
+    )
+
+    #expect(packet.status == .ready)
+    #expect(packet.shotIntent == .approach)
+    #expect(packet.recommendedClub == "5 Iron")
+}
+
 @Test func kungsbackaHoleOneGreensideBunkerUsesMostLoftedReachingWedge() {
     let roundState = KungsbackaNyaCourse.openingRoundState.updateShotContext(
         ShotContext(

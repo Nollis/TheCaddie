@@ -37,6 +37,7 @@ final class CaddieViewModel: ObservableObject {
     private let debugLogStore: DebugLogStore
     private var cancellables = Set<AnyCancellable>()
     private var consecutiveHoleMisses = 0
+    private var minimumLiveFixTimestamp: Date?
 
     init(
         course: Course?,
@@ -523,7 +524,7 @@ final class CaddieViewModel: ObservableObject {
         roundState = roundState.selectHole(holeNumber)
         autoDetectedHoleNumber = holeNumber
         consecutiveHoleMisses = 0
-        syncLiveDistanceIfNeeded()
+        syncLiveDistanceIfNeeded(allowCachedFix: false)
     }
 
     func selectPreviousHole() {
@@ -592,7 +593,7 @@ final class CaddieViewModel: ObservableObject {
 
     func finishCurrentHole() {
         roundState = roundState.finishCurrentHole(course: course)
-        syncLiveDistanceIfNeeded()
+        syncLiveDistanceIfNeeded(allowCachedFix: false)
     }
 
     func finishHoleFromGreen(putts: Int) {
@@ -612,7 +613,7 @@ final class CaddieViewModel: ObservableObject {
             fairwayHit: finalFairwayHit,
             greenInRegulation: finalGIR
         )
-        syncLiveDistanceIfNeeded()
+        syncLiveDistanceIfNeeded(allowCachedFix: false)
     }
 
     func selectNextOpenHole() {
@@ -653,6 +654,7 @@ final class CaddieViewModel: ObservableObject {
         autoDetectedHoleNumber = startingHole
         consecutiveHoleMisses = 0
         clearDebugLog()
+        minimumLiveFixTimestamp = Date()
         enableLiveDistanceIfSupported()
     }
     
@@ -671,6 +673,7 @@ final class CaddieViewModel: ObservableObject {
         liveLocationStatus = "GPS off"
         autoDetectedHoleNumber = nil
         consecutiveHoleMisses = 0
+        minimumLiveFixTimestamp = nil
     }
 
     func updatePlayerHandicap(_ handicap: Double) {
@@ -831,19 +834,34 @@ final class CaddieViewModel: ObservableObject {
         }
     }
 
-    private func syncLiveDistanceIfNeeded() {
+    private func syncLiveDistanceIfNeeded(allowCachedFix: Bool = true) {
         guard isUsingLiveDistance else {
+            return
+        }
+
+        guard allowCachedFix else {
+            waitForCurrentLiveFix()
             return
         }
 
         let now = Date()
         if let fix = locationManager.latestFix,
-           fix.isFresh(asOf: now) {
+           fix.isUsable(asOf: now) {
             applyLiveDistance(from: fix)
         } else {
             liveLocationStatus = "Waiting for fresh GPS..."
             locationManager.requestSingleFix()
         }
+    }
+
+    private func waitForCurrentLiveFix() {
+        minimumLiveFixTimestamp = Date()
+        liveDistanceM = nil
+        liveProgressM = nil
+        liveCenterlineOffsetM = nil
+        liveInferredLie = nil
+        liveLocationStatus = "Waiting for current GPS..."
+        locationManager.requestSingleFix()
     }
 
     private func enableLiveDistanceIfSupported() {
@@ -956,6 +974,13 @@ final class CaddieViewModel: ObservableObject {
             liveLocationStatus = "Waiting for accurate GPS..."
             return
         }
+
+        if let minimumLiveFixTimestamp,
+           fix.timestamp < minimumLiveFixTimestamp {
+            liveLocationStatus = "Waiting for current GPS..."
+            return
+        }
+        minimumLiveFixTimestamp = nil
 
         liveAccuracyM = fix.horizontalAccuracyM
         liveCoordinate = fix.coordinate

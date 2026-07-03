@@ -174,6 +174,28 @@ public enum CaddieRecommendationEngine {
             )
         }
 
+        if let layupClub = severeApproachLayupClub(
+            from: playableClubs,
+            selectedClub: club,
+            player: player,
+            lie: lie,
+            hazards: approachHazards,
+            currentProgressM: currentProgressM,
+            strategy: player.strategyPreference
+        ) {
+            return approachLayupPacket(
+                course: course,
+                hole: hole,
+                player: player,
+                shot: shot,
+                remainingDistanceM: remainingDistance,
+                lie: lie,
+                club: layupClub,
+                hazards: approachHazards,
+                currentProgressM: currentProgressM
+            )
+        }
+
         let target = targetLabel(
             for: player.strategyPreference,
             hazards: approachHazards
@@ -225,6 +247,69 @@ public enum CaddieRecommendationEngine {
                 player: player,
                 hazards: approachHazards
             ),
+            debugInfo: debugInfo
+        )
+    }
+
+    private static func approachLayupPacket(
+        course: Course,
+        hole: CourseHole,
+        player: PlayerContext,
+        shot: ShotContext,
+        remainingDistanceM: Double,
+        lie: ShotLie,
+        club: PlayerClub,
+        hazards: [Hazard],
+        currentProgressM: Double
+    ) -> CaddieRecommendationPacket {
+        let projectedLandingM = currentProgressM + club.carryDistanceM
+        let landingHazards = advancementHazards(
+            from: hazards,
+            currentProgressM: currentProgressM,
+            projectedLandingM: projectedLandingM
+        )
+        let leaveDistance = max(0, remainingDistanceM - club.carryDistanceM)
+        let debugInfo = advancementDebugInfo(
+            clubs: playableClubs(from: player.clubs, lie: lie),
+            selectedClub: club,
+            player: player,
+            remainingDistanceM: remainingDistanceM,
+            lie: lie,
+            hazards: hazards,
+            currentProgressM: currentProgressM,
+            projectedLandingM: projectedLandingM
+        )
+
+        return CaddieRecommendationPacket(
+            status: .ready,
+            courseId: course.id,
+            holeNumber: hole.number,
+            par: hole.par,
+            shotNumber: shot.shotNumber,
+            remainingDistanceM: remainingDistanceM,
+            lie: lie,
+            strategyPreference: player.strategyPreference,
+            shotIntent: .layup,
+            target: advancementTargetLabel(
+                for: player.strategyPreference,
+                hazards: landingHazards,
+                leaveDistanceM: leaveDistance
+            ),
+            recommendedClub: club.name,
+            clubCarryDistanceM: club.carryDistanceM,
+            distanceBasisM: club.carryDistanceM,
+            expectedDispersionM: expectedDispersion(
+                for: club,
+                player: player,
+                lie: lie
+            ),
+            primaryReason: "\(club.name) advances the ball about \(formatMeters(club.carryDistanceM))m and leaves roughly \(formatMeters(leaveDistance))m in.",
+            riskNote: advancementRiskNote(
+                for: landingHazards,
+                strategy: player.strategyPreference,
+                projectedLandingM: projectedLandingM
+            ),
+            confidence: .medium,
             debugInfo: debugInfo
         )
     }
@@ -528,6 +613,85 @@ public enum CaddieRecommendationEngine {
             return sortedAscending.last { $0.carryDistanceM <= distanceBasisM }
                 ?? sortedAscending.first
         }
+    }
+
+    private static func severeApproachLayupClub(
+        from clubs: [PlayerClub],
+        selectedClub: PlayerClub,
+        player: PlayerContext,
+        lie: ShotLie,
+        hazards: [Hazard],
+        currentProgressM: Double,
+        strategy: StrategyPreference
+    ) -> PlayerClub? {
+        guard lie != .tee else {
+            return nil
+        }
+        guard strategy != .aggressive else {
+            return nil
+        }
+        if let handicapIndex = player.handicapIndex,
+           handicapIndex < 10 {
+            return nil
+        }
+
+        let projectedLandingM = currentProgressM + selectedClub.carryDistanceM
+        guard let carryHazard = severeCarryHazard(
+            hazards: hazards,
+            currentProgressM: currentProgressM,
+            projectedLandingM: projectedLandingM
+        ) else {
+            return nil
+        }
+
+        let hazardProgressM = hazardDistance(for: carryHazard) ?? projectedLandingM
+        let shortBufferM = max(
+            10,
+            player.skillProfile.conservativeBiasM + expectedDispersion(
+                for: selectedClub,
+                player: player,
+                lie: lie
+            ) * 0.25
+        )
+        let sortedDescending = clubs.sorted { lhs, rhs in
+            lhs.carryDistanceM > rhs.carryDistanceM
+        }
+        if let safeLayup = sortedDescending.first(where: { club in
+            currentProgressM + club.carryDistanceM <= hazardProgressM - shortBufferM
+        }) {
+            return safeLayup
+        }
+
+        return clubs.min { lhs, rhs in
+            if lhs.carryDistanceM != rhs.carryDistanceM {
+                return lhs.carryDistanceM < rhs.carryDistanceM
+            }
+            return lhs.name < rhs.name
+        }
+    }
+
+    private static func severeCarryHazard(
+        hazards: [Hazard],
+        currentProgressM: Double,
+        projectedLandingM: Double
+    ) -> Hazard? {
+        hazards
+            .filter { hazard in
+                guard hazard.kind == .water || hazard.kind == .outOfBounds,
+                      let hazardProgressM = hazardDistance(for: hazard),
+                      hazardProgressM >= currentProgressM + 35,
+                      hazardProgressM <= projectedLandingM + 15,
+                      isLaterallyRelevant(hazard, corridorHalfWidthM: 24, softBufferM: 14) else {
+                    return false
+                }
+
+                return true
+            }
+            .min { lhs, rhs in
+                let lhsDistance = hazardDistance(for: lhs) ?? projectedLandingM
+                let rhsDistance = hazardDistance(for: rhs) ?? projectedLandingM
+                return lhsDistance < rhsDistance
+            }
     }
 
     private static func playableClubs(
