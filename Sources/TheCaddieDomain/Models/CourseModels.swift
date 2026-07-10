@@ -234,17 +234,24 @@ public enum HoleDetector {
             && candidate.corridorDistanceM > holeSwitchOuterRadiusM
     }
 
+    public static func fixMatchesHole(
+        fix: GeoCoordinate,
+        hole: CourseHole
+    ) -> Bool {
+        guard let candidate = candidate(for: fix, hole: hole) else {
+            return false
+        }
+
+        return isWithinCaptureRadius(candidate)
+    }
+
     private static func bestGuessHole(
         fix: GeoCoordinate,
         course: Course
     ) -> Int? {
         course.holes
             .compactMap { candidate(for: fix, hole: $0) }
-            .filter { candidate in
-                candidate.teeDistanceM <= teeCaptureRadiusM
-                    || candidate.greenDistanceM <= greenCaptureRadiusM
-                    || candidate.corridorDistanceM <= corridorCaptureRadiusM
-            }
+            .filter(isWithinCaptureRadius)
             .min { lhs, rhs in
                 if lhs.score != rhs.score {
                     return lhs.score < rhs.score
@@ -255,6 +262,12 @@ public enum HoleDetector {
                 return lhs.greenDistanceM > rhs.greenDistanceM
             }?
             .holeNumber
+    }
+
+    private static func isWithinCaptureRadius(_ candidate: HoleDetectionCandidate) -> Bool {
+        candidate.teeDistanceM <= teeCaptureRadiusM
+            || candidate.greenDistanceM <= greenCaptureRadiusM
+            || candidate.corridorDistanceM <= corridorCaptureRadiusM
     }
 
     private static func candidate(

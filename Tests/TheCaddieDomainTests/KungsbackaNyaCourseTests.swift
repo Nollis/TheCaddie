@@ -223,6 +223,17 @@ private func coordinatesMatch(
     ) == 2)
 }
 
+@Test func holeDetectorRejectsFixOutsideTheActiveHoleCaptureArea() throws {
+    let course = KungsbackaNyaCourse.course
+    let holeOne = try #require(course.hole(number: 1))
+    let holeTwo = try #require(course.hole(number: 2))
+    let holeOneGreen = try #require(holeOne.green.centerCoordinate)
+    let holeTwoTee = try #require(holeTwo.defaultTeeCoordinate)
+
+    #expect(HoleDetector.fixMatchesHole(fix: holeTwoTee, hole: holeTwo))
+    #expect(!HoleDetector.fixMatchesHole(fix: holeOneGreen, hole: holeTwo))
+}
+
 @Test func holeLieInferenceRecognizesMappedTeeGreenAndBunkerLies() throws {
     let hole1 = try #require(KungsbackaNyaCourse.course.hole(number: 1))
 

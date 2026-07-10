@@ -1000,20 +1000,43 @@ final class CaddieViewModel: ObservableObject {
             return
         }
 
-        if resolvedShotContext().lie.value == .green {
-            guard let activeHole = course?.hole(number: selectedHoleNumber) else {
-                liveLocationStatus = "No active hole selected"
-                return
-            }
-
-            syncGreenLiveDistance(from: fix, on: activeHole, canShowHoleMismatch: false)
-            return
+        let startedOnGreen = resolvedShotContext().lie.value == .green
+        if !startedOnGreen {
+            updateDetectedHole(from: fix.coordinate)
         }
-
-        updateDetectedHole(from: fix.coordinate)
 
         guard let activeHole = course?.hole(number: selectedHoleNumber) else {
             liveLocationStatus = "No active hole selected"
+            return
+        }
+
+        guard HoleDetector.fixMatchesHole(fix: fix.coordinate, hole: activeHole) else {
+            let progressSample = HoleProgressInference.sample(
+                fix: fix.coordinate,
+                on: activeHole
+            )
+            liveDistanceM = nil
+            liveProgressM = nil
+            liveCenterlineOffsetM = progressSample?.distanceFromCenterlineM
+            liveInferredLie = nil
+            liveLocationStatus = "GPS fix is outside Hole \(selectedHoleNumber)"
+            appendDebugEntry(
+                action: "GPS update ignored outside active hole",
+                eventType: .gpsUpdate,
+                coordinate: fix.coordinate,
+                accuracyM: fix.horizontalAccuracyM,
+                timestamp: fix.timestamp
+            )
+            return
+        }
+
+        let currentShot = resolvedShotContext()
+        if currentShot.lie.value == .green {
+            syncGreenLiveDistance(
+                from: fix,
+                on: activeHole,
+                canShowHoleMismatch: !startedOnGreen
+            )
             return
         }
 
@@ -1029,17 +1052,11 @@ final class CaddieViewModel: ObservableObject {
         )
         liveProgressM = progressSample?.progressM
         liveCenterlineOffsetM = progressSample?.distanceFromCenterlineM
-        let currentShot = resolvedShotContext()
         let inferredLie = HoleLieInference.inferLie(
             fix: fix.coordinate,
             on: activeHole
         )
         liveInferredLie = inferredLie
-
-        if currentShot.lie.value == .green {
-            syncGreenLiveDistance(from: fix, on: activeHole, canShowHoleMismatch: true)
-            return
-        }
 
         let updatedShot = ShotContext(
             shotNumber: currentShot.shotNumber,
@@ -1477,6 +1494,9 @@ struct DebugLogEntry: Codable, Identifiable, Equatable {
         }
         if let centerlineOffsetM {
             context.append("offset \(formatDebugNumber(centerlineOffsetM))m")
+        }
+        if eventType == .gpsUpdate, let accuracyM {
+            context.append("accuracy ±\(formatDebugNumber(accuracyM))m")
         }
         if let lie {
             context.append("lie \(lie)")
