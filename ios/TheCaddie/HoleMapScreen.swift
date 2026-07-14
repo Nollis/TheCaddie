@@ -3,7 +3,7 @@ import SwiftUI
 
 struct HoleMapScreen: View {
     @ObservedObject var viewModel: CaddieViewModel
-    let onClose: (() -> Void)? = nil
+    let onClose: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
 
     @State private var cameraPosition: MapCameraPosition = .automatic
@@ -13,6 +13,14 @@ struct HoleMapScreen: View {
     @State private var isMeasuringShot = false
 
     private let accent = Color(red: 0.20, green: 0.82, blue: 0.43)
+
+    init(
+        viewModel: CaddieViewModel,
+        onClose: (() -> Void)? = nil
+    ) {
+        _viewModel = ObservedObject(wrappedValue: viewModel)
+        self.onClose = onClose
+    }
 
     var body: some View {
         ZStack {
