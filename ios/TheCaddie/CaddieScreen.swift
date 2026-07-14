@@ -6,6 +6,7 @@ struct CaddieScreen: View {
     var onChooseCourse: (() -> Void)?
     
     @State private var showDebugDrawer = false
+    @State private var showHoleMap = false
     @State private var puttCount = 2
     @State private var debugCopyConfirmation: String?
 
@@ -61,6 +62,9 @@ struct CaddieScreen: View {
         .sheet(isPresented: $showDebugDrawer) {
             debugDrawer(viewState: viewState)
         }
+        .fullScreenCover(isPresented: $showHoleMap) {
+            HoleMapScreen(viewModel: viewModel)
+        }
     }
 
     private func header(_ viewState: CaddieViewState) -> some View {
@@ -70,6 +74,19 @@ struct CaddieScreen: View {
                 .foregroundStyle(Color(red: 0.05, green: 0.38, blue: 0.19))
 
             Spacer()
+
+            if viewModel.canUseLiveDistance {
+                Button {
+                    showHoleMap = true
+                } label: {
+                    Label("Hole map", systemImage: "map.fill")
+                        .font(.system(.caption2, design: .rounded).weight(.black))
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 6)
+                }
+                .foregroundStyle(Color(red: 0.05, green: 0.38, blue: 0.19))
+                .background(Color.white.opacity(0.76), in: Capsule())
+            }
 
             if let liveStatusBadgeLabel = viewModel.liveStatusBadgeLabel {
                 Text(liveStatusBadgeLabel)
@@ -283,6 +300,18 @@ struct CaddieScreen: View {
                 .opacity(viewState.quickActions.isEmpty ? 0.35 : 1)
                 .disabled(viewState.quickActions.isEmpty)
             }
+
+            if viewModel.canUndoLastScoringAction {
+                Button {
+                    viewModel.undoLastScoringAction()
+                    logAction("Undid last scoring action")
+                } label: {
+                    Label("Undo last score action", systemImage: "arrow.uturn.backward")
+                        .font(.system(.subheadline, design: .rounded).weight(.bold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(CaddiePillButtonStyle())
+            }
         }
     }
 
@@ -303,6 +332,10 @@ struct CaddieScreen: View {
     private func debugActionText(for action: CaddieViewState.QuickAction) -> String {
         if action.kind == .water {
             return "Recorded penalty drop: Water"
+        }
+
+        if action.kind == .lostBall || action.kind == .outOfBounds {
+            return "Recorded stroke-and-distance penalty: \(action.label)"
         }
 
         return "Recorded shot result: \(action.label)"

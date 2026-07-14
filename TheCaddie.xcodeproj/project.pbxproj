@@ -14,6 +14,7 @@
 		55610259522D0B1EDD7D60E7 /* KungsbackaNyaSurfaceData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CF19D38B70F7451322CEB11 /* KungsbackaNyaSurfaceData.swift */; };
 		63805EB11EEA960E6B7DB7F3 /* HoleScore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 094D985C226954A8F91D0F95 /* HoleScore.swift */; };
 		67236306E6CCA9800719A08B /* CaddieScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3964C2A32522B0526393FE6 /* CaddieScreen.swift */; };
+		73A4E1088A2B4E3D9C510A44 /* HoleMapScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73A4E1078A2B4E3D9C510A44 /* HoleMapScreen.swift */; };
 		6908A2B1D539C587D966E3D3 /* CaddieRecommendationPacket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B8A4DF5DD11A65A042E3F89 /* CaddieRecommendationPacket.swift */; };
 		6C943C19F3CCBC1200F1719E /* RoundState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D2B48CCFF0BF2C9D2FE98B1 /* RoundState.swift */; };
 		6CA3C05B747CF936F94B77FF /* CaddieViewState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FEC945E340732A1306496C5 /* CaddieViewState.swift */; };
@@ -43,6 +44,7 @@
 		5CA692C8B8A2320941096620 /* ShotContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShotContext.swift; sourceTree = "<group>"; };
 		5CF19D38B70F7451322CEB11 /* KungsbackaNyaSurfaceData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KungsbackaNyaSurfaceData.swift; sourceTree = "<group>"; };
 		5E6027F204A3760F5AFC39EA /* BagSettingsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BagSettingsScreen.swift; sourceTree = "<group>"; };
+		73A4E1078A2B4E3D9C510A44 /* HoleMapScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoleMapScreen.swift; sourceTree = "<group>"; };
 		6FEC945E340732A1306496C5 /* CaddieViewState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaddieViewState.swift; sourceTree = "<group>"; };
 		74B9976FD3ECBE39451751AC /* SampleRound.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleRound.swift; sourceTree = "<group>"; };
 		843D312CDD78BD6866E43222 /* PlayerContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerContext.swift; sourceTree = "<group>"; };
@@ -96,6 +98,7 @@
 				C3964C2A32522B0526393FE6 /* CaddieScreen.swift */,
 				F51A9202B8B3C33D1888CEE5 /* CaddieViewModel.swift */,
 				32AB8E6B3D824ABF58DE9220 /* CourseSelectionScreen.swift */,
+				73A4E1078A2B4E3D9C510A44 /* HoleMapScreen.swift */,
 				899BEA1C15775FF92237BE35 /* Info.plist */,
 				395B87B12860BE9C03C63013 /* ScorecardScreen.swift */,
 				FCB85E45AC65E25F07467DEF /* TheCaddieApp.swift */,
@@ -235,6 +238,7 @@
 				6908A2B1D539C587D966E3D3 /* CaddieRecommendationPacket.swift in Sources */,
 				E87EF79C30106C1793116C54 /* CaddieResponseText.swift in Sources */,
 				67236306E6CCA9800719A08B /* CaddieScreen.swift in Sources */,
+				73A4E1088A2B4E3D9C510A44 /* HoleMapScreen.swift in Sources */,
 				BAEEC84335FCD756D00E96DD /* CaddieViewModel.swift in Sources */,
 				6CA3C05B747CF936F94B77FF /* CaddieViewState.swift in Sources */,
 				BE10429D649F77D66E173863 /* CourseModels.swift in Sources */,

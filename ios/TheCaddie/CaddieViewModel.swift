@@ -38,6 +38,7 @@ final class CaddieViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var consecutiveHoleMisses = 0
     private var minimumLiveFixTimestamp: Date?
+    private var scoringUndoStates: [RoundState] = []
 
     init(
         course: Course?,
@@ -187,6 +188,10 @@ final class CaddieViewModel: ObservableObject {
             liveCoordinate.latitude,
             liveCoordinate.longitude
         )
+    }
+
+    var canUndoLastScoringAction: Bool {
+        !scoringUndoStates.isEmpty
     }
 
     var liveFixTimestampLabel: String? {
@@ -477,6 +482,7 @@ final class CaddieViewModel: ObservableObject {
     }
 
     func recordShotResult(_ lie: ShotLie) {
+        let previousState = roundState
         roundState = roundState.recordShotResult(
             course: course,
             player: player,
@@ -486,9 +492,11 @@ final class CaddieViewModel: ObservableObject {
         if let liveOverrideShot = liveShotOverride(after: lie) {
             roundState = roundState.updateShotContext(liveOverrideShot)
         }
+        recordUndoState(previousState)
     }
 
     func recordPenaltyDrop() {
+        let previousState = roundState
         roundState = roundState.recordPenaltyDrop(
             course: course,
             player: player
@@ -497,6 +505,21 @@ final class CaddieViewModel: ObservableObject {
         if let liveOverrideShot = liveShotOverride(after: .recovery) {
             roundState = roundState.updateShotContext(liveOverrideShot)
         }
+        recordUndoState(previousState)
+    }
+
+    func recordStrokeAndDistancePenalty() {
+        let previousState = roundState
+        roundState = roundState.recordStrokeAndDistancePenalty()
+        recordUndoState(previousState)
+    }
+
+    func undoLastScoringAction() {
+        guard let previousState = scoringUndoStates.popLast() else {
+            return
+        }
+
+        roundState = previousState
     }
 
     func recordQuickAction(_ action: CaddieViewState.QuickAction.Kind) {
@@ -511,6 +534,8 @@ final class CaddieViewModel: ObservableObject {
             recordShotResult(.green)
         case .water:
             recordPenaltyDrop()
+        case .lostBall, .outOfBounds:
+            recordStrokeAndDistancePenalty()
         case .holed:
             finishCurrentHole()
         }
@@ -592,7 +617,9 @@ final class CaddieViewModel: ObservableObject {
     }
 
     func finishCurrentHole() {
+        let previousState = roundState
         roundState = roundState.finishCurrentHole(course: course)
+        recordUndoState(previousState)
         syncLiveDistanceIfNeeded(allowCachedFix: false)
     }
 
@@ -606,6 +633,7 @@ final class CaddieViewModel: ObservableObject {
         let finalFairwayHit = hole.par > 3 ? true : nil
         let finalGIR = (finalStrokes - putts) <= (hole.par - 2)
         
+        let previousState = roundState
         roundState = roundState.finishCurrentHole(
             course: course,
             strokes: finalStrokes,
@@ -613,6 +641,7 @@ final class CaddieViewModel: ObservableObject {
             fairwayHit: finalFairwayHit,
             greenInRegulation: finalGIR
         )
+        recordUndoState(previousState)
         syncLiveDistanceIfNeeded(allowCachedFix: false)
     }
 
@@ -638,6 +667,7 @@ final class CaddieViewModel: ObservableObject {
 
     func startRound(course: Course, startingHole: Int = 1) {
         self.course = course
+        scoringUndoStates = []
         self.roundState = RoundState(
             courseId: course.id,
             selectedHoleNumber: startingHole,
@@ -902,6 +932,7 @@ final class CaddieViewModel: ObservableObject {
         eventType: DebugLogEventType,
         coordinate: GeoCoordinate? = nil,
         accuracyM: Double? = nil,
+        captureSummary: String? = nil,
         timestamp: Date = Date()
     ) {
         let packet = packet
@@ -917,6 +948,7 @@ final class CaddieViewModel: ObservableObject {
             liveDistanceM: liveDistanceM,
             progressM: liveProgressM,
             centerlineOffsetM: liveCenterlineOffsetM,
+            captureSummary: captureSummary,
             lie: packet.lie?.rawValue,
             inferredLiveLie: liveInferredLie?.rawValue,
             recommendedClub: packet.recommendedClub,
@@ -938,6 +970,17 @@ final class CaddieViewModel: ObservableObject {
     private func clearDebugLog() {
         debugLogEntries = []
         debugLogStore.save(debugLogEntries)
+    }
+
+    private func recordUndoState(_ previousState: RoundState) {
+        guard roundState != previousState else {
+            return
+        }
+
+        scoringUndoStates.append(previousState)
+        if scoringUndoStates.count > 20 {
+            scoringUndoStates.removeFirst()
+        }
     }
 
     private func liveShotOverride(after resultingLie: ShotLie) -> ShotContext? {
@@ -1010,7 +1053,11 @@ final class CaddieViewModel: ObservableObject {
             return
         }
 
-        guard HoleDetector.fixMatchesHole(fix: fix.coordinate, hole: activeHole) else {
+        let captureDiagnostic = HoleDetector.captureDiagnostic(
+            fix: fix.coordinate,
+            hole: activeHole
+        )
+        guard captureDiagnostic?.matchesHole == true else {
             let progressSample = HoleProgressInference.sample(
                 fix: fix.coordinate,
                 on: activeHole
@@ -1025,6 +1072,7 @@ final class CaddieViewModel: ObservableObject {
                 eventType: .gpsUpdate,
                 coordinate: fix.coordinate,
                 accuracyM: fix.horizontalAccuracyM,
+                captureSummary: captureDiagnostic?.summary ?? "missing tee/green map",
                 timestamp: fix.timestamp
             )
             return
@@ -1404,6 +1452,7 @@ struct DebugLogEntry: Codable, Identifiable, Equatable {
     let liveDistanceM: Double?
     let progressM: Double?
     let centerlineOffsetM: Double?
+    let captureSummary: String?
     let lie: String?
     let inferredLiveLie: String?
     let recommendedClub: String?
@@ -1428,6 +1477,7 @@ struct DebugLogEntry: Codable, Identifiable, Equatable {
         liveDistanceM: Double?,
         progressM: Double?,
         centerlineOffsetM: Double?,
+        captureSummary: String?,
         lie: String?,
         inferredLiveLie: String?,
         recommendedClub: String?,
@@ -1451,6 +1501,7 @@ struct DebugLogEntry: Codable, Identifiable, Equatable {
         self.liveDistanceM = liveDistanceM
         self.progressM = progressM
         self.centerlineOffsetM = centerlineOffsetM
+        self.captureSummary = captureSummary
         self.lie = lie
         self.inferredLiveLie = inferredLiveLie
         self.recommendedClub = recommendedClub
@@ -1494,6 +1545,9 @@ struct DebugLogEntry: Codable, Identifiable, Equatable {
         }
         if let centerlineOffsetM {
             context.append("offset \(formatDebugNumber(centerlineOffsetM))m")
+        }
+        if let captureSummary {
+            context.append("capture \(captureSummary)")
         }
         if eventType == .gpsUpdate, let accuracyM {
             context.append("accuracy ±\(formatDebugNumber(accuracyM))m")
@@ -1539,6 +1593,9 @@ struct DebugLogEntry: Codable, Identifiable, Equatable {
         }
         if let progressM {
             parts.append("progress \(formatDebugNumber(progressM))m")
+        }
+        if let captureSummary {
+            parts.append("capture \(captureSummary)")
         }
         if let centerlineOffsetM {
             parts.append("offset \(formatDebugNumber(centerlineOffsetM))m")

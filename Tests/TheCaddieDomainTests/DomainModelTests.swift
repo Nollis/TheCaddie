@@ -397,6 +397,31 @@ import TheCaddieDomain
     #expect(updatedShot.lie.value == .green)
 }
 
+@Test func strokeAndDistancePenaltyKeepsThePreviousPlayingSpot() throws {
+    let roundState = RoundState(
+        courseId: "stroke-and-distance-test",
+        selectedHoleNumber: 1,
+        shotContexts: [
+            1: ShotContext(
+                shotNumber: 2,
+                remainingDistanceM: .known(165),
+                lie: .known(.rough),
+                wind: nil,
+                progressM: 185
+            )
+        ]
+    )
+
+    let updatedShot = try #require(
+        roundState.recordStrokeAndDistancePenalty().currentShotContext()
+    )
+
+    #expect(updatedShot.shotNumber == 4)
+    #expect(updatedShot.remainingDistanceM.value == 165)
+    #expect(updatedShot.lie.value == .rough)
+    #expect(updatedShot.progressM == 185)
+}
+
 @Test func finishCurrentHoleMarksItCompleteAndMovesToNextHole() {
     let finishedRound = KungsbackaNyaCourse.openingRoundState
         .selectHole(8)

@@ -198,6 +198,40 @@ public enum HazardKind: String, Equatable, Sendable {
     case outOfBounds
 }
 
+public enum HoleCaptureArea: String, Equatable, Sendable {
+    case tee
+    case green
+    case corridor
+}
+
+public struct HoleCaptureDiagnostic: Equatable, Sendable {
+    public let teeDistanceM: Double
+    public let greenDistanceM: Double
+    public let corridorDistanceM: Double
+    public let matchedArea: HoleCaptureArea?
+
+    public var matchesHole: Bool {
+        matchedArea != nil
+    }
+
+    public var summary: String {
+        if let matchedArea {
+            let distanceM: Double
+            switch matchedArea {
+            case .tee:
+                distanceM = teeDistanceM
+            case .green:
+                distanceM = greenDistanceM
+            case .corridor:
+                distanceM = corridorDistanceM
+            }
+            return "matched \(matchedArea.rawValue) at \(Int(distanceM.rounded()))m"
+        }
+
+        return "outside capture: tee \(Int(teeDistanceM.rounded()))m > 55m, green \(Int(greenDistanceM.rounded()))m > 45m, direct corridor \(Int(corridorDistanceM.rounded()))m > 40m"
+    }
+}
+
 public enum HoleDetector {
     public static let missesRequiredToSwitch = 5
     public static let holeSwitchOuterRadiusM = 80.0
@@ -238,11 +272,34 @@ public enum HoleDetector {
         fix: GeoCoordinate,
         hole: CourseHole
     ) -> Bool {
+        captureDiagnostic(fix: fix, hole: hole)?.matchesHole == true
+    }
+
+    public static func captureDiagnostic(
+        fix: GeoCoordinate,
+        hole: CourseHole
+    ) -> HoleCaptureDiagnostic? {
         guard let candidate = candidate(for: fix, hole: hole) else {
-            return false
+            return nil
         }
 
-        return isWithinCaptureRadius(candidate)
+        let matchedArea: HoleCaptureArea?
+        if candidate.teeDistanceM <= teeCaptureRadiusM {
+            matchedArea = .tee
+        } else if candidate.greenDistanceM <= greenCaptureRadiusM {
+            matchedArea = .green
+        } else if candidate.corridorDistanceM <= corridorCaptureRadiusM {
+            matchedArea = .corridor
+        } else {
+            matchedArea = nil
+        }
+
+        return HoleCaptureDiagnostic(
+            teeDistanceM: candidate.teeDistanceM,
+            greenDistanceM: candidate.greenDistanceM,
+            corridorDistanceM: candidate.corridorDistanceM,
+            matchedArea: matchedArea
+        )
     }
 
     private static func bestGuessHole(
@@ -372,6 +429,42 @@ public enum HoleLieInference {
 }
 
 public enum HoleProgressInference {
+    public static func coordinate(
+        atProgress progressM: Double,
+        on hole: CourseHole
+    ) -> GeoCoordinate? {
+        let centerline = resolvedCenterline(for: hole)
+        guard centerline.count >= 2 else {
+            return centerline.first
+        }
+
+        let targetProgressM = max(0, progressM)
+        var traversedM = 0.0
+
+        for segmentIndex in 0..<(centerline.count - 1) {
+            let start = centerline[segmentIndex]
+            let end = centerline[segmentIndex + 1]
+            let segmentLengthM = start.distance(to: end)
+            let nextProgressM = traversedM + segmentLengthM
+
+            if targetProgressM <= nextProgressM {
+                guard segmentLengthM > 0 else {
+                    return end
+                }
+
+                let fraction = min(1, max(0, (targetProgressM - traversedM) / segmentLengthM))
+                return GeoCoordinate(
+                    latitude: start.latitude + ((end.latitude - start.latitude) * fraction),
+                    longitude: start.longitude + ((end.longitude - start.longitude) * fraction)
+                )
+            }
+
+            traversedM = nextProgressM
+        }
+
+        return centerline.last
+    }
+
     public static func sample(
         fix: GeoCoordinate,
         on hole: CourseHole

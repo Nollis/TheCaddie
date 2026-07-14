@@ -18,6 +18,8 @@ public struct CaddieViewState: Equatable, Sendable {
             case bunker
             case green
             case water
+            case lostBall
+            case outOfBounds
             case holed
         }
 
@@ -189,7 +191,9 @@ public struct CaddieViewState: Equatable, Sendable {
         .init(kind: .rough, label: "Rough"),
         .init(kind: .bunker, label: "Bunker"),
         .init(kind: .green, label: "Green"),
-        .init(kind: .water, label: "Water")
+        .init(kind: .water, label: "Water"),
+        .init(kind: .lostBall, label: "Lost ball"),
+        .init(kind: .outOfBounds, label: "Out of bounds")
     ]
 
     private static func canStillRecordShotResult(

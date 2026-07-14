@@ -230,8 +230,17 @@ private func coordinatesMatch(
     let holeOneGreen = try #require(holeOne.green.centerCoordinate)
     let holeTwoTee = try #require(holeTwo.defaultTeeCoordinate)
 
-    #expect(HoleDetector.fixMatchesHole(fix: holeTwoTee, hole: holeTwo))
-    #expect(!HoleDetector.fixMatchesHole(fix: holeOneGreen, hole: holeTwo))
+    let matchingDiagnostic = try #require(
+        HoleDetector.captureDiagnostic(fix: holeTwoTee, hole: holeTwo)
+    )
+    let rejectedDiagnostic = try #require(
+        HoleDetector.captureDiagnostic(fix: holeOneGreen, hole: holeTwo)
+    )
+
+    #expect(matchingDiagnostic.matchesHole)
+    #expect(matchingDiagnostic.matchedArea == .tee)
+    #expect(!rejectedDiagnostic.matchesHole)
+    #expect(rejectedDiagnostic.summary.contains("outside capture"))
 }
 
 @Test func holeLieInferenceRecognizesMappedTeeGreenAndBunkerLies() throws {
@@ -333,6 +342,24 @@ private func coordinatesMatch(
     #expect(packet.target == "left-center fairway")
     #expect(packet.primaryReason == "Driver advances the ball about 220m and leaves roughly 240m in.")
     #expect(packet.riskNote == "Water right is near the landing zone.")
+}
+
+@Test func centerlineCoordinateTargetsProgressAlongTheMappedHole() throws {
+    let hole = try #require(KungsbackaNyaCourse.course.hole(number: 1))
+    let tee = try #require(hole.centerlineCoordinates.first)
+    let green = try #require(hole.centerlineCoordinates.last)
+    let start = try #require(HoleProgressInference.coordinate(atProgress: 0, on: hole))
+    let beyondGreen = try #require(
+        HoleProgressInference.coordinate(atProgress: 10_000, on: hole)
+    )
+    let landing = try #require(
+        HoleProgressInference.coordinate(atProgress: 220, on: hole)
+    )
+    let landingSample = try #require(HoleProgressInference.sample(fix: landing, on: hole))
+
+    #expect(start.distance(to: tee) < 0.1)
+    #expect(beyondGreen.distance(to: green) < 0.1)
+    #expect(abs(landingSample.progressM - 220) < 1)
 }
 
 @Test func kungsbackaOpeningPacketsStayAlignedWithSelectedHoleScorecardData() {

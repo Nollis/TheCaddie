@@ -21,7 +21,9 @@ import TheCaddieDomain
         .init(kind: .rough, label: "Rough"),
         .init(kind: .bunker, label: "Bunker"),
         .init(kind: .green, label: "Green"),
-        .init(kind: .water, label: "Water")
+        .init(kind: .water, label: "Water"),
+        .init(kind: .lostBall, label: "Lost ball"),
+        .init(kind: .outOfBounds, label: "Out of bounds")
     ])
     #expect(viewState.subtitle == "7 Iron covers the 150m playing number with 4m/s hurting wind.")
     #expect(viewState.noteText == "Avoid long left water; that is the expensive miss.")
@@ -59,7 +61,7 @@ import TheCaddieDomain
     #expect(viewState.shotLabel == "Shot 2")
     #expect(viewState.distanceLabel == "--")
     #expect(viewState.primaryActionLabel == "Add distance")
-    #expect(viewState.quickActions.count == 5)
+    #expect(viewState.quickActions.count == 7)
 }
 
 @Test func missingLieViewStatePromptsForLieWithoutChangingDistance() {
@@ -125,7 +127,9 @@ import TheCaddieDomain
         .init(kind: .rough, label: "Rough"),
         .init(kind: .bunker, label: "Bunker"),
         .init(kind: .green, label: "Green"),
-        .init(kind: .water, label: "Water")
+        .init(kind: .water, label: "Water"),
+        .init(kind: .lostBall, label: "Lost ball"),
+        .init(kind: .outOfBounds, label: "Out of bounds")
     ])
 }
 

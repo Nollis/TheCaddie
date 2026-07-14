@@ -162,6 +162,21 @@ public struct RoundState: Equatable, Sendable {
         return updateShotContext(nextShot)
     }
 
+    public func recordStrokeAndDistancePenalty() -> RoundState {
+        guard let currentShot = currentShotContext() else {
+            return self
+        }
+
+        let replayShot = ShotContext(
+            shotNumber: currentShot.shotNumber + 2,
+            remainingDistanceM: currentShot.remainingDistanceM,
+            lie: currentShot.lie,
+            wind: currentShot.wind,
+            progressM: currentShot.progressM
+        )
+        return updateShotContext(replayShot)
+    }
+
     public func finishCurrentHole(
         course: Course?,
         strokes: Int? = nil,
