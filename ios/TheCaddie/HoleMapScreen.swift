@@ -539,13 +539,13 @@ struct HoleMapScreen: View {
         }
     }
 
-    private func resetPlanner(recenter: Bool) {
+    private func resetPlanner(recenter shouldRecenter: Bool) {
         selectedTarget = nil
         measurementStart = nil
         measurementEnd = nil
         isMeasuringShot = false
 
-        if recenter, let hole = activeHole {
+        if shouldRecenter, let hole = activeHole {
             recenter(on: hole)
         }
     }
@@ -563,7 +563,7 @@ struct HoleMapScreen: View {
     }
 
     private func mapRegion(for coordinates: [GeoCoordinate]) -> MKCoordinateRegion? {
-        guard let first = coordinates.first else {
+        guard !coordinates.isEmpty else {
             return nil
         }
 

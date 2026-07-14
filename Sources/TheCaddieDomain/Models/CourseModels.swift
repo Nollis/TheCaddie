@@ -308,7 +308,11 @@ public enum HoleDetector {
     ) -> Int? {
         course.holes
             .compactMap { candidate(for: fix, hole: $0) }
-            .filter(isWithinCaptureRadius)
+            .filter { candidate in
+                candidate.teeDistanceM <= teeCaptureRadiusM
+                    || candidate.greenDistanceM <= greenCaptureRadiusM
+                    || candidate.corridorDistanceM <= corridorCaptureRadiusM
+            }
             .min { lhs, rhs in
                 if lhs.score != rhs.score {
                     return lhs.score < rhs.score
@@ -319,12 +323,6 @@ public enum HoleDetector {
                 return lhs.greenDistanceM > rhs.greenDistanceM
             }?
             .holeNumber
-    }
-
-    private static func isWithinCaptureRadius(_ candidate: HoleDetectionCandidate) -> Bool {
-        candidate.teeDistanceM <= teeCaptureRadiusM
-            || candidate.greenDistanceM <= greenCaptureRadiusM
-            || candidate.corridorDistanceM <= corridorCaptureRadiusM
     }
 
     private static func candidate(
