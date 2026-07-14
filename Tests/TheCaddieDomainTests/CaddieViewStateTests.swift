@@ -23,7 +23,7 @@ import TheCaddieDomain
         .init(kind: .green, label: "Green"),
         .init(kind: .water, label: "Water"),
         .init(kind: .lostBall, label: "Lost ball"),
-        .init(kind: .outOfBounds, label: "Out of bounds")
+        .init(kind: .outOfBounds, label: "OB")
     ])
     #expect(viewState.subtitle == "7 Iron covers the 150m playing number with 4m/s hurting wind.")
     #expect(viewState.noteText == "Avoid long left water; that is the expensive miss.")
@@ -129,7 +129,7 @@ import TheCaddieDomain
         .init(kind: .green, label: "Green"),
         .init(kind: .water, label: "Water"),
         .init(kind: .lostBall, label: "Lost ball"),
-        .init(kind: .outOfBounds, label: "Out of bounds")
+        .init(kind: .outOfBounds, label: "OB")
     ])
 }
 

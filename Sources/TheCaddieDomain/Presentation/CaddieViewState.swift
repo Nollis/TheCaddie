@@ -193,7 +193,7 @@ public struct CaddieViewState: Equatable, Sendable {
         .init(kind: .green, label: "Green"),
         .init(kind: .water, label: "Water"),
         .init(kind: .lostBall, label: "Lost ball"),
-        .init(kind: .outOfBounds, label: "Out of bounds")
+        .init(kind: .outOfBounds, label: "OB")
     ]
 
     private static func canStillRecordShotResult(

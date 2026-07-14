@@ -36,6 +36,15 @@ struct TheCaddieApp: App {
                         Label("Courses", systemImage: "map")
                     }
                     .tag(3)
+
+                HoleMapScreen(
+                    viewModel: viewModel,
+                    onClose: { selectedTab = 0 }
+                )
+                    .tabItem {
+                        Label("Map", systemImage: "map.fill")
+                    }
+                    .tag(4)
             }
             .accentColor(Color(red: 0.06, green: 0.56, blue: 0.24))
         }

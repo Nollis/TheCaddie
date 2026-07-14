@@ -3,6 +3,7 @@ import SwiftUI
 
 struct HoleMapScreen: View {
     @ObservedObject var viewModel: CaddieViewModel
+    let onClose: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
 
     @State private var cameraPosition: MapCameraPosition = .automatic
@@ -184,7 +185,11 @@ struct HoleMapScreen: View {
     private func mapHeader(_ hole: CourseHole) -> some View {
         HStack(spacing: 10) {
             Button {
-                dismiss()
+                if let onClose {
+                    onClose()
+                } else {
+                    dismiss()
+                }
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 15, weight: .black))
