@@ -99,6 +99,19 @@ struct HoleMapScreen: View {
                     }
                 }
 
+                if viewModel.isUsingLiveDistance,
+                   let liveCoordinate = viewModel.liveCoordinate,
+                   let accuracyM = viewModel.liveAccuracyM,
+                   accuracyM > 0,
+                   HoleDetector.fixMatchesHole(fix: liveCoordinate, hole: hole) {
+                    MapCircle(
+                        center: liveCoordinate.mapCoordinate,
+                        radius: max(1, accuracyM)
+                    )
+                    .foregroundStyle(Color.blue.opacity(0.14))
+                    .stroke(Color.blue.opacity(0.82), lineWidth: 2)
+                }
+
                 if let recommendedTarget = recommendedTarget(on: hole),
                    !isCustomPlan {
                     MapCircle(
