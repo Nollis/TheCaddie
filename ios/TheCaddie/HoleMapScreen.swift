@@ -8,6 +8,7 @@ struct HoleMapScreen: View {
 
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var customWaypoints: [PlanningWaypoint]?
+    @State private var hasCenteredOnLivePosition = false
     @State private var measurementStart: GeoCoordinate?
     @State private var measurementEnd: GeoCoordinate?
     @State private var isMeasuringShot = false
@@ -41,6 +42,17 @@ struct HoleMapScreen: View {
         }
         .onChange(of: viewModel.selectedHoleNumber) { _, _ in
             resetPlanner(recenter: true)
+        }
+        .onChange(of: viewModel.liveCoordinate) { _, coordinate in
+            guard !hasCenteredOnLivePosition,
+                  let coordinate,
+                  let hole = activeHole,
+                  HoleDetector.fixMatchesHole(fix: coordinate, hole: hole) else {
+                return
+            }
+
+            recenter(on: hole)
+            hasCenteredOnLivePosition = true
         }
     }
 
@@ -615,6 +627,7 @@ struct HoleMapScreen: View {
 
     private func resetPlanner(recenter shouldRecenter: Bool) {
         customWaypoints = nil
+        hasCenteredOnLivePosition = false
         measurementStart = nil
         measurementEnd = nil
         isMeasuringShot = false
@@ -625,9 +638,13 @@ struct HoleMapScreen: View {
     }
 
     private func recenter(on hole: CourseHole) {
-        let coordinates = hole.centerlineCoordinates.isEmpty
-            ? [hole.defaultTeeCoordinate, hole.green.centerCoordinate].compactMap { $0 }
-            : hole.centerlineCoordinates
+        let liveRouteCoordinates = [planningOrigin(on: hole), hole.green.centerCoordinate]
+            .compactMap { $0 }
+        let coordinates = liveRouteCoordinates.count == 2
+            ? liveRouteCoordinates
+            : (hole.centerlineCoordinates.isEmpty
+                ? [hole.defaultTeeCoordinate, hole.green.centerCoordinate].compactMap { $0 }
+                : hole.centerlineCoordinates)
 
         guard let region = mapRegion(for: coordinates) else {
             cameraPosition = .automatic
