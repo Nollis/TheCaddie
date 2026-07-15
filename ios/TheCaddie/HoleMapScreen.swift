@@ -7,7 +7,7 @@ struct HoleMapScreen: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var cameraPosition: MapCameraPosition = .automatic
-    @State private var selectedTarget: GeoCoordinate?
+    @State private var customWaypoints: [PlanningWaypoint]?
     @State private var measurementStart: GeoCoordinate?
     @State private var measurementEnd: GeoCoordinate?
     @State private var isMeasuringShot = false
@@ -27,7 +27,7 @@ struct HoleMapScreen: View {
             if let hole = activeHole,
                let greenCoordinate = hole.green.centerCoordinate {
                 holeMap(hole: hole, greenCoordinate: greenCoordinate)
-                mapOverlay(hole: hole, greenCoordinate: greenCoordinate)
+                mapOverlay(hole: hole)
             } else {
                 unavailableState
             }
@@ -48,6 +48,20 @@ struct HoleMapScreen: View {
         viewModel.course?.hole(number: viewModel.selectedHoleNumber)
     }
 
+    private var isCustomPlan: Bool {
+        customWaypoints != nil
+    }
+
+    private struct PlanningWaypoint: Identifiable {
+        enum ID: Hashable {
+            case caddie
+            case custom(UUID)
+        }
+
+        let id: ID
+        var coordinate: GeoCoordinate
+    }
+
     private func holeMap(
         hole: CourseHole,
         greenCoordinate: GeoCoordinate
@@ -58,10 +72,10 @@ struct HoleMapScreen: View {
                 interactionModes: [.pan, .zoom, .rotate]
             ) {
                 ForEach(Array(hole.surfaces.enumerated()), id: \.offset) { _, surface in
-                    if surface.ring.count >= 3 {
+                    if surface.ring.count >= 3 && shouldDisplaySurface(surface.kind) {
                         MapPolygon(coordinates: surface.ring.map(\.mapCoordinate))
-                            .foregroundStyle(surfaceColor(for: surface.kind).opacity(0.16))
-                            .stroke(surfaceColor(for: surface.kind).opacity(0.72), lineWidth: 1)
+                            .foregroundStyle(surfaceColor(for: surface.kind).opacity(0.08))
+                            .stroke(surfaceColor(for: surface.kind).opacity(0.52), lineWidth: 1)
                     }
                 }
 
@@ -74,7 +88,7 @@ struct HoleMapScreen: View {
                 }
 
                 if let recommendedTarget = recommendedTarget(on: hole),
-                   selectedTarget == nil {
+                   !isCustomPlan {
                     MapCircle(
                         center: recommendedTarget.mapCoordinate,
                         radius: max(12, viewModel.packet.expectedDispersionM ?? 18)
@@ -86,7 +100,18 @@ struct HoleMapScreen: View {
                 let route = plannedRoute(on: hole, greenCoordinate: greenCoordinate)
                 if route.count >= 2 {
                     MapPolyline(coordinates: route.map(\.mapCoordinate))
-                        .stroke(.white.opacity(0.94), lineWidth: 4)
+                        .stroke(.white.opacity(0.94), lineWidth: 3)
+
+                    ForEach(Array(route.indices.dropLast()), id: \.self) { index in
+                        let start = route[index]
+                        let end = route[index + 1]
+                        Annotation(
+                            "Segment distance",
+                            coordinate: midpoint(from: start, to: end).mapCoordinate
+                        ) {
+                            segmentDistanceBubble(from: start, to: end)
+                        }
+                    }
                 }
 
                 if let measurementStart,
@@ -109,26 +134,48 @@ struct HoleMapScreen: View {
                     Annotation("Current position", coordinate: origin.mapCoordinate) {
                         mapMarker(
                             systemImage: viewModel.liveCoordinate == nil ? "circle.fill" : "location.fill",
-                            label: viewModel.liveCoordinate == nil ? "Start" : "You",
                             color: .white,
                             foreground: .black
                         )
                     }
                 }
 
-                if let target = activeTarget(on: hole) {
+                let waypoints = planningWaypoints(on: hole)
+                ForEach(waypoints) { waypoint in
+                    let index = waypoints.firstIndex { $0.id == waypoint.id } ?? 0
                     Annotation(
-                        selectedTarget == nil ? "Caddie target" : "Selected target",
-                        coordinate: target.mapCoordinate
+                        "Waypoint \(index + 1)",
+                        coordinate: waypoint.coordinate.mapCoordinate
                     ) {
-                        targetMarker(isCustom: selectedTarget != nil)
+                        waypointMarker(index: index, isCaddieTarget: !isCustomPlan)
+                            .highPriorityGesture(
+                                DragGesture(minimumDistance: 0, coordinateSpace: .global)
+                                    .onChanged { value in
+                                        guard let coordinate = mapProxy.convert(value.location, from: .global) else {
+                                            return
+                                        }
+
+                                        let waypointCoordinate = GeoCoordinate(
+                                            latitude: coordinate.latitude,
+                                            longitude: coordinate.longitude
+                                        )
+                                        guard canPlaceWaypoint(waypointCoordinate, on: hole) else {
+                                            return
+                                        }
+                                        updateWaypoint(
+                                            waypoint.id,
+                                            to: waypointCoordinate,
+                                            startingFrom: waypoints,
+                                            on: hole
+                                        )
+                                    }
+                            )
                     }
                 }
 
                 Annotation("Green", coordinate: greenCoordinate.mapCoordinate) {
                     mapMarker(
                         systemImage: "flag.fill",
-                        label: "Green",
                         color: accent,
                         foreground: .black
                     )
@@ -144,21 +191,30 @@ struct HoleMapScreen: View {
                 guard let coordinate = mapProxy.convert(point, from: .local) else {
                     return
                 }
-                selectedTarget = GeoCoordinate(
+                let waypointCoordinate = GeoCoordinate(
                     latitude: coordinate.latitude,
                     longitude: coordinate.longitude
                 )
+                guard canPlaceWaypoint(waypointCoordinate, on: hole) else {
+                    return
+                }
+                var updatedWaypoints = customWaypoints ?? planningWaypoints(on: hole)
+                guard !updatedWaypoints.contains(where: {
+                    $0.coordinate.distance(to: waypointCoordinate) < 1
+                }) else {
+                    return
+                }
+                updatedWaypoints.append(
+                    PlanningWaypoint(id: .custom(UUID()), coordinate: waypointCoordinate)
+                )
+                customWaypoints = sortedWaypoints(updatedWaypoints, on: hole)
             }
         }
     }
 
-    private func mapOverlay(
-        hole: CourseHole,
-        greenCoordinate: GeoCoordinate
-    ) -> some View {
+    private func mapOverlay(hole: CourseHole) -> some View {
         VStack(spacing: 12) {
             mapHeader(hole)
-            greenDistanceStrip(hole: hole, greenCoordinate: greenCoordinate)
 
             Spacer()
 
@@ -172,18 +228,18 @@ struct HoleMapScreen: View {
                         recenter(on: hole)
                     }
 
-                    if selectedTarget != nil {
+                    if isCustomPlan {
                         compactMapButton(
-                            title: "Caddie line",
+                            title: "Reset line",
                             systemImage: "arrow.counterclockwise"
                         ) {
-                            selectedTarget = nil
+                            customWaypoints = nil
                         }
                     }
                 }
             }
 
-            plannerCard(hole: hole, greenCoordinate: greenCoordinate)
+            compactPlannerBar(hole: hole)
         }
         .padding(.horizontal, 16)
         .padding(.top, 10)
@@ -192,18 +248,16 @@ struct HoleMapScreen: View {
 
     private func mapHeader(_ hole: CourseHole) -> some View {
         HStack(spacing: 10) {
-            Button {
-                if let onClose {
-                    onClose()
-                } else {
-                    dismiss()
+            if onClose == nil {
+                Button {
+                    closeMap()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 15, weight: .black))
+                        .frame(width: 40, height: 40)
                 }
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .black))
-                    .frame(width: 40, height: 40)
+                .background(.black.opacity(0.68), in: Circle())
             }
-            .background(.black.opacity(0.68), in: Circle())
 
             Button {
                 viewModel.selectPreviousHole()
@@ -239,93 +293,38 @@ struct HoleMapScreen: View {
         .background(.black.opacity(0.68), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 
-    private func greenDistanceStrip(
-        hole: CourseHole,
-        greenCoordinate: GeoCoordinate
-    ) -> some View {
-        let distances = greenDistances(
-            from: planningOrigin(on: hole),
-            hole: hole,
-            greenCoordinate: greenCoordinate
-        )
+    private func compactPlannerBar(hole: CourseHole) -> some View {
+        let waypointCount = planningWaypoints(on: hole).count
 
-        return HStack(spacing: 0) {
-            distanceMetric(label: "Front", value: distances.front)
-            Divider().overlay(.white.opacity(0.18))
-            distanceMetric(label: "Center", value: distances.center, emphasized: true)
-            Divider().overlay(.white.opacity(0.18))
-            distanceMetric(label: "Back", value: distances.back)
-        }
-        .frame(height: 58)
-        .background(.black.opacity(0.68), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-    }
-
-    private func distanceMetric(
-        label: String,
-        value: Int?,
-        emphasized: Bool = false
-    ) -> some View {
-        VStack(spacing: 2) {
-            Text(label)
-                .font(.system(.caption2, design: .rounded).weight(.bold))
-                .foregroundStyle(.white.opacity(0.62))
-            Text(value.map { "\($0)m" } ?? "--")
-                .font(.system(emphasized ? .title3 : .headline, design: .rounded).weight(.black))
-                .foregroundStyle(emphasized ? accent : .white)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private func plannerCard(
-        hole: CourseHole,
-        greenCoordinate: GeoCoordinate
-    ) -> some View {
-        let origin = planningOrigin(on: hole)
-        let target = activeTarget(on: hole)
-        let toTargetM = distance(from: origin, to: target)
-        let targetToGreenM = distance(from: target, to: greenCoordinate)
-
-        return VStack(alignment: .leading, spacing: 13) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(selectedTarget == nil ? "CADDIE LINE" : "YOUR TARGET")
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(isCustomPlan ? "YOUR LINE" : "CADDIE LINE")
                         .font(.system(.caption2, design: .rounded).weight(.black))
                         .tracking(1.1)
-                        .foregroundStyle(selectedTarget == nil ? accent : .yellow)
+                        .foregroundStyle(isCustomPlan ? .yellow : accent)
                     Text(plannerHeadline)
-                        .font(.system(.title3, design: .rounded).weight(.black))
+                        .font(.system(.headline, design: .rounded).weight(.black))
+                        .lineLimit(1)
                 }
 
-                Spacer()
+                Spacer(minLength: 8)
 
-                if let toTargetM {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("\(Int(toTargetM.rounded())) m")
-                            .font(.system(.title2, design: .rounded).weight(.black))
-                        Text("to target")
-                            .font(.system(.caption2, design: .rounded).weight(.bold))
-                            .foregroundStyle(.white.opacity(0.58))
-                    }
-                }
+                Text("\(waypointCount) \(waypointCount == 1 ? "point" : "points")")
+                    .font(.system(.caption, design: .rounded).weight(.black))
+                    .foregroundStyle(.white.opacity(0.68))
             }
 
-            if let targetToGreenM {
-                HStack(spacing: 7) {
-                    Image(systemName: "arrow.turn.up.right")
-                        .foregroundStyle(accent)
-                    Text("Then \(Int(targetToGreenM.rounded())) m to green center")
-                        .font(.system(.subheadline, design: .rounded).weight(.bold))
-                }
-            }
+            Text("Drag a point to adjust · tap the map to add another")
+                .font(.system(.caption2, design: .rounded).weight(.bold))
+                .foregroundStyle(.white.opacity(0.62))
 
-            Text(targetAssessment(toTargetM: toTargetM))
-                .font(.system(.footnote, design: .rounded).weight(.semibold))
-                .foregroundStyle(.white.opacity(0.72))
-
-            if let riskNote = viewModel.packet.riskNote {
+            if !isCustomPlan,
+               let riskNote = viewModel.packet.riskNote {
                 Label(riskNote, systemImage: "exclamationmark.triangle.fill")
-                    .font(.system(.footnote, design: .rounded).weight(.bold))
+                    .font(.system(.caption, design: .rounded).weight(.bold))
                     .foregroundStyle(.yellow)
+                    .lineLimit(1)
             }
 
             if let measurementM = measuredShotDistanceM {
@@ -385,16 +384,16 @@ struct HoleMapScreen: View {
             }
         }
         .foregroundStyle(.white)
-        .padding(17)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .padding(14)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(.white.opacity(0.14), lineWidth: 1)
         )
     }
 
     private var plannerHeadline: String {
-        if selectedTarget != nil {
+        if isCustomPlan {
             return "Compare with \(viewModel.packet.recommendedClub ?? "the recommendation")"
         }
 
@@ -404,31 +403,6 @@ struct HoleMapScreen: View {
         }
 
         return viewModel.packet.target ?? "Plan the next shot"
-    }
-
-    private func targetAssessment(toTargetM: Double?) -> String {
-        if selectedTarget == nil {
-            if let dispersionM = viewModel.packet.expectedDispersionM {
-                return "The highlighted landing zone includes about ±\(Int(dispersionM.rounded())) m of expected dispersion."
-            }
-            return "Tap the map to compare another landing point."
-        }
-
-        guard let toTargetM,
-              let carryM = viewModel.packet.clubCarryDistanceM else {
-            return "Tap the map to compare another landing point."
-        }
-
-        let differenceM = toTargetM - carryM
-        if abs(differenceM) <= max(6, (viewModel.packet.expectedDispersionM ?? 18) * 0.35) {
-            return "Your target is inside the recommended club's carry window."
-        }
-
-        if differenceM > 0 {
-            return "Your target is \(Int(abs(differenceM).rounded())) m beyond the recommended carry."
-        }
-
-        return "Your target is \(Int(abs(differenceM).rounded())) m shorter than the recommended carry."
     }
 
     private func recommendedTarget(on hole: CourseHole) -> GeoCoordinate? {
@@ -453,8 +427,102 @@ struct HoleMapScreen: View {
         )
     }
 
-    private func activeTarget(on hole: CourseHole) -> GeoCoordinate? {
-        selectedTarget ?? recommendedTarget(on: hole)
+    private func planningWaypoints(on hole: CourseHole) -> [PlanningWaypoint] {
+        if let customWaypoints {
+            let originProgressM = viewModel.liveProgressM
+                ?? planningOrigin(on: hole).flatMap {
+                    HoleProgressInference.sample(fix: $0, on: hole)?.progressM
+                }
+            guard let originProgressM else {
+                return customWaypoints
+            }
+
+            let passedWaypointMarginM = max(5, viewModel.liveAccuracyM ?? 0)
+            return customWaypoints.filter { waypoint in
+                guard let waypointProgressM = HoleProgressInference.sample(
+                    fix: waypoint.coordinate,
+                    on: hole
+                )?.progressM else {
+                    return true
+                }
+                return waypointProgressM + passedWaypointMarginM >= originProgressM
+            }
+        }
+
+        guard let target = recommendedTarget(on: hole) else {
+            return []
+        }
+        if let green = hole.green.centerCoordinate,
+           target.distance(to: green) <= 0.5 {
+            return []
+        }
+        return [PlanningWaypoint(id: .caddie, coordinate: target)]
+    }
+
+    private func sortedWaypoints(
+        _ waypoints: [PlanningWaypoint],
+        on hole: CourseHole
+    ) -> [PlanningWaypoint] {
+        waypoints.enumerated()
+            .map { index, waypoint in
+                (
+                    index: index,
+                    waypoint: waypoint,
+                    progressM: HoleProgressInference.sample(
+                        fix: waypoint.coordinate,
+                        on: hole
+                    )?.progressM
+                )
+            }
+            .sorted { lhs, rhs in
+                switch (lhs.progressM, rhs.progressM) {
+                case let (lhsProgress?, rhsProgress?):
+                    return lhsProgress == rhsProgress
+                        ? lhs.index < rhs.index
+                        : lhsProgress < rhsProgress
+                case (_?, nil):
+                    return true
+                case (nil, _?):
+                    return false
+                case (nil, nil):
+                    return lhs.index < rhs.index
+                }
+            }
+            .map { $0.waypoint }
+    }
+
+    private func updateWaypoint(
+        _ id: PlanningWaypoint.ID,
+        to coordinate: GeoCoordinate,
+        startingFrom displayedWaypoints: [PlanningWaypoint],
+        on hole: CourseHole
+    ) {
+        var updatedWaypoints = customWaypoints ?? displayedWaypoints
+        guard let index = updatedWaypoints.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+        guard !updatedWaypoints.contains(where: {
+            $0.id != id && $0.coordinate.distance(to: coordinate) < 1
+        }) else {
+            return
+        }
+
+        updatedWaypoints[index].coordinate = coordinate
+        customWaypoints = sortedWaypoints(updatedWaypoints, on: hole)
+    }
+
+    private func canPlaceWaypoint(
+        _ coordinate: GeoCoordinate,
+        on hole: CourseHole
+    ) -> Bool {
+        guard let origin = planningOrigin(on: hole),
+              let originProgressM = HoleProgressInference.sample(fix: origin, on: hole)?.progressM,
+              let sample = HoleProgressInference.sample(fix: coordinate, on: hole) else {
+            return true
+        }
+
+        return sample.progressM > originProgressM + 1
+            && sample.remainingCenterlineM > 1
     }
 
     private func planningOrigin(on hole: CourseHole) -> GeoCoordinate? {
@@ -475,42 +543,17 @@ struct HoleMapScreen: View {
         on hole: CourseHole,
         greenCoordinate: GeoCoordinate
     ) -> [GeoCoordinate] {
-        [planningOrigin(on: hole), activeTarget(on: hole), greenCoordinate]
-            .compactMap { $0 }
-            .reduce(into: []) { route, coordinate in
-                if (route.last?.distance(to: coordinate) ?? 1) > 0.5 {
-                    route.append(coordinate)
-                }
+        var coordinates = planningWaypoints(on: hole).map(\.coordinate)
+        if let origin = planningOrigin(on: hole) {
+            coordinates.insert(origin, at: 0)
+        }
+        coordinates.append(greenCoordinate)
+
+        return coordinates.reduce(into: []) { route, coordinate in
+            if (route.last?.distance(to: coordinate) ?? 1) > 0.5 {
+                route.append(coordinate)
             }
-    }
-
-    private func greenDistances(
-        from origin: GeoCoordinate?,
-        hole: CourseHole,
-        greenCoordinate: GeoCoordinate
-    ) -> (front: Int?, center: Int?, back: Int?) {
-        guard let origin else {
-            return (nil, nil, nil)
         }
-
-        let centerM = origin.distance(to: greenCoordinate)
-        let greenRing = hole.surfaces.first(where: { $0.kind == .green })?.ring ?? []
-        if !greenRing.isEmpty {
-            let ringDistances = greenRing.map { origin.distance(to: $0) }
-            return (
-                Int((ringDistances.min() ?? centerM).rounded()),
-                Int(centerM.rounded()),
-                Int((ringDistances.max() ?? centerM).rounded())
-            )
-        }
-
-        let frontOffsetM = max(0, hole.green.centerDistanceM - hole.green.frontDistanceM)
-        let backOffsetM = max(0, hole.green.backDistanceM - hole.green.centerDistanceM)
-        return (
-            Int(max(0, centerM - frontOffsetM).rounded()),
-            Int(centerM.rounded()),
-            Int((centerM + backOffsetM).rounded())
-        )
     }
 
     private func distance(
@@ -521,6 +564,16 @@ struct HoleMapScreen: View {
             return nil
         }
         return start.distance(to: end)
+    }
+
+    private func midpoint(
+        from start: GeoCoordinate,
+        to end: GeoCoordinate
+    ) -> GeoCoordinate {
+        GeoCoordinate(
+            latitude: (start.latitude + end.latitude) / 2,
+            longitude: (start.longitude + end.longitude) / 2
+        )
     }
 
     private var measuredShotDistanceM: Double? {
@@ -552,8 +605,16 @@ struct HoleMapScreen: View {
         }
     }
 
+    private func closeMap() {
+        if let onClose {
+            onClose()
+        } else {
+            dismiss()
+        }
+    }
+
     private func resetPlanner(recenter shouldRecenter: Bool) {
-        selectedTarget = nil
+        customWaypoints = nil
         measurementStart = nil
         measurementEnd = nil
         isMeasuringShot = false
@@ -616,49 +677,66 @@ struct HoleMapScreen: View {
         .background(.black.opacity(0.70), in: Capsule())
     }
 
-    private func targetMarker(isCustom: Bool) -> some View {
+    private func waypointMarker(index: Int, isCaddieTarget: Bool) -> some View {
         ZStack {
             Circle()
-                .fill(isCustom ? Color.yellow : accent)
-                .frame(width: 42, height: 42)
+                .fill(isCaddieTarget ? accent : Color.white)
+                .frame(width: 38, height: 38)
                 .overlay(Circle().stroke(.white, lineWidth: 3))
                 .shadow(color: .black.opacity(0.32), radius: 8, y: 4)
-            Image(systemName: isCustom ? "scope" : "sparkles")
-                .font(.system(size: 16, weight: .black))
+            Text("\(index + 1)")
+                .font(.system(.headline, design: .rounded).weight(.black))
                 .foregroundStyle(.black)
         }
+        .padding(5)
+        .contentShape(Circle())
+    }
+
+    private func segmentDistanceBubble(
+        from start: GeoCoordinate,
+        to end: GeoCoordinate
+    ) -> some View {
+        Text("\(Int(start.distance(to: end).rounded()))m")
+            .font(.system(.caption, design: .rounded).weight(.black))
+            .foregroundStyle(.black)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .background(.white, in: Capsule())
+            .overlay(Capsule().stroke(.black.opacity(0.10), lineWidth: 1))
+            .shadow(color: .black.opacity(0.24), radius: 5, y: 2)
     }
 
     private func mapMarker(
         systemImage: String,
-        label: String,
         color: Color,
         foreground: Color
     ) -> some View {
-        VStack(spacing: 4) {
-            Image(systemName: systemImage)
-                .font(.system(size: 14, weight: .black))
-                .foregroundStyle(foreground)
-                .frame(width: 34, height: 34)
-                .background(color, in: Circle())
-                .overlay(Circle().stroke(.white, lineWidth: 2))
-            Text(label)
-                .font(.system(.caption2, design: .rounded).weight(.black))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 4)
-                .background(.black.opacity(0.72), in: Capsule())
-        }
+        Image(systemName: systemImage)
+            .font(.system(size: 14, weight: .black))
+            .foregroundStyle(foreground)
+            .frame(width: 34, height: 34)
+            .background(color, in: Circle())
+            .overlay(Circle().stroke(.white, lineWidth: 2))
+            .shadow(color: .black.opacity(0.24), radius: 5, y: 2)
     }
 
     private func hazardMarker(_ kind: HazardKind) -> some View {
         Image(systemName: kind.mapSymbol)
             .font(.system(size: 12, weight: .black))
             .foregroundStyle(.white)
-            .frame(width: 27, height: 27)
+            .frame(width: 22, height: 22)
             .background(kind.mapColor, in: Circle())
             .overlay(Circle().stroke(.white.opacity(0.85), lineWidth: 1.5))
             .shadow(color: .black.opacity(0.28), radius: 5, y: 2)
+    }
+
+    private func shouldDisplaySurface(_ kind: HoleSurfaceKind) -> Bool {
+        switch kind {
+        case .water, .bunker, .green:
+            return true
+        case .fairway, .rough, .tee, .woods:
+            return false
+        }
     }
 
     private func surfaceColor(for kind: HoleSurfaceKind) -> Color {
@@ -690,7 +768,7 @@ struct HoleMapScreen: View {
                 Text("This hole needs a mapped tee and green before the planner can draw a trustworthy line.")
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
-                Button("Close") { dismiss() }
+                Button("Close") { closeMap() }
                     .buttonStyle(HoleMapPrimaryButtonStyle(color: accent))
             }
             .padding(28)
