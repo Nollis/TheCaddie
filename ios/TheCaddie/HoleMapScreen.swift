@@ -9,9 +9,6 @@ struct HoleMapScreen: View {
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var customWaypoints: [PlanningWaypoint]?
     @State private var hasCenteredOnLivePosition = false
-    @State private var measurementStart: GeoCoordinate?
-    @State private var measurementEnd: GeoCoordinate?
-    @State private var isMeasuringShot = false
 
     private let accent = Color(red: 0.20, green: 0.82, blue: 0.43)
 
@@ -33,7 +30,7 @@ struct HoleMapScreen: View {
                 unavailableState
             }
         }
-        .preferredColorScheme(.dark)
+        .environment(\.colorScheme, .dark)
         .onAppear {
             if !viewModel.isUsingLiveDistance && viewModel.canUseLiveDistance {
                 viewModel.startLiveDistance()
@@ -93,8 +90,9 @@ struct HoleMapScreen: View {
 
                 ForEach(hole.hazards) { hazard in
                     if let coordinate = hazard.coordinate {
-                        Annotation(hazard.kind.mapLabel, coordinate: coordinate.mapCoordinate) {
+                        Annotation("", coordinate: coordinate.mapCoordinate) {
                             hazardMarker(hazard.kind)
+                                .accessibilityLabel(Text(hazard.kind.mapLabel))
                         }
                     }
                 }
@@ -112,18 +110,19 @@ struct HoleMapScreen: View {
                     .stroke(Color.blue.opacity(0.82), lineWidth: 2)
                 }
 
-                if let recommendedTarget = recommendedTarget(on: hole),
-                   !isCustomPlan {
-                    MapCircle(
-                        center: recommendedTarget.mapCoordinate,
-                        radius: max(12, viewModel.packet.expectedDispersionM ?? 18)
-                    )
-                    .foregroundStyle(accent.opacity(0.16))
-                    .stroke(accent.opacity(0.9), lineWidth: 2)
-                }
-
                 let route = plannedRoute(on: hole, greenCoordinate: greenCoordinate)
                 if route.count >= 2 {
+                    ForEach(Array(route.indices.dropFirst()), id: \.self) { index in
+                        let start = route[index - 1]
+                        let target = route[index]
+                        MapCircle(
+                            center: target.mapCoordinate,
+                            radius: max(1, shotPlanningMarginM(from: start, to: target))
+                        )
+                        .foregroundStyle(Color.yellow.opacity(0.10))
+                        .stroke(Color.yellow.opacity(0.78), lineWidth: 1.5)
+                    }
+
                     MapPolyline(coordinates: route.map(\.mapCoordinate))
                         .stroke(.white.opacity(0.94), lineWidth: 3)
 
@@ -131,37 +130,28 @@ struct HoleMapScreen: View {
                         let start = route[index]
                         let end = route[index + 1]
                         Annotation(
-                            "Segment distance",
+                            "",
                             coordinate: midpoint(from: start, to: end).mapCoordinate
                         ) {
-                            segmentDistanceBubble(from: start, to: end)
+                            segmentDistanceBubble(
+                                from: start,
+                                to: end,
+                                club: index == route.startIndex && !isCustomPlan
+                                    ? viewModel.packet.recommendedClub
+                                    : nil
+                            )
                         }
                     }
                 }
 
-                if let measurementStart,
-                   let measuredEnd = measurementEnd ?? viewModel.liveCoordinate {
-                    MapPolyline(
-                        coordinates: [measurementStart.mapCoordinate, measuredEnd.mapCoordinate]
-                    )
-                    .stroke(.yellow, lineWidth: 4)
-
-                    Annotation("Shot start", coordinate: measurementStart.mapCoordinate) {
-                        Image(systemName: "smallcircle.filled.circle")
-                            .font(.system(size: 18, weight: .black))
-                            .foregroundStyle(.yellow)
-                            .padding(6)
-                            .background(.black.opacity(0.72), in: Circle())
-                    }
-                }
-
                 if let origin = planningOrigin(on: hole) {
-                    Annotation("Current position", coordinate: origin.mapCoordinate) {
+                    Annotation("", coordinate: origin.mapCoordinate) {
                         mapMarker(
                             systemImage: viewModel.liveCoordinate == nil ? "circle.fill" : "location.fill",
                             color: .white,
                             foreground: .black
                         )
+                        .accessibilityLabel("Current position")
                     }
                 }
 
@@ -169,10 +159,11 @@ struct HoleMapScreen: View {
                 ForEach(waypoints) { waypoint in
                     let index = waypoints.firstIndex { $0.id == waypoint.id } ?? 0
                     Annotation(
-                        "Waypoint \(index + 1)",
+                        "",
                         coordinate: waypoint.coordinate.mapCoordinate
                     ) {
                         waypointMarker(index: index, isCaddieTarget: !isCustomPlan)
+                            .accessibilityLabel("Waypoint \(index + 1)")
                             .highPriorityGesture(
                                 DragGesture(minimumDistance: 0, coordinateSpace: .global)
                                     .onChanged { value in
@@ -198,12 +189,13 @@ struct HoleMapScreen: View {
                     }
                 }
 
-                Annotation("Green", coordinate: greenCoordinate.mapCoordinate) {
+                Annotation("", coordinate: greenCoordinate.mapCoordinate) {
                     mapMarker(
                         systemImage: "flag.fill",
                         color: accent,
                         foreground: .black
                     )
+                    .accessibilityLabel("Green")
                 }
             }
             .mapStyle(.imagery(elevation: .realistic))
@@ -253,6 +245,13 @@ struct HoleMapScreen: View {
                         recenter(on: hole)
                     }
 
+                    compactMapButton(
+                        title: viewModel.isUsingLiveDistance ? "GPS live" : "Start GPS",
+                        systemImage: viewModel.isUsingLiveDistance ? "location.fill" : "location.slash"
+                    ) {
+                        toggleGPS()
+                    }
+
                     if isCustomPlan {
                         compactMapButton(
                             title: "Reset line",
@@ -264,7 +263,7 @@ struct HoleMapScreen: View {
                 }
             }
 
-            compactPlannerBar(hole: hole)
+            compactPlannerBar()
         }
         .padding(.horizontal, 16)
         .padding(.top, 10)
@@ -318,101 +317,33 @@ struct HoleMapScreen: View {
         .background(.black.opacity(0.68), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 
-    private func compactPlannerBar(hole: CourseHole) -> some View {
-        let waypointCount = planningWaypoints(on: hole).count
+    private func compactPlannerBar() -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(isCustomPlan ? "YOUR LINE" : "CADDIE LINE")
+                .font(.system(.caption2, design: .rounded).weight(.black))
+                .tracking(1.1)
+                .foregroundStyle(isCustomPlan ? .yellow : accent)
 
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(isCustomPlan ? "YOUR LINE" : "CADDIE LINE")
-                        .font(.system(.caption2, design: .rounded).weight(.black))
-                        .tracking(1.1)
-                        .foregroundStyle(isCustomPlan ? .yellow : accent)
-                    Text(plannerHeadline)
-                        .font(.system(.headline, design: .rounded).weight(.black))
-                        .lineLimit(1)
-                }
-
-                Spacer(minLength: 8)
-
-                Text("\(waypointCount) \(waypointCount == 1 ? "point" : "points")")
-                    .font(.system(.caption, design: .rounded).weight(.black))
-                    .foregroundStyle(.white.opacity(0.68))
-            }
-
-            Text("Drag a point to adjust · tap the map to add another")
-                .font(.system(.caption2, design: .rounded).weight(.bold))
-                .foregroundStyle(.white.opacity(0.62))
+            Text(plannerHeadline)
+                .font(.system(.subheadline, design: .rounded).weight(.black))
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
 
             if !isCustomPlan,
                let riskNote = viewModel.packet.riskNote {
                 Label(riskNote, systemImage: "exclamationmark.triangle.fill")
-                    .font(.system(.caption, design: .rounded).weight(.bold))
+                    .font(.system(.caption2, design: .rounded).weight(.bold))
                     .foregroundStyle(.yellow)
                     .lineLimit(1)
-            }
-
-            if let measurementM = measuredShotDistanceM {
-                HStack {
-                    Label(
-                        isMeasuringShot ? "Shot tracking" : "Last measurement",
-                        systemImage: isMeasuringShot ? "dot.radiowaves.left.and.right" : "checkmark.circle.fill"
-                    )
-                    .font(.system(.caption, design: .rounded).weight(.black))
-                    .foregroundStyle(accent)
-
-                    Spacer()
-
-                    Text("\(Int(measurementM.rounded())) m")
-                        .font(.system(.headline, design: .rounded).weight(.black))
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 9)
-                .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
-            }
-
-            HStack(spacing: 10) {
-                Button {
-                    toggleGPS()
-                } label: {
-                    Label(
-                        viewModel.isUsingLiveDistance ? "GPS live" : "Start GPS",
-                        systemImage: viewModel.isUsingLiveDistance ? "location.fill" : "location.slash"
-                    )
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(HoleMapSecondaryButtonStyle())
-
-                Button {
-                    toggleShotMeasurement()
-                } label: {
-                    Label(
-                        isMeasuringShot ? "Finish measure" : "Measure shot",
-                        systemImage: isMeasuringShot ? "stop.fill" : "ruler"
-                    )
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(HoleMapPrimaryButtonStyle(color: accent))
-                .disabled(viewModel.liveCoordinate == nil)
-                .opacity(viewModel.liveCoordinate == nil ? 0.45 : 1)
-            }
-
-            if measurementStart != nil {
-                Button("Clear shot measurement") {
-                    measurementStart = nil
-                    measurementEnd = nil
-                    isMeasuringShot = false
-                }
-                .font(.system(.caption, design: .rounded).weight(.bold))
-                .foregroundStyle(.white.opacity(0.6))
-                .frame(maxWidth: .infinity)
+                    .minimumScaleFactor(0.78)
             }
         }
         .foregroundStyle(.white)
-        .padding(14)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .padding(.horizontal, 13)
+        .padding(.vertical, 10)
+        .background(.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(.white.opacity(0.14), lineWidth: 1)
         )
     }
@@ -581,16 +512,6 @@ struct HoleMapScreen: View {
         }
     }
 
-    private func distance(
-        from start: GeoCoordinate?,
-        to end: GeoCoordinate?
-    ) -> Double? {
-        guard let start, let end else {
-            return nil
-        }
-        return start.distance(to: end)
-    }
-
     private func midpoint(
         from start: GeoCoordinate,
         to end: GeoCoordinate
@@ -599,27 +520,6 @@ struct HoleMapScreen: View {
             latitude: (start.latitude + end.latitude) / 2,
             longitude: (start.longitude + end.longitude) / 2
         )
-    }
-
-    private var measuredShotDistanceM: Double? {
-        guard let measurementStart else {
-            return nil
-        }
-
-        let end = measurementEnd ?? viewModel.liveCoordinate
-        return distance(from: measurementStart, to: end)
-    }
-
-    private func toggleShotMeasurement() {
-        if isMeasuringShot {
-            measurementEnd = viewModel.liveCoordinate
-            isMeasuringShot = false
-            return
-        }
-
-        measurementStart = viewModel.liveCoordinate
-        measurementEnd = nil
-        isMeasuringShot = measurementStart != nil
     }
 
     private func toggleGPS() {
@@ -641,9 +541,6 @@ struct HoleMapScreen: View {
     private func resetPlanner(recenter shouldRecenter: Bool) {
         customWaypoints = nil
         hasCenteredOnLivePosition = false
-        measurementStart = nil
-        measurementEnd = nil
-        isMeasuringShot = false
 
         if shouldRecenter, let hole = activeHole {
             recenter(on: hole)
@@ -724,16 +621,37 @@ struct HoleMapScreen: View {
 
     private func segmentDistanceBubble(
         from start: GeoCoordinate,
-        to end: GeoCoordinate
+        to end: GeoCoordinate,
+        club: String?
     ) -> some View {
-        Text("\(Int(start.distance(to: end).rounded()))m")
-            .font(.system(.caption, design: .rounded).weight(.black))
+        let distanceM = start.distance(to: end)
+        let marginM = shotPlanningMarginM(from: start, to: end)
+        let distanceLabel = "\(Int(distanceM.rounded()))m · ±\(Int(marginM.rounded()))m"
+
+        return VStack(spacing: 1) {
+            if let club {
+                Text(club)
+                    .font(.system(.caption2, design: .rounded).weight(.black))
+                    .foregroundStyle(accent)
+            }
+            Text(distanceLabel)
+                .font(.system(.caption, design: .rounded).weight(.black))
+        }
             .foregroundStyle(.black)
             .padding(.horizontal, 9)
             .padding(.vertical, 6)
             .background(.white, in: Capsule())
             .overlay(Capsule().stroke(.black.opacity(0.10), lineWidth: 1))
             .shadow(color: .black.opacity(0.24), radius: 5, y: 2)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(club.map { "\($0), \(distanceLabel)" } ?? distanceLabel))
+    }
+
+    private func shotPlanningMarginM(
+        from start: GeoCoordinate,
+        to end: GeoCoordinate
+    ) -> Double {
+        start.distance(to: end) * 0.10
     }
 
     private func mapMarker(
@@ -816,17 +734,6 @@ private struct HoleMapPrimaryButtonStyle: ButtonStyle {
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .background(color.opacity(configuration.isPressed ? 0.72 : 1), in: RoundedRectangle(cornerRadius: 14))
-    }
-}
-
-private struct HoleMapSecondaryButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(.subheadline, design: .rounded).weight(.black))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(.white.opacity(configuration.isPressed ? 0.06 : 0.12), in: RoundedRectangle(cornerRadius: 14))
     }
 }
 
