@@ -421,13 +421,13 @@ private func teePacket(
         roundState: roundState
     )
 
-    // PW (105m) and 50W (85m) both reach 72m; loft beats distance from sand,
-    // so the more lofted 50W is the recovery club, not the longer PW.
+    // 56W is the most lofted club that can still reach 72m, so it is the
+    // recovery club instead of the longer 50W or PW.
     #expect(packet.status == .ready)
     #expect(packet.shotIntent == .recovery)
-    #expect(packet.recommendedClub == "50W")
+    #expect(packet.recommendedClub == "56W")
     #expect(packet.target == "safe recovery window")
-    #expect(packet.primaryReason == "50W is the safest recovery club from this lie.")
+    #expect(packet.primaryReason == "56W is the safest recovery club from this lie.")
     #expect(packet.confidence == .low)
 }
 

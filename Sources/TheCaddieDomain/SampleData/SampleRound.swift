@@ -61,7 +61,9 @@ public enum SampleRound {
             PlayerClub(name: "8 Iron", carryDistanceM: 140),
             PlayerClub(name: "9 Iron", carryDistanceM: 130),
             PlayerClub(name: "PW", carryDistanceM: 110),
-            PlayerClub(name: "50W", carryDistanceM: 90)
+            PlayerClub(name: "50W", carryDistanceM: 90),
+            PlayerClub(name: "56W", carryDistanceM: 76),
+            PlayerClub(name: "60W", carryDistanceM: 60)
         ],
         strategyPreference: .normal
     )

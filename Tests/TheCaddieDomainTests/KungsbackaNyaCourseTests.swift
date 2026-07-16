@@ -401,7 +401,7 @@ private func coordinatesMatch(
     )
 
     #expect(packet.status == .ready)
-    #expect(packet.recommendedClub == "50W")
+    #expect(packet.recommendedClub == "56W")
     #expect(packet.riskNote == nil)
 }
 
@@ -446,7 +446,7 @@ private func coordinatesMatch(
 
     #expect(packet.status == .ready)
     #expect(packet.shotIntent == .layup)
-    #expect(packet.recommendedClub == "50W")
+    #expect(packet.recommendedClub == "60W")
     #expect(packet.recommendedClub != "5 Iron")
     #expect(packet.riskNote == "Water left is near the landing zone.")
 }
@@ -498,9 +498,9 @@ private func coordinatesMatch(
 
     #expect(packet.status == .ready)
     #expect(packet.shotIntent == .recovery)
-    #expect(packet.recommendedClub == "50W")
+    #expect(packet.recommendedClub == "60W")
     #expect(packet.target == "safe recovery window")
-    #expect(packet.primaryReason == "50W is the safest recovery club from this lie.")
+    #expect(packet.primaryReason == "60W is the safest recovery club from this lie.")
     #expect(packet.riskNote == "Get back to a playable position before chasing the green.")
 }
 

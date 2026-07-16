@@ -180,7 +180,7 @@ import TheCaddieDomain
     #expect(updatedShot.remainingDistanceM.value == 43)
     #expect(updatedShot.lie.value == .bunker)
     #expect(updatedShot.progressM == 417.12)
-    #expect(packet.recommendedClub == "50W")
+    #expect(packet.recommendedClub == "60W")
 }
 
 @Test func bunkerShotResultFallsBackToProjectedProgressWhenNoBunkerIsNearLanding() throws {
@@ -586,5 +586,12 @@ import TheCaddieDomain
     #expect(StandardBagCatalog.club(named: "5 Wood")?.defaultCarryDistanceM == 195)
     #expect(StandardBagCatalog.club(named: "4 Hybrid")?.defaultCarryDistanceM == 180)
     #expect(StandardBagCatalog.club(named: "56W")?.defaultCarryDistanceM == 76)
+    #expect(StandardBagCatalog.club(named: "60W")?.defaultCarryDistanceM == 60)
     #expect(StandardBagCatalog.club(named: "Putter")?.defaultCarryDistanceM == 10)
+}
+
+@Test func samplePlayerIncludesScoringWedges() {
+    #expect(SampleRound.player.clubs.first(where: { $0.name == "50W" })?.carryDistanceM == 90)
+    #expect(SampleRound.player.clubs.first(where: { $0.name == "56W" })?.carryDistanceM == 76)
+    #expect(SampleRound.player.clubs.first(where: { $0.name == "60W" })?.carryDistanceM == 60)
 }

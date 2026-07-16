@@ -1651,6 +1651,18 @@ private final class PlayerProfileStore {
 
     private let defaults: UserDefaults
     private let storageKey = "playerProfileSnapshot"
+    private let scoringWedgeUpgradeKey = "playerProfileScoringWedgesUpgradeComplete"
+    private let legacyDefaultClubNames: Set<String> = [
+        "Driver",
+        "3 Hybrid",
+        "5 Iron",
+        "6 Iron",
+        "7 Iron",
+        "8 Iron",
+        "9 Iron",
+        "PW",
+        "50W"
+    ]
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -1663,7 +1675,12 @@ private final class PlayerProfileStore {
 
         do {
             let snapshot = try JSONDecoder().decode(PlayerProfileSnapshot.self, from: data)
-            return snapshot.resolvePlayer(base: base)
+            let player = snapshot.resolvePlayer(base: base)
+            let upgradedPlayer = upgradeLegacyDefaultBagIfNeeded(player, base: base)
+            if upgradedPlayer != player {
+                save(upgradedPlayer)
+            }
+            return upgradedPlayer
         } catch {
             defaults.removeObject(forKey: storageKey)
             return nil
@@ -1677,5 +1694,35 @@ private final class PlayerProfileStore {
         } catch {
             assertionFailure("Failed to persist player profile: \(error)")
         }
+    }
+
+    private func upgradeLegacyDefaultBagIfNeeded(
+        _ player: PlayerContext,
+        base: PlayerContext
+    ) -> PlayerContext {
+        guard !defaults.bool(forKey: scoringWedgeUpgradeKey) else {
+            return player
+        }
+        defer {
+            defaults.set(true, forKey: scoringWedgeUpgradeKey)
+        }
+
+        let clubNames = Set(player.clubs.map(\.name))
+        guard clubNames == legacyDefaultClubNames else {
+            return player
+        }
+
+        let scoringWedges = base.clubs.filter { club in
+            club.name == "56W" || club.name == "60W"
+        }
+        guard scoringWedges.count == 2 else {
+            return player
+        }
+
+        return PlayerContext(
+            handicapIndex: player.handicapIndex,
+            clubs: player.clubs + scoringWedges,
+            strategyPreference: player.strategyPreference
+        )
     }
 }
