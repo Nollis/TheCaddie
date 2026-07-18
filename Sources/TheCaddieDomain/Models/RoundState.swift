@@ -202,6 +202,55 @@ public struct RoundState: Equatable, Sendable {
         return updateShotContext(replayShot)
     }
 
+    public func finishCurrentHoleFromGreen(
+        course: Course?,
+        putts: Int,
+        recordGreenArrivalIfNeeded: Bool
+    ) -> RoundState {
+        guard let course,
+              let hole = course.hole(number: selectedHoleNumber) else {
+            return self
+        }
+
+        var scoringState = self
+        if scoringState.currentShotContext()?.lie.value != .green,
+           recordGreenArrivalIfNeeded {
+            guard let currentShot = scoringState.currentShotContext() else {
+                return self
+            }
+            scoringState = scoringState.updateShotContext(
+                ShotContext(
+                    shotNumber: currentShot.shotNumber + 1,
+                    remainingDistanceM: .known(0),
+                    lie: .known(.green),
+                    wind: currentShot.wind,
+                    progressM: hole.teeLengthM
+                )
+            )
+        }
+
+        guard scoringState.currentShotContext()?.lie.value == .green,
+              let nextShotNumber = scoringState.currentShotContext()?.shotNumber,
+              let finalStrokes = GreenCompletionScoring.totalStrokes(
+                nextShotNumber: nextShotNumber,
+                putts: putts
+              ) else {
+            return self
+        }
+
+        return scoringState.finishCurrentHole(
+            course: course,
+            strokes: finalStrokes,
+            putts: putts,
+            fairwayHit: hole.par > 3 ? true : nil,
+            greenInRegulation: GreenCompletionScoring.isGreenInRegulation(
+                par: hole.par,
+                totalStrokes: finalStrokes,
+                putts: putts
+            )
+        )
+    }
+
     public func finishCurrentHole(
         course: Course?,
         strokes: Int? = nil,

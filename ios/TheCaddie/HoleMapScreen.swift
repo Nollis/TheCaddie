@@ -13,12 +13,13 @@ struct HoleMapScreen: View {
 
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var customWaypoints: [PlanningWaypoint]?
-    @State private var hasCenteredOnLivePosition = false
+    @State private var lastAutoCenteredCoordinate: GeoCoordinate?
     @State private var lieOverride: ShotLie?
     @State private var showingPuttSelection = false
     @State private var showingExtendedPuttSelection = false
     @State private var puttSelectionHoleNumber: Int?
     @State private var showingManualDistanceEntry = false
+    @State private var showingDebugLog = false
     @State private var manualDistanceText = ""
     @State private var recordedShotFixByHole: [Int: RecordedShotFix] = [:]
     @State private var isRecordingMapShot = false
@@ -63,21 +64,27 @@ struct HoleMapScreen: View {
             showingExtendedPuttSelection = false
             puttSelectionHoleNumber = nil
             showingManualDistanceEntry = false
+            showingDebugLog = false
             manualDistanceText = ""
             recordedShotFixByHole = [:]
             isRecordingMapShot = false
             resetPlanner(recenter: true)
         }
         .onChange(of: viewModel.liveCoordinate) { _, coordinate in
-            guard !hasCenteredOnLivePosition,
-                  let coordinate,
+            guard let coordinate,
                   let hole = activeHole,
                   HoleDetector.fixMatchesHole(fix: coordinate, hole: hole) else {
                 return
             }
 
+            let movementThresholdM = max(20, (viewModel.liveAccuracyM ?? 0) * 2)
+            if let lastAutoCenteredCoordinate,
+               lastAutoCenteredCoordinate.distance(to: coordinate) < movementThresholdM {
+                return
+            }
+
             recenter(on: hole)
-            hasCenteredOnLivePosition = true
+            lastAutoCenteredCoordinate = coordinate
         }
         .confirmationDialog(
             "How many putts?",
@@ -139,6 +146,9 @@ struct HoleMapScreen: View {
             }
         } message: {
             Text("Enter the current distance so deterministic scoring can continue without GPS.")
+        }
+        .sheet(isPresented: $showingDebugLog) {
+            debugLogSheet
         }
     }
 
@@ -289,7 +299,6 @@ struct HoleMapScreen: View {
             }
             .mapStyle(.imagery(elevation: .realistic))
             .mapControls {
-                MapCompass()
                 MapScaleView()
             }
             .ignoresSafeArea()
@@ -387,8 +396,13 @@ struct HoleMapScreen: View {
                     .font(.system(.caption, design: .rounded).weight(.black))
                     .tracking(1.2)
                     .foregroundStyle(accent)
-                Text("Par \(hole.par)  ·  \(Int(hole.teeLengthM.rounded())) m")
+                Text(
+                    "Par \(hole.par)  ·  \(Int(hole.teeLengthM.rounded())) m"
+                        + "  ·  \(viewModel.viewState.shotLabel)"
+                )
                     .font(.system(.headline, design: .rounded).weight(.bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
             }
             .frame(maxWidth: .infinity)
 
@@ -534,14 +548,23 @@ struct HoleMapScreen: View {
                         }
                     }
                 }
+
+                Section("Round log") {
+                    Button {
+                        showingDebugLog = true
+                    } label: {
+                        Label("View log", systemImage: "doc.text.magnifyingglass")
+                    }
+                    ShareLink(item: viewModel.debugExportText) {
+                        Label("Share log", systemImage: "square.and.arrow.up")
+                    }
+                }
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 18, weight: .black))
                     .frame(width: 46, height: 46)
             }
-            .disabled(!canUseMapScoringActions)
-            .opacity(canUseMapScoringActions ? 1 : 0.35)
-            .accessibilityLabel("Lie correction and penalties")
+            .accessibilityLabel("More actions")
         }
         .foregroundStyle(.white)
         .padding(8)
@@ -550,18 +573,6 @@ struct HoleMapScreen: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(.white.opacity(0.14), lineWidth: 1)
         )
-    }
-
-    private var canUseMapScoringActions: Bool {
-        switch viewModel.viewState.kind {
-        case .ready, .unavailable:
-            return viewModel.canRecordShotResultFromCurrentContext
-        case .missingContext:
-            return viewModel.packet.status == .missingDistance
-                || viewModel.packet.status == .missingLie
-        case .noCourseLoaded, .onGreen, .holeComplete, .roundComplete:
-            return false
-        }
     }
 
     private var canPerformPrimaryMapAction: Bool {
@@ -577,7 +588,8 @@ struct HoleMapScreen: View {
             hasNewBallPosition: hasNewBallPosition,
             allowsManualFallback: !viewModel.hasTrustedLiveFixForSelectedHole,
             inferredLie: viewModel.inferredNextShotLie,
-            lieOverride: lieOverride
+            lieOverride: lieOverride,
+            hasPendingGreenArrival: viewModel.hasPendingGreenArrivalForSelectedHole
         )
     }
 
@@ -598,7 +610,10 @@ struct HoleMapScreen: View {
     ) {
         switch primaryMapAction {
         case .choosePutts:
-            return ("Finish hole", "flag.checkered", "Enter putts after holing out")
+            let subtitle = viewModel.viewState.kind == .onGreen
+                ? "Enter putts after holing out"
+                : "Green reached · enter putts"
+            return ("Finish hole", "flag.checkered", subtitle)
         case .nextHole:
             return ("Next hole", "arrow.right", "Continue to the next tee")
         case let .recordShot(resultingLie):
@@ -706,7 +721,7 @@ struct HoleMapScreen: View {
 
     private func finishHole(putts: Int) {
         guard puttSelectionHoleNumber == viewModel.selectedHoleNumber,
-              viewModel.viewState.kind == .onGreen else {
+              viewModel.canFinishSelectedHoleFromGreen else {
             viewModel.logDebugEvent("Cancelled stale putt entry after hole changed")
             showingPuttSelection = false
             showingExtendedPuttSelection = false
@@ -936,9 +951,37 @@ struct HoleMapScreen: View {
         }
     }
 
+    private var debugLogSheet: some View {
+        NavigationStack {
+            ScrollView {
+                Text(viewModel.debugExportText)
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+            }
+            .navigationTitle("Round log")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        showingDebugLog = false
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    ShareLink(item: viewModel.debugExportText) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .accessibilityLabel("Share round log")
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
     private func resetPlanner(recenter shouldRecenter: Bool) {
         customWaypoints = nil
-        hasCenteredOnLivePosition = false
+        lastAutoCenteredCoordinate = nil
 
         if shouldRecenter, let hole = activeHole {
             recenter(on: hole)
@@ -996,7 +1039,7 @@ struct HoleMapScreen: View {
 
         return MapCamera(
             centerCoordinate: center.mapCoordinate,
-            distance: max(400, farthestDistanceM * 4.6),
+            distance: max(160, farthestDistanceM * 4.6),
             heading: heading,
             pitch: 0
         )

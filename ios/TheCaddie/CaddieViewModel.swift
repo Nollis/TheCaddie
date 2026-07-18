@@ -14,6 +14,11 @@ private enum LiveGPSQuality {
 
 @MainActor
 final class CaddieViewModel: ObservableObject {
+    private struct ScoringUndoState {
+        let roundState: RoundState
+        let pendingGreenArrivalHoleNumbers: Set<Int>
+    }
+
     @Published private(set) var course: Course?
     @Published private(set) var player: PlayerContext
     @Published private(set) var roundState: RoundState
@@ -31,6 +36,7 @@ final class CaddieViewModel: ObservableObject {
     @Published private(set) var autoDetectedHoleNumber: Int?
     @Published private(set) var debugLogEntries: [DebugLogEntry] = []
     @Published private(set) var roundSessionID = UUID()
+    @Published private(set) var pendingGreenArrivalHoleNumbers: Set<Int> = []
     @Published private var liveStatusNow = Date()
 
     private let locationManager: LiveRoundLocationManager
@@ -39,7 +45,7 @@ final class CaddieViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var consecutiveHoleMisses = 0
     private var minimumLiveFixTimestamp: Date?
-    private var scoringUndoStates: [RoundState] = []
+    private var scoringUndoStates: [ScoringUndoState] = []
 
     init(
         course: Course?,
@@ -193,6 +199,15 @@ final class CaddieViewModel: ObservableObject {
 
     var canUndoLastScoringAction: Bool {
         !scoringUndoStates.isEmpty
+    }
+
+    var hasPendingGreenArrivalForSelectedHole: Bool {
+        pendingGreenArrivalHoleNumbers.contains(selectedHoleNumber)
+    }
+
+    var canFinishSelectedHoleFromGreen: Bool {
+        hasPendingGreenArrivalForSelectedHole
+            || roundState.currentShotContext()?.lie.value == .green
     }
 
     var canRecordShotResultFromCurrentContext: Bool {
@@ -514,10 +529,14 @@ final class CaddieViewModel: ObservableObject {
             progressM: currentShot.progressM
         )
         roundState = roundState.updateShotContext(updatedShot)
+        if lie != .green {
+            setPendingGreenArrival(false, for: selectedHoleNumber)
+        }
     }
 
     func recordShotResult(_ lie: ShotLie, useLivePosition: Bool = true) {
         let previousState = roundState
+        let previousPendingGreenArrivals = pendingGreenArrivalHoleNumbers
         roundState = roundState.recordShotResult(
             course: course,
             player: player,
@@ -528,11 +547,18 @@ final class CaddieViewModel: ObservableObject {
            let liveOverrideShot = liveShotOverride(after: lie) {
             roundState = roundState.updateShotContext(liveOverrideShot)
         }
-        recordUndoState(previousState)
+        if roundState != previousState {
+            setPendingGreenArrival(lie == .green, for: selectedHoleNumber)
+        }
+        recordUndoState(
+            previousState,
+            pendingGreenArrivals: previousPendingGreenArrivals
+        )
     }
 
     func recordPenaltyDrop() {
         let previousState = roundState
+        let previousPendingGreenArrivals = pendingGreenArrivalHoleNumbers
         roundState = roundState.recordPenaltyDrop(
             course: course,
             player: player
@@ -541,13 +567,26 @@ final class CaddieViewModel: ObservableObject {
         if let liveOverrideShot = liveShotOverride(after: .recovery) {
             roundState = roundState.updateShotContext(liveOverrideShot)
         }
-        recordUndoState(previousState)
+        if roundState != previousState {
+            setPendingGreenArrival(false, for: selectedHoleNumber)
+        }
+        recordUndoState(
+            previousState,
+            pendingGreenArrivals: previousPendingGreenArrivals
+        )
     }
 
     func recordStrokeAndDistancePenalty() {
         let previousState = roundState
+        let previousPendingGreenArrivals = pendingGreenArrivalHoleNumbers
         roundState = roundState.recordStrokeAndDistancePenalty()
-        recordUndoState(previousState)
+        if roundState != previousState {
+            setPendingGreenArrival(false, for: selectedHoleNumber)
+        }
+        recordUndoState(
+            previousState,
+            pendingGreenArrivals: previousPendingGreenArrivals
+        )
     }
 
     func undoLastScoringAction() {
@@ -555,7 +594,8 @@ final class CaddieViewModel: ObservableObject {
             return
         }
 
-        roundState = previousState
+        roundState = previousState.roundState
+        pendingGreenArrivalHoleNumbers = previousState.pendingGreenArrivalHoleNumbers
     }
 
     func recordQuickAction(_ action: CaddieViewState.QuickAction.Kind) {
@@ -653,40 +693,43 @@ final class CaddieViewModel: ObservableObject {
     }
 
     func finishCurrentHole() {
+        let holeNumber = selectedHoleNumber
         let previousState = roundState
-        roundState = roundState.finishCurrentHole(course: course)
-        recordUndoState(previousState)
+        let previousPendingGreenArrivals = pendingGreenArrivalHoleNumbers
+        let updatedState = roundState.finishCurrentHole(course: course)
+        guard updatedState != roundState else {
+            return
+        }
+        roundState = updatedState
+        setPendingGreenArrival(false, for: holeNumber)
+        recordUndoState(
+            previousState,
+            pendingGreenArrivals: previousPendingGreenArrivals
+        )
         syncLiveDistanceIfNeeded(allowCachedFix: false)
     }
 
     func finishHoleFromGreen(putts: Int) {
-        guard let course,
-              let hole = course.hole(number: selectedHoleNumber) else {
+        guard let course else {
             return
         }
-        let shotNumber = roundState.currentShotContext()?.shotNumber ?? 1
-        guard let finalStrokes = GreenCompletionScoring.totalStrokes(
-            nextShotNumber: shotNumber,
-            putts: putts
-        ) else {
-            return
-        }
-        let finalFairwayHit = hole.par > 3 ? true : nil
-        let finalGIR = GreenCompletionScoring.isGreenInRegulation(
-            par: hole.par,
-            totalStrokes: finalStrokes,
-            putts: putts
-        )
-        
+        let holeNumber = selectedHoleNumber
         let previousState = roundState
-        roundState = roundState.finishCurrentHole(
+        let previousPendingGreenArrivals = pendingGreenArrivalHoleNumbers
+        let updatedState = roundState.finishCurrentHoleFromGreen(
             course: course,
-            strokes: finalStrokes,
             putts: putts,
-            fairwayHit: finalFairwayHit,
-            greenInRegulation: finalGIR
+            recordGreenArrivalIfNeeded: hasPendingGreenArrivalForSelectedHole
         )
-        recordUndoState(previousState)
+        guard updatedState != roundState else {
+            return
+        }
+        roundState = updatedState
+        setPendingGreenArrival(false, for: holeNumber)
+        recordUndoState(
+            previousState,
+            pendingGreenArrivals: previousPendingGreenArrivals
+        )
         syncLiveDistanceIfNeeded(allowCachedFix: false)
     }
 
@@ -713,6 +756,7 @@ final class CaddieViewModel: ObservableObject {
     func startRound(course: Course, startingHole: Int = 1) {
         self.course = course
         scoringUndoStates = []
+        pendingGreenArrivalHoleNumbers = []
         self.roundState = RoundState(
             courseId: course.id,
             selectedHoleNumber: startingHole,
@@ -759,6 +803,7 @@ final class CaddieViewModel: ObservableObject {
         autoDetectedHoleNumber = nil
         consecutiveHoleMisses = 0
         minimumLiveFixTimestamp = nil
+        pendingGreenArrivalHoleNumbers = []
         roundSessionID = UUID()
     }
 
@@ -1028,15 +1073,41 @@ final class CaddieViewModel: ObservableObject {
         debugLogStore.save(debugLogEntries)
     }
 
-    private func recordUndoState(_ previousState: RoundState) {
-        guard roundState != previousState else {
+    private func recordUndoState(
+        _ previousState: RoundState,
+        pendingGreenArrivals: Set<Int>
+    ) {
+        guard roundState != previousState
+                || pendingGreenArrivalHoleNumbers != pendingGreenArrivals else {
             return
         }
 
-        scoringUndoStates.append(previousState)
+        scoringUndoStates.append(ScoringUndoState(
+            roundState: previousState,
+            pendingGreenArrivalHoleNumbers: pendingGreenArrivals
+        ))
         if scoringUndoStates.count > 20 {
             scoringUndoStates.removeFirst()
         }
+    }
+
+    @discardableResult
+    private func setPendingGreenArrival(
+        _ isPending: Bool,
+        for holeNumber: Int
+    ) -> Bool {
+        var updatedHoleNumbers = pendingGreenArrivalHoleNumbers
+        if isPending {
+            updatedHoleNumbers.insert(holeNumber)
+        } else {
+            updatedHoleNumbers.remove(holeNumber)
+        }
+
+        guard updatedHoleNumbers != pendingGreenArrivalHoleNumbers else {
+            return false
+        }
+        pendingGreenArrivalHoleNumbers = updatedHoleNumbers
+        return true
     }
 
     private func liveShotOverride(after resultingLie: ShotLie) -> ShotContext? {
@@ -1100,6 +1171,7 @@ final class CaddieViewModel: ObservableObject {
         }
 
         let startedOnGreen = resolvedShotContext().lie.value == .green
+            || hasPendingGreenArrivalForSelectedHole
         if !startedOnGreen {
             updateDetectedHole(from: fix.coordinate)
         }
@@ -1161,6 +1233,10 @@ final class CaddieViewModel: ObservableObject {
             on: activeHole
         )
         liveInferredLie = inferredLie
+        if inferredLie == .green,
+           setPendingGreenArrival(true, for: selectedHoleNumber) {
+            logDebugEvent("Green arrival detected; awaiting putts")
+        }
 
         let updatedShot = ShotContext(
             shotNumber: currentShot.shotNumber,

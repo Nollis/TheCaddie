@@ -358,3 +358,29 @@ import TheCaddieDomain
         lieOverride: nil
     ) == .none)
 }
+
+@Test func onCourseMapActionKeepsPuttEntryAvailableAfterLeavingGreen() {
+    #expect(OnCourseMapActionResolver.resolve(
+        viewStateKind: .ready,
+        remainingDistanceM: 60,
+        canRecordShotResult: true,
+        hasTrustedLiveFix: false,
+        hasNewBallPosition: false,
+        allowsManualFallback: false,
+        inferredLie: .fairway,
+        lieOverride: nil,
+        hasPendingGreenArrival: true
+    ) == .choosePutts)
+
+    #expect(OnCourseMapActionResolver.resolve(
+        viewStateKind: .ready,
+        remainingDistanceM: 60,
+        canRecordShotResult: true,
+        hasTrustedLiveFix: false,
+        hasNewBallPosition: false,
+        allowsManualFallback: true,
+        inferredLie: .green,
+        lieOverride: .rough,
+        hasPendingGreenArrival: true
+    ) == .recordShot(.rough))
+}

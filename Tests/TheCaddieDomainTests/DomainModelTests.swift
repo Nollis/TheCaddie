@@ -522,6 +522,43 @@ import TheCaddieDomain
     #expect(updatedShot.lie.value == .green)
 }
 
+@Test func greenCompletionRecordsAnUnloggedApproachBeforePutts() throws {
+    let finishedRound = SampleRound.roundState.finishCurrentHoleFromGreen(
+        course: SampleRound.course,
+        putts: 2,
+        recordGreenArrivalIfNeeded: true
+    )
+
+    let score = try #require(finishedRound.holeScores[1])
+    let greenShot = try #require(finishedRound.shotContext(for: 1))
+
+    #expect(score.strokes == 4)
+    #expect(score.putts == 2)
+    #expect(greenShot.shotNumber == 3)
+    #expect(greenShot.lie.value == .green)
+    #expect(finishedRound.isHoleComplete(1))
+    #expect(finishedRound.selectedHoleNumber == 2)
+}
+
+@Test func greenCompletionDoesNotRecordAnApproachTwice() throws {
+    let onGreenRound = SampleRound.roundState.recordShotResult(
+        course: SampleRound.course,
+        player: SampleRound.player,
+        resultingLie: .green
+    )
+    let finishedRound = onGreenRound.finishCurrentHoleFromGreen(
+        course: SampleRound.course,
+        putts: 2,
+        recordGreenArrivalIfNeeded: true
+    )
+
+    let score = try #require(finishedRound.holeScores[1])
+    let greenShot = try #require(finishedRound.shotContext(for: 1))
+
+    #expect(score.strokes == 4)
+    #expect(greenShot.shotNumber == 3)
+}
+
 @Test func strokeAndDistancePenaltyKeepsThePreviousPlayingSpot() throws {
     let roundState = RoundState(
         courseId: "stroke-and-distance-test",

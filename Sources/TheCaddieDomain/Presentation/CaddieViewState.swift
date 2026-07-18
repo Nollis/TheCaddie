@@ -281,8 +281,18 @@ public enum OnCourseMapActionResolver {
         hasNewBallPosition: Bool,
         allowsManualFallback: Bool,
         inferredLie: ShotLie?,
-        lieOverride: ShotLie?
+        lieOverride: ShotLie?,
+        hasPendingGreenArrival: Bool = false
     ) -> OnCourseMapPrimaryAction {
+        if hasPendingGreenArrival, lieOverride == nil {
+            switch viewStateKind {
+            case .ready, .missingContext, .unavailable, .onGreen:
+                return .choosePutts
+            case .holeComplete, .roundComplete, .noCourseLoaded:
+                break
+            }
+        }
+
         switch viewStateKind {
         case .onGreen:
             return .choosePutts
