@@ -200,7 +200,7 @@ final class CaddieViewModel: ObservableObject {
             course: course,
             player: player,
             roundState: roundState
-        ) {
+        ) else {
             return false
         }
 
