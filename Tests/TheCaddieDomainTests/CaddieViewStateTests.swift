@@ -222,3 +222,139 @@ import TheCaddieDomain
     #expect(viewState.title == "Hole finished")
     #expect(viewState.primaryActionLabel == "Next hole")
 }
+
+@Test func onCourseMapActionRequiresTrustedGPSAndPrefersCorrections() {
+    #expect(OnCourseMapActionResolver.resolve(
+        viewStateKind: .ready,
+        remainingDistanceM: 140,
+        canRecordShotResult: true,
+        hasTrustedLiveFix: true,
+        hasNewBallPosition: true,
+        allowsManualFallback: false,
+        inferredLie: .fairway,
+        lieOverride: nil
+    ) == .recordShot(.fairway))
+    #expect(OnCourseMapActionResolver.resolve(
+        viewStateKind: .ready,
+        remainingDistanceM: 140,
+        canRecordShotResult: true,
+        hasTrustedLiveFix: true,
+        hasNewBallPosition: true,
+        allowsManualFallback: false,
+        inferredLie: .fairway,
+        lieOverride: .rough
+    ) == .recordShot(.rough))
+    #expect(OnCourseMapActionResolver.resolve(
+        viewStateKind: .ready,
+        remainingDistanceM: 140,
+        canRecordShotResult: true,
+        hasTrustedLiveFix: false,
+        hasNewBallPosition: true,
+        allowsManualFallback: false,
+        inferredLie: .fairway,
+        lieOverride: .rough
+    ) == .none)
+    #expect(OnCourseMapActionResolver.resolve(
+        viewStateKind: .ready,
+        remainingDistanceM: 140,
+        canRecordShotResult: true,
+        hasTrustedLiveFix: true,
+        hasNewBallPosition: true,
+        allowsManualFallback: false,
+        inferredLie: nil,
+        lieOverride: .rough
+    ) == .recordShot(.rough))
+    #expect(OnCourseMapActionResolver.resolve(
+        viewStateKind: .ready,
+        remainingDistanceM: nil,
+        canRecordShotResult: true,
+        hasTrustedLiveFix: true,
+        hasNewBallPosition: true,
+        allowsManualFallback: false,
+        inferredLie: .fairway,
+        lieOverride: nil
+    ) == .none)
+    #expect(OnCourseMapActionResolver.resolve(
+        viewStateKind: .missingContext,
+        remainingDistanceM: 140,
+        canRecordShotResult: false,
+        hasTrustedLiveFix: true,
+        hasNewBallPosition: true,
+        allowsManualFallback: false,
+        inferredLie: .fairway,
+        lieOverride: nil
+    ) == .none)
+    #expect(OnCourseMapActionResolver.resolve(
+        viewStateKind: .ready,
+        remainingDistanceM: 140,
+        canRecordShotResult: true,
+        hasTrustedLiveFix: true,
+        hasNewBallPosition: true,
+        allowsManualFallback: false,
+        inferredLie: nil,
+        lieOverride: nil
+    ) == .none)
+    #expect(OnCourseMapActionResolver.resolve(
+        viewStateKind: .ready,
+        remainingDistanceM: 140,
+        canRecordShotResult: true,
+        hasTrustedLiveFix: true,
+        hasNewBallPosition: false,
+        allowsManualFallback: false,
+        inferredLie: .fairway,
+        lieOverride: nil
+    ) == .none)
+    #expect(OnCourseMapActionResolver.resolve(
+        viewStateKind: .ready,
+        remainingDistanceM: 140,
+        canRecordShotResult: true,
+        hasTrustedLiveFix: true,
+        hasNewBallPosition: false,
+        allowsManualFallback: false,
+        inferredLie: .fairway,
+        lieOverride: .rough
+    ) == .recordShot(.rough))
+    #expect(OnCourseMapActionResolver.resolve(
+        viewStateKind: .ready,
+        remainingDistanceM: 140,
+        canRecordShotResult: true,
+        hasTrustedLiveFix: false,
+        hasNewBallPosition: false,
+        allowsManualFallback: true,
+        inferredLie: nil,
+        lieOverride: .rough
+    ) == .recordShot(.rough))
+}
+
+@Test func onCourseMapActionHandlesHoleTransitionsWithoutGPS() {
+    #expect(OnCourseMapActionResolver.resolve(
+        viewStateKind: .onGreen,
+        remainingDistanceM: 0,
+        canRecordShotResult: false,
+        hasTrustedLiveFix: false,
+        hasNewBallPosition: false,
+        allowsManualFallback: false,
+        inferredLie: nil,
+        lieOverride: nil
+    ) == .choosePutts)
+    #expect(OnCourseMapActionResolver.resolve(
+        viewStateKind: .holeComplete,
+        remainingDistanceM: nil,
+        canRecordShotResult: false,
+        hasTrustedLiveFix: false,
+        hasNewBallPosition: false,
+        allowsManualFallback: false,
+        inferredLie: nil,
+        lieOverride: nil
+    ) == .nextHole)
+    #expect(OnCourseMapActionResolver.resolve(
+        viewStateKind: .roundComplete,
+        remainingDistanceM: nil,
+        canRecordShotResult: false,
+        hasTrustedLiveFix: false,
+        hasNewBallPosition: false,
+        allowsManualFallback: false,
+        inferredLie: nil,
+        lieOverride: nil
+    ) == .none)
+}

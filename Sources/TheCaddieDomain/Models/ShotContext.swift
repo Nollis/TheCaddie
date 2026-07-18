@@ -55,6 +55,48 @@ public enum ShotLie: String, Equatable, Hashable, Sendable {
     case green
 }
 
+public enum NextShotLieResolver {
+    public static func resolve(
+        isLiveDistanceEnabled: Bool,
+        hasFreshFix: Bool,
+        fixMatchesSelectedHole: Bool,
+        inferredLie: ShotLie?
+    ) -> ShotLie? {
+        guard isLiveDistanceEnabled,
+              hasFreshFix,
+              fixMatchesSelectedHole,
+              let inferredLie,
+              inferredLie != .tee else {
+            return nil
+        }
+
+        return inferredLie
+    }
+}
+
+public enum RecordedShotPositionGate {
+    public static func allowsRecording(
+        lastRecordedCoordinate: GeoCoordinate?,
+        currentCoordinate: GeoCoordinate?,
+        lastHorizontalAccuracyM: Double? = nil,
+        currentHorizontalAccuracyM: Double? = nil,
+        minimumMovementM: Double = 3
+    ) -> Bool {
+        guard let lastRecordedCoordinate else {
+            return true
+        }
+        guard let currentCoordinate else {
+            return false
+        }
+
+        let combinedAccuracyM = max(0, lastHorizontalAccuracyM ?? 0)
+            + max(0, currentHorizontalAccuracyM ?? 0)
+        let requiredMovementM = max(minimumMovementM, combinedAccuracyM)
+
+        return lastRecordedCoordinate.distance(to: currentCoordinate) >= requiredMovementM
+    }
+}
+
 public struct WindContext: Equatable, Sendable {
     public let direction: WindDirection
     public let speedMps: Double

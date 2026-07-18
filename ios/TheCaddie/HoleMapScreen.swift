@@ -2,6 +2,11 @@ import MapKit
 import SwiftUI
 
 struct HoleMapScreen: View {
+    private struct RecordedShotFix {
+        let coordinate: GeoCoordinate
+        let horizontalAccuracyM: Double?
+    }
+
     @ObservedObject var viewModel: CaddieViewModel
     let onClose: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
@@ -9,6 +14,14 @@ struct HoleMapScreen: View {
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var customWaypoints: [PlanningWaypoint]?
     @State private var hasCenteredOnLivePosition = false
+    @State private var lieOverride: ShotLie?
+    @State private var showingPuttSelection = false
+    @State private var showingExtendedPuttSelection = false
+    @State private var puttSelectionHoleNumber: Int?
+    @State private var showingManualDistanceEntry = false
+    @State private var manualDistanceText = ""
+    @State private var recordedShotFixByHole: [Int: RecordedShotFix] = [:]
+    @State private var isRecordingMapShot = false
 
     private let accent = Color(red: 0.20, green: 0.82, blue: 0.43)
 
@@ -38,6 +51,21 @@ struct HoleMapScreen: View {
             resetPlanner(recenter: true)
         }
         .onChange(of: viewModel.selectedHoleNumber) { _, _ in
+            lieOverride = nil
+            showingPuttSelection = false
+            showingExtendedPuttSelection = false
+            puttSelectionHoleNumber = nil
+            resetPlanner(recenter: true)
+        }
+        .onChange(of: viewModel.roundSessionID) { _, _ in
+            lieOverride = nil
+            showingPuttSelection = false
+            showingExtendedPuttSelection = false
+            puttSelectionHoleNumber = nil
+            showingManualDistanceEntry = false
+            manualDistanceText = ""
+            recordedShotFixByHole = [:]
+            isRecordingMapShot = false
             resetPlanner(recenter: true)
         }
         .onChange(of: viewModel.liveCoordinate) { _, coordinate in
@@ -50,6 +78,67 @@ struct HoleMapScreen: View {
 
             recenter(on: hole)
             hasCenteredOnLivePosition = true
+        }
+        .confirmationDialog(
+            "How many putts?",
+            isPresented: $showingPuttSelection,
+            titleVisibility: .visible
+        ) {
+            Button("0 · Holed from off green") {
+                finishHole(putts: 0)
+            }
+            ForEach(1...3, id: \.self) { putts in
+                Button("\(putts) \(putts == 1 ? "putt" : "putts")") {
+                    finishHole(putts: putts)
+                }
+            }
+            Button("More…") {
+                showingPuttSelection = false
+                DispatchQueue.main.async {
+                    showingExtendedPuttSelection = true
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This completes Hole \(puttSelectionHoleNumber ?? viewModel.selectedHoleNumber).")
+        }
+        .confirmationDialog(
+            "More putts",
+            isPresented: $showingExtendedPuttSelection,
+            titleVisibility: .visible
+        ) {
+            ForEach(4...GreenCompletionScoring.supportedPutts.upperBound, id: \.self) { putts in
+                Button("\(putts) putts") {
+                    finishHole(putts: putts)
+                }
+            }
+            Button("Back") {
+                showingExtendedPuttSelection = false
+                DispatchQueue.main.async {
+                    showingPuttSelection = true
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This completes Hole \(puttSelectionHoleNumber ?? viewModel.selectedHoleNumber).")
+        }
+        .alert("Distance to green", isPresented: $showingManualDistanceEntry) {
+            TextField("Meters", text: $manualDistanceText)
+                .keyboardType(.decimalPad)
+            Button("Save") {
+                guard let distanceM = Double(manualDistanceText.replacingOccurrences(of: ",", with: ".")),
+                      distanceM > 0 else {
+                    return
+                }
+                viewModel.addDistance(distanceM)
+                viewModel.logDebugEvent("Added manual map distance: \(Int(distanceM.rounded()))m")
+                manualDistanceText = ""
+            }
+            Button("Cancel", role: .cancel) {
+                manualDistanceText = ""
+            }
+        } message: {
+            Text("Enter the current distance so deterministic scoring can continue without GPS.")
         }
     }
 
@@ -78,7 +167,7 @@ struct HoleMapScreen: View {
         MapReader { mapProxy in
             Map(
                 position: $cameraPosition,
-                interactionModes: [.pan, .zoom, .rotate]
+                interactionModes: [.pan, .zoom]
             ) {
                 ForEach(Array(hole.surfaces.enumerated()), id: \.offset) { _, surface in
                     if surface.ring.count >= 3 && shouldDisplaySurface(surface.kind) {
@@ -264,6 +353,7 @@ struct HoleMapScreen: View {
             }
 
             compactPlannerBar()
+            onCourseActionBar()
         }
         .padding(.horizontal, 16)
         .padding(.top, 10)
@@ -348,6 +438,313 @@ struct HoleMapScreen: View {
         )
     }
 
+    private func onCourseActionBar() -> some View {
+        let actionContent = primaryMapActionContent
+
+        HStack(spacing: 10) {
+            Button {
+                viewModel.undoLastScoringAction()
+                viewModel.logDebugEvent("Undid last scoring action from map")
+                lieOverride = nil
+                customWaypoints = nil
+                recordedShotFixByHole[viewModel.selectedHoleNumber] = nil
+            } label: {
+                Image(systemName: "arrow.uturn.backward")
+                    .font(.system(size: 17, weight: .black))
+                    .frame(width: 46, height: 46)
+            }
+            .disabled(!viewModel.canUndoLastScoringAction)
+            .opacity(viewModel.canUndoLastScoringAction ? 1 : 0.35)
+            .accessibilityLabel("Back one shot")
+
+            Button {
+                performPrimaryMapAction()
+            } label: {
+                VStack(spacing: 1) {
+                    Label(actionContent.title, systemImage: actionContent.systemImage)
+                        .font(.system(.subheadline, design: .rounded).weight(.black))
+                    Text(actionContent.subtitle)
+                        .font(.system(.caption2, design: .rounded).weight(.bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 46)
+            }
+            .foregroundStyle(.black)
+            .background(
+                accent.opacity(canPerformPrimaryMapAction ? 1 : 0.42),
+                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            )
+            .disabled(!canPerformPrimaryMapAction)
+
+            Menu {
+                if viewModel.packet.status == .missingDistance {
+                    Section("Fix current shot") {
+                        Button {
+                            showingManualDistanceEntry = true
+                        } label: {
+                            Label("Enter distance", systemImage: "ruler")
+                        }
+                    }
+                }
+
+                if viewModel.packet.status == .missingLie {
+                    Section("Set current lie") {
+                        currentLieButton("Fairway", lie: .fairway, systemImage: "leaf.fill")
+                        currentLieButton("Rough", lie: .rough, systemImage: "circle.dotted")
+                        currentLieButton("Bunker", lie: .bunker, systemImage: "triangle.fill")
+                        currentLieButton("Recovery", lie: .recovery, systemImage: "tree.fill")
+                        currentLieButton("Green", lie: .green, systemImage: "flag.fill")
+                    }
+                }
+
+                if viewModel.canRecordShotResultFromCurrentContext {
+                    Section("Correct next lie") {
+                        lieOverrideButton("Fairway", lie: .fairway, systemImage: "leaf.fill")
+                        lieOverrideButton("Rough", lie: .rough, systemImage: "circle.dotted")
+                        lieOverrideButton("Bunker", lie: .bunker, systemImage: "triangle.fill")
+                        lieOverrideButton("Recovery", lie: .recovery, systemImage: "tree.fill")
+                        lieOverrideButton("Green", lie: .green, systemImage: "flag.fill")
+
+                        if lieOverride != nil {
+                            Button {
+                                lieOverride = nil
+                            } label: {
+                                Label("Use GPS inference", systemImage: "location.fill")
+                            }
+                        }
+                    }
+
+                    Section("Penalty") {
+                        Button {
+                            recordPenaltyDrop()
+                        } label: {
+                            Label("Water", systemImage: "drop.fill")
+                        }
+                        Button {
+                            recordStrokeAndDistancePenalty(label: "Lost ball")
+                        } label: {
+                            Label("Lost ball", systemImage: "questionmark.circle")
+                        }
+                        Button {
+                            recordStrokeAndDistancePenalty(label: "OB")
+                        } label: {
+                            Label("OB", systemImage: "exclamationmark.octagon.fill")
+                        }
+                    }
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 18, weight: .black))
+                    .frame(width: 46, height: 46)
+            }
+            .disabled(!canUseMapScoringActions)
+            .opacity(canUseMapScoringActions ? 1 : 0.35)
+            .accessibilityLabel("Lie correction and penalties")
+        }
+        .foregroundStyle(.white)
+        .padding(8)
+        .background(.black.opacity(0.76), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(.white.opacity(0.14), lineWidth: 1)
+        )
+    }
+
+    private var canUseMapScoringActions: Bool {
+        switch viewModel.viewState.kind {
+        case .ready, .unavailable:
+            return viewModel.canRecordShotResultFromCurrentContext
+        case .missingContext:
+            return viewModel.packet.status == .missingDistance
+                || viewModel.packet.status == .missingLie
+        case .noCourseLoaded, .onGreen, .holeComplete, .roundComplete:
+            return false
+        }
+    }
+
+    private var canPerformPrimaryMapAction: Bool {
+        primaryMapAction != .none && !isRecordingMapShot
+    }
+
+    private var primaryMapAction: OnCourseMapPrimaryAction {
+        OnCourseMapActionResolver.resolve(
+            viewStateKind: viewModel.viewState.kind,
+            remainingDistanceM: viewModel.packet.remainingDistanceM,
+            canRecordShotResult: viewModel.canRecordShotResultFromCurrentContext,
+            hasTrustedLiveFix: viewModel.hasTrustedLiveFixForSelectedHole,
+            hasNewBallPosition: hasNewBallPosition,
+            allowsManualFallback: !viewModel.hasTrustedLiveFixForSelectedHole,
+            inferredLie: viewModel.inferredNextShotLie,
+            lieOverride: lieOverride
+        )
+    }
+
+    private var hasNewBallPosition: Bool {
+        let lastFix = recordedShotFixByHole[viewModel.selectedHoleNumber]
+        return RecordedShotPositionGate.allowsRecording(
+            lastRecordedCoordinate: lastFix?.coordinate,
+            currentCoordinate: viewModel.liveCoordinate,
+            lastHorizontalAccuracyM: lastFix?.horizontalAccuracyM,
+            currentHorizontalAccuracyM: viewModel.liveAccuracyM
+        )
+    }
+
+    private var primaryMapActionContent: (
+        title: String,
+        systemImage: String,
+        subtitle: String
+    ) {
+        switch primaryMapAction {
+        case .choosePutts:
+            return ("Finish hole", "flag.checkered", "Enter putts after holing out")
+        case .nextHole:
+            return ("Next hole", "arrow.right", "Continue to the next tee")
+        case let .recordShot(resultingLie):
+            if let lieOverride {
+                return (
+                    "Next shot",
+                    "figure.golf",
+                    "\(lieOverride.rawValue.capitalized) selected"
+                )
+            }
+            return (
+                "Next shot",
+                "figure.golf",
+                "\(resultingLie.rawValue.capitalized) · GPS inferred"
+            )
+        case .none:
+            if viewModel.viewState.kind == .roundComplete {
+                return ("Round complete", "checkmark.circle.fill", "All holes finished")
+            }
+            if viewModel.viewState.kind == .noCourseLoaded {
+                return ("Next shot", "figure.golf", "Choose a course first")
+            }
+            if viewModel.packet.status == .missingDistance {
+                return ("Next shot", "figure.golf", "Enter the distance in the menu")
+            }
+            if viewModel.packet.status == .missingLie {
+                return ("Next shot", "figure.golf", "Set the current lie in the menu")
+            }
+            if viewModel.hasTrustedLiveFixForSelectedHole && !hasNewBallPosition {
+                return ("Next shot", "figure.golf", "Move to the ball or correct the lie")
+            }
+            let subtitle = viewModel.isUsingLiveDistance
+                ? "Walk to your ball for GPS"
+                : "Start GPS or correct the lie"
+            return ("Next shot", "figure.golf", subtitle)
+        }
+    }
+
+    private func lieOverrideButton(
+        _ title: String,
+        lie: ShotLie,
+        systemImage: String
+    ) -> some View {
+        Button {
+            lieOverride = lie
+        } label: {
+            Label(title, systemImage: systemImage)
+        }
+    }
+
+    private func currentLieButton(
+        _ title: String,
+        lie: ShotLie,
+        systemImage: String
+    ) -> some View {
+        Button {
+            viewModel.markLie(lie)
+            viewModel.logDebugEvent("Set current lie from map: \(title)")
+        } label: {
+            Label(title, systemImage: systemImage)
+        }
+    }
+
+    private func performPrimaryMapAction() {
+        switch primaryMapAction {
+        case .choosePutts:
+            puttSelectionHoleNumber = viewModel.selectedHoleNumber
+            showingPuttSelection = true
+        case .nextHole:
+            viewModel.selectNextOpenHole()
+            lieOverride = nil
+            customWaypoints = nil
+        case let .recordShot(resultingLie):
+            guard !isRecordingMapShot else {
+                return
+            }
+            isRecordingMapShot = true
+            let previousState = viewModel.roundState
+            let source = lieOverride == nil ? "GPS inferred" : "manually corrected"
+            let useLivePosition = viewModel.hasTrustedLiveFixForSelectedHole
+            viewModel.recordShotResult(resultingLie, useLivePosition: useLivePosition)
+            if viewModel.roundState != previousState {
+                if useLivePosition,
+                   let liveCoordinate = viewModel.liveCoordinate {
+                    recordedShotFixByHole[viewModel.selectedHoleNumber] = RecordedShotFix(
+                        coordinate: liveCoordinate,
+                        horizontalAccuracyM: viewModel.liveAccuracyM
+                    )
+                }
+                viewModel.logDebugEvent(
+                    "Recorded next shot from map: \(resultingLie.rawValue.capitalized) (\(source))"
+                )
+            } else {
+                viewModel.logDebugEvent("Next shot from map was not recorded")
+            }
+            lieOverride = nil
+            customWaypoints = nil
+            DispatchQueue.main.async {
+                isRecordingMapShot = false
+            }
+        case .none:
+            break
+        }
+    }
+
+    private func finishHole(putts: Int) {
+        guard puttSelectionHoleNumber == viewModel.selectedHoleNumber,
+              viewModel.viewState.kind == .onGreen else {
+            viewModel.logDebugEvent("Cancelled stale putt entry after hole changed")
+            showingPuttSelection = false
+            showingExtendedPuttSelection = false
+            puttSelectionHoleNumber = nil
+            return
+        }
+
+        viewModel.logDebugEvent("Finished hole from map with \(putts) putts")
+        viewModel.finishHoleFromGreen(putts: putts)
+        puttSelectionHoleNumber = nil
+        lieOverride = nil
+        customWaypoints = nil
+    }
+
+    private func recordPenaltyDrop() {
+        let previousState = viewModel.roundState
+        viewModel.recordPenaltyDrop()
+        viewModel.logDebugEvent(
+            viewModel.roundState == previousState
+                ? "Water penalty from map was not recorded"
+                : "Recorded penalty drop from map: Water"
+        )
+        lieOverride = nil
+        customWaypoints = nil
+    }
+
+    private func recordStrokeAndDistancePenalty(label: String) {
+        let previousState = viewModel.roundState
+        viewModel.recordStrokeAndDistancePenalty()
+        viewModel.logDebugEvent(
+            viewModel.roundState == previousState
+                ? "\(label) penalty from map was not recorded"
+                : "Recorded stroke-and-distance penalty from map: \(label)"
+        )
+        lieOverride = nil
+        customWaypoints = nil
+    }
+
     private var plannerHeadline: String {
         if isCustomPlan {
             return "Compare with \(viewModel.packet.recommendedClub ?? "the recommendation")"
@@ -377,8 +774,9 @@ struct HoleMapScreen: View {
             return hole.green.centerCoordinate
         }
 
-        return HoleProgressInference.coordinate(
-            atProgress: currentProgressM + advanceM,
+        return HoleProgressInference.landingCoordinate(
+            fromProgressM: currentProgressM,
+            carryDistanceM: advanceM,
             on: hole
         )
     }
@@ -556,14 +954,22 @@ struct HoleMapScreen: View {
                 ? [hole.defaultTeeCoordinate, hole.green.centerCoordinate].compactMap { $0 }
                 : hole.centerlineCoordinates)
 
-        guard let region = mapRegion(for: coordinates) else {
+        guard let camera = mapCamera(
+            for: coordinates,
+            toward: hole.green.centerCoordinate,
+            from: planningOrigin(on: hole)
+        ) else {
             cameraPosition = .automatic
             return
         }
-        cameraPosition = .region(region)
+        cameraPosition = .camera(camera)
     }
 
-    private func mapRegion(for coordinates: [GeoCoordinate]) -> MKCoordinateRegion? {
+    private func mapCamera(
+        for coordinates: [GeoCoordinate],
+        toward target: GeoCoordinate?,
+        from origin: GeoCoordinate?
+    ) -> MapCamera? {
         guard !coordinates.isEmpty else {
             return nil
         }
@@ -577,16 +983,35 @@ struct HoleMapScreen: View {
             return nil
         }
 
-        return MKCoordinateRegion(
-            center: CLLocationCoordinate2D(
-                latitude: (minLatitude + maxLatitude) / 2,
-                longitude: (minLongitude + maxLongitude) / 2
-            ),
-            span: MKCoordinateSpan(
-                latitudeDelta: max(0.00065, (maxLatitude - minLatitude) * 1.42),
-                longitudeDelta: max(0.00065, (maxLongitude - minLongitude) * 1.42)
-            )
+        let center = GeoCoordinate(
+            latitude: (minLatitude + maxLatitude) / 2,
+            longitude: (minLongitude + maxLongitude) / 2
         )
+        let farthestDistanceM = coordinates
+            .map { $0.distance(to: center) }
+            .max() ?? 0
+        let heading = (origin.flatMap { origin in
+            target.map { mapHeading(from: origin, to: $0) }
+        }) ?? 0
+
+        return MapCamera(
+            centerCoordinate: center.mapCoordinate,
+            distance: max(400, farthestDistanceM * 4.6),
+            heading: heading,
+            pitch: 0
+        )
+    }
+
+    private func mapHeading(from start: GeoCoordinate, to end: GeoCoordinate) -> CLLocationDirection {
+        let latitude1 = start.latitude * .pi / 180
+        let latitude2 = end.latitude * .pi / 180
+        let longitudeDelta = (end.longitude - start.longitude) * .pi / 180
+        let y = sin(longitudeDelta) * cos(latitude2)
+        let x = cos(latitude1) * sin(latitude2)
+            - sin(latitude1) * cos(latitude2) * cos(longitudeDelta)
+
+        return (atan2(y, x) * 180 / .pi + 360)
+            .truncatingRemainder(dividingBy: 360)
     }
 
     private func compactMapButton(
@@ -711,12 +1136,16 @@ struct HoleMapScreen: View {
                 Image(systemName: "map.fill")
                     .font(.system(size: 42, weight: .bold))
                     .foregroundStyle(accent)
-                Text("Hole map unavailable")
+                Text(viewModel.course == nil ? "Choose a course" : "Hole map unavailable")
                     .font(.system(.title2, design: .rounded).weight(.black))
-                Text("This hole needs a mapped tee and green before the planner can draw a trustworthy line.")
+                Text(
+                    viewModel.course == nil
+                        ? "Start a round before using the on-course caddie."
+                        : "This hole needs a mapped tee and green before the planner can draw a trustworthy line."
+                )
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
-                Button("Close") { closeMap() }
+                Button(onClose == nil ? "Close" : "Choose course") { closeMap() }
                     .buttonStyle(HoleMapPrimaryButtonStyle(color: accent))
             }
             .padding(28)

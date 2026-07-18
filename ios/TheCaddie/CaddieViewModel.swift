@@ -30,6 +30,7 @@ final class CaddieViewModel: ObservableObject {
     @Published private(set) var liveLocationError: String?
     @Published private(set) var autoDetectedHoleNumber: Int?
     @Published private(set) var debugLogEntries: [DebugLogEntry] = []
+    @Published private(set) var roundSessionID = UUID()
     @Published private var liveStatusNow = Date()
 
     private let locationManager: LiveRoundLocationManager
@@ -194,6 +195,18 @@ final class CaddieViewModel: ObservableObject {
         !scoringUndoStates.isEmpty
     }
 
+    var canRecordShotResultFromCurrentContext: Bool {
+        guard case .ready = CurrentShotContext.resolve(
+            course: course,
+            player: player,
+            roundState: roundState
+        ) {
+            return false
+        }
+
+        return (packet.clubCarryDistanceM ?? player.clubs.first?.carryDistanceM ?? 0) > 0
+    }
+
     var liveFixTimestampLabel: String? {
         guard let liveFixTimestamp else {
             return nil
@@ -210,6 +223,28 @@ final class CaddieViewModel: ObservableObject {
         }
 
         return liveInferredLie.rawValue.capitalized
+    }
+
+    var hasTrustedLiveFixForSelectedHole: Bool {
+        guard isUsingLiveDistance,
+              minimumLiveFixTimestamp == nil,
+              let liveFixTimestamp,
+              Date().timeIntervalSince(liveFixTimestamp) <= LiveGPSTiming.freshFixWindowS,
+              let liveCoordinate,
+              let activeHole = course?.hole(number: selectedHoleNumber) else {
+            return false
+        }
+
+        return HoleDetector.fixMatchesHole(fix: liveCoordinate, hole: activeHole)
+    }
+
+    var inferredNextShotLie: ShotLie? {
+        return NextShotLieResolver.resolve(
+            isLiveDistanceEnabled: isUsingLiveDistance,
+            hasFreshFix: hasFreshLiveFix,
+            fixMatchesSelectedHole: hasTrustedLiveFixForSelectedHole,
+            inferredLie: liveInferredLie
+        )
     }
 
     var mappingHoleSummary: String? {
@@ -481,7 +516,7 @@ final class CaddieViewModel: ObservableObject {
         roundState = roundState.updateShotContext(updatedShot)
     }
 
-    func recordShotResult(_ lie: ShotLie) {
+    func recordShotResult(_ lie: ShotLie, useLivePosition: Bool = true) {
         let previousState = roundState
         roundState = roundState.recordShotResult(
             course: course,
@@ -489,7 +524,8 @@ final class CaddieViewModel: ObservableObject {
             resultingLie: lie
         )
 
-        if let liveOverrideShot = liveShotOverride(after: lie) {
+        if useLivePosition,
+           let liveOverrideShot = liveShotOverride(after: lie) {
             roundState = roundState.updateShotContext(liveOverrideShot)
         }
         recordUndoState(previousState)
@@ -629,9 +665,18 @@ final class CaddieViewModel: ObservableObject {
             return
         }
         let shotNumber = roundState.currentShotContext()?.shotNumber ?? 1
-        let finalStrokes = shotNumber + putts - 1
+        guard let finalStrokes = GreenCompletionScoring.totalStrokes(
+            nextShotNumber: shotNumber,
+            putts: putts
+        ) else {
+            return
+        }
         let finalFairwayHit = hole.par > 3 ? true : nil
-        let finalGIR = (finalStrokes - putts) <= (hole.par - 2)
+        let finalGIR = GreenCompletionScoring.isGreenInRegulation(
+            par: hole.par,
+            totalStrokes: finalStrokes,
+            putts: putts
+        )
         
         let previousState = roundState
         roundState = roundState.finishCurrentHole(
@@ -684,8 +729,18 @@ final class CaddieViewModel: ObservableObject {
         autoDetectedHoleNumber = startingHole
         consecutiveHoleMisses = 0
         clearDebugLog()
+        liveDistanceM = nil
+        liveProgressM = nil
+        liveCenterlineOffsetM = nil
+        liveAccuracyM = nil
+        liveCoordinate = nil
+        liveFixTimestamp = nil
+        liveInferredLie = nil
+        liveLocationError = nil
+        liveLocationStatus = "Waiting for current GPS..."
         minimumLiveFixTimestamp = Date()
         enableLiveDistanceIfSupported()
+        roundSessionID = UUID()
     }
     
     func endRound() {
@@ -704,6 +759,7 @@ final class CaddieViewModel: ObservableObject {
         autoDetectedHoleNumber = nil
         consecutiveHoleMisses = 0
         minimumLiveFixTimestamp = nil
+        roundSessionID = UUID()
     }
 
     func updatePlayerHandicap(_ handicap: Double) {

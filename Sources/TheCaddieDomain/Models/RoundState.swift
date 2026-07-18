@@ -1,5 +1,30 @@
 import Foundation
 
+public enum GreenCompletionScoring {
+    public static let supportedPutts = 0...10
+
+    public static func totalStrokes(
+        nextShotNumber: Int,
+        putts: Int
+    ) -> Int? {
+        guard nextShotNumber >= 1,
+              supportedPutts.contains(putts) else {
+            return nil
+        }
+
+        let totalStrokes = nextShotNumber + putts - 1
+        return totalStrokes >= 1 ? totalStrokes : nil
+    }
+
+    public static func isGreenInRegulation(
+        par: Int,
+        totalStrokes: Int,
+        putts: Int
+    ) -> Bool {
+        putts > 0 && (totalStrokes - putts) <= (par - 2)
+    }
+}
+
 public struct RoundState: Equatable, Sendable {
     public let courseId: String
     public let selectedHoleNumber: Int

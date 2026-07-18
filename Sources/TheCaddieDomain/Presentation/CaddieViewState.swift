@@ -265,6 +265,46 @@ public struct CaddieViewState: Equatable, Sendable {
     }
 }
 
+public enum OnCourseMapPrimaryAction: Equatable, Sendable {
+    case recordShot(ShotLie)
+    case choosePutts
+    case nextHole
+    case none
+}
+
+public enum OnCourseMapActionResolver {
+    public static func resolve(
+        viewStateKind: CaddieViewState.Kind,
+        remainingDistanceM: Double?,
+        canRecordShotResult: Bool,
+        hasTrustedLiveFix: Bool,
+        hasNewBallPosition: Bool,
+        allowsManualFallback: Bool,
+        inferredLie: ShotLie?,
+        lieOverride: ShotLie?
+    ) -> OnCourseMapPrimaryAction {
+        switch viewStateKind {
+        case .onGreen:
+            return .choosePutts
+        case .holeComplete:
+            return .nextHole
+        case .ready, .missingContext, .unavailable:
+            let canUseTrustedPosition = hasTrustedLiveFix
+                && (hasNewBallPosition || lieOverride != nil)
+            let canUseManualFallback = allowsManualFallback && lieOverride != nil
+            guard remainingDistanceM != nil,
+                  canRecordShotResult,
+                  canUseTrustedPosition || canUseManualFallback,
+                  let resultingLie = lieOverride ?? inferredLie else {
+                return .none
+            }
+            return .recordShot(resultingLie)
+        case .noCourseLoaded, .roundComplete:
+            return .none
+        }
+    }
+}
+
 private func formatMeters(_ value: Double) -> String {
     if value.rounded() == value {
         return String(Int(value))

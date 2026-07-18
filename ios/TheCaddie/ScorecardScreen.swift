@@ -345,7 +345,11 @@ struct ScorecardScreen: View {
                                 .foregroundColor(.secondary)
                         }
                         Spacer()
-                        Stepper("\(editStrokes)", value: $editStrokes, in: 1...15)
+                        Stepper(
+                            "\(editStrokes)",
+                            value: $editStrokes,
+                            in: 1...max(30, editStrokes)
+                        )
                             .labelsHidden()
                         Text("\(editStrokes)")
                             .font(.system(.title3, design: .rounded).weight(.bold))
@@ -362,7 +366,11 @@ struct ScorecardScreen: View {
                                 .foregroundColor(.secondary)
                         }
                         Spacer()
-                        Stepper("\(editPutts)", value: $editPutts, in: 0...10)
+                        Stepper(
+                            "\(editPutts)",
+                            value: $editPutts,
+                            in: GreenCompletionScoring.supportedPutts
+                        )
                             .labelsHidden()
                         Text("\(editPutts)")
                             .font(.system(.title3, design: .rounded).weight(.bold))

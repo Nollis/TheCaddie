@@ -243,6 +243,25 @@ private func coordinatesMatch(
     #expect(rejectedDiagnostic.summary.contains("outside capture"))
 }
 
+@Test func holeDetectorAcceptsFairwayFixesAlongTheMappedCenterline() throws {
+    let holeOne = try #require(KungsbackaNyaCourse.course.hole(number: 1))
+    let fairwayFix = GeoCoordinate(
+        latitude: 57.491888,
+        longitude: 11.991555
+    )
+
+    let centerlineSample = try #require(
+        HoleProgressInference.sample(fix: fairwayFix, on: holeOne)
+    )
+    let diagnostic = try #require(
+        HoleDetector.captureDiagnostic(fix: fairwayFix, hole: holeOne)
+    )
+
+    #expect(centerlineSample.distanceFromCenterlineM < 40)
+    #expect(diagnostic.matchesHole)
+    #expect(diagnostic.matchedArea == .corridor)
+}
+
 @Test func holeLieInferenceRecognizesMappedTeeGreenAndBunkerLies() throws {
     let hole1 = try #require(KungsbackaNyaCourse.course.hole(number: 1))
 
@@ -360,6 +379,43 @@ private func coordinatesMatch(
     #expect(start.distance(to: tee) < 0.1)
     #expect(beyondGreen.distance(to: green) < 0.1)
     #expect(abs(landingSample.progressM - 220) < 1)
+}
+
+@Test func landingCoordinateSnapsToTheActualGreenAfterReachingIt() throws {
+    let hole = try #require(KungsbackaNyaCourse.course.hole(number: 2))
+    let green = try #require(hole.green.centerCoordinate)
+    let landing = try #require(
+        HoleProgressInference.landingCoordinate(
+            fromProgressM: 110,
+            carryDistanceM: 60,
+            on: hole
+        )
+    )
+
+    #expect(landing.distance(to: green) < 0.1)
+}
+
+@Test func landingCoordinateAdvancesNormallyAndIgnoresNonpositiveCarry() throws {
+    let hole = try #require(KungsbackaNyaCourse.course.hole(number: 1))
+    let landing = try #require(
+        HoleProgressInference.landingCoordinate(
+            fromProgressM: 80,
+            carryDistanceM: 140,
+            on: hole
+        )
+    )
+    let unchanged = try #require(
+        HoleProgressInference.landingCoordinate(
+            fromProgressM: 80,
+            carryDistanceM: 0,
+            on: hole
+        )
+    )
+    let landingSample = try #require(HoleProgressInference.sample(fix: landing, on: hole))
+    let unchangedSample = try #require(HoleProgressInference.sample(fix: unchanged, on: hole))
+
+    #expect(abs(landingSample.progressM - 220) < 1)
+    #expect(abs(unchangedSample.progressM - 80) < 1)
 }
 
 @Test func kungsbackaOpeningPacketsStayAlignedWithSelectedHoleScorecardData() {

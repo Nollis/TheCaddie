@@ -2,6 +2,52 @@ import Foundation
 import Testing
 import TheCaddieDomain
 
+@Test func greenCompletionScoringSupportsChipInsAndLongPuttingHoles() {
+    #expect(GreenCompletionScoring.totalStrokes(
+        nextShotNumber: 4,
+        putts: 0
+    ) == 3)
+    #expect(GreenCompletionScoring.totalStrokes(
+        nextShotNumber: 3,
+        putts: 2
+    ) == 4)
+    #expect(GreenCompletionScoring.totalStrokes(
+        nextShotNumber: 3,
+        putts: 10
+    ) == 12)
+    #expect(GreenCompletionScoring.totalStrokes(
+        nextShotNumber: 3,
+        putts: 11
+    ) == nil)
+    #expect(GreenCompletionScoring.totalStrokes(
+        nextShotNumber: 1,
+        putts: 0
+    ) == nil)
+    #expect(GreenCompletionScoring.totalStrokes(
+        nextShotNumber: 0,
+        putts: 1
+    ) == nil)
+    #expect(GreenCompletionScoring.totalStrokes(
+        nextShotNumber: 2,
+        putts: -1
+    ) == nil)
+    #expect(!GreenCompletionScoring.isGreenInRegulation(
+        par: 4,
+        totalStrokes: 2,
+        putts: 0
+    ))
+    #expect(GreenCompletionScoring.isGreenInRegulation(
+        par: 4,
+        totalStrokes: 4,
+        putts: 2
+    ))
+    #expect(!GreenCompletionScoring.isGreenInRegulation(
+        par: 4,
+        totalStrokes: 5,
+        putts: 2
+    ))
+}
+
 @Test func courseHoleCarriesOptionalFairwayContext() {
     let hole = CourseHole(
         number: 1,
@@ -88,6 +134,85 @@ import TheCaddieDomain
     #expect(shot.remainingDistanceM.value == 142)
     #expect(shot.lie.value == nil)
     #expect(!shot.isReadyForRecommendation)
+}
+
+@Test func nextShotLieResolverRequiresATrustedNonTeeGPSLie() {
+    #expect(NextShotLieResolver.resolve(
+        isLiveDistanceEnabled: true,
+        hasFreshFix: true,
+        fixMatchesSelectedHole: true,
+        inferredLie: .fairway
+    ) == .fairway)
+    #expect(NextShotLieResolver.resolve(
+        isLiveDistanceEnabled: false,
+        hasFreshFix: true,
+        fixMatchesSelectedHole: true,
+        inferredLie: .fairway
+    ) == nil)
+    #expect(NextShotLieResolver.resolve(
+        isLiveDistanceEnabled: true,
+        hasFreshFix: false,
+        fixMatchesSelectedHole: true,
+        inferredLie: .fairway
+    ) == nil)
+    #expect(NextShotLieResolver.resolve(
+        isLiveDistanceEnabled: true,
+        hasFreshFix: true,
+        fixMatchesSelectedHole: false,
+        inferredLie: .fairway
+    ) == nil)
+    #expect(NextShotLieResolver.resolve(
+        isLiveDistanceEnabled: true,
+        hasFreshFix: true,
+        fixMatchesSelectedHole: true,
+        inferredLie: .tee
+    ) == nil)
+    #expect(NextShotLieResolver.resolve(
+        isLiveDistanceEnabled: true,
+        hasFreshFix: true,
+        fixMatchesSelectedHole: true,
+        inferredLie: nil
+    ) == nil)
+}
+
+@Test func recordedShotPositionGateRequiresThreeMetersOfMovement() {
+    let origin = GeoCoordinate(latitude: 57.500000, longitude: 12.000000)
+    let justUnderThreeMeters = GeoCoordinate(latitude: 57.500026, longitude: 12.000000)
+    let exactlyThreeMeters = GeoCoordinate(
+        latitude: 57.500000 + (3 / 111_320),
+        longitude: 12.000000
+    )
+
+    #expect(RecordedShotPositionGate.allowsRecording(
+        lastRecordedCoordinate: nil,
+        currentCoordinate: nil
+    ))
+    #expect(!RecordedShotPositionGate.allowsRecording(
+        lastRecordedCoordinate: origin,
+        currentCoordinate: nil
+    ))
+    #expect(!RecordedShotPositionGate.allowsRecording(
+        lastRecordedCoordinate: origin,
+        currentCoordinate: justUnderThreeMeters
+    ))
+    #expect(RecordedShotPositionGate.allowsRecording(
+        lastRecordedCoordinate: origin,
+        currentCoordinate: exactlyThreeMeters,
+        minimumMovementM: origin.distance(to: exactlyThreeMeters)
+    ))
+    #expect(!RecordedShotPositionGate.allowsRecording(
+        lastRecordedCoordinate: origin,
+        currentCoordinate: exactlyThreeMeters,
+        lastHorizontalAccuracyM: 2,
+        currentHorizontalAccuracyM: 2
+    ))
+    #expect(RecordedShotPositionGate.allowsRecording(
+        lastRecordedCoordinate: origin,
+        currentCoordinate: exactlyThreeMeters,
+        lastHorizontalAccuracyM: 1,
+        currentHorizontalAccuracyM: 2,
+        minimumMovementM: 0
+    ))
 }
 
 @Test func unknownHoleDoesNotCrashCurrentShotResolution() {

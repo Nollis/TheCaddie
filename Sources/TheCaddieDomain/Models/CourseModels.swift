@@ -228,7 +228,7 @@ public struct HoleCaptureDiagnostic: Equatable, Sendable {
             return "matched \(matchedArea.rawValue) at \(Int(distanceM.rounded()))m"
         }
 
-        return "outside capture: tee \(Int(teeDistanceM.rounded()))m > 55m, green \(Int(greenDistanceM.rounded()))m > 45m, direct corridor \(Int(corridorDistanceM.rounded()))m > 40m"
+        return "outside capture: tee \(Int(teeDistanceM.rounded()))m > 55m, green \(Int(greenDistanceM.rounded()))m > 45m, centerline \(Int(corridorDistanceM.rounded()))m > 40m"
     }
 }
 
@@ -336,8 +336,16 @@ public enum HoleDetector {
 
         let teeDistanceM = tee.distance(to: fix)
         let greenDistanceM = green.distance(to: fix)
-        let projection = GeoSegmentMath.project(fix, ontoSegmentFrom: tee, to: green)
-        let minimumRelevantDistanceM = min(teeDistanceM, greenDistanceM, projection.corridorDistanceM)
+        let corridorDistanceM = HoleProgressInference.sample(
+            fix: fix,
+            on: hole
+        )?.distanceFromCenterlineM
+            ?? GeoSegmentMath.project(
+                fix,
+                ontoSegmentFrom: tee,
+                to: green
+            ).corridorDistanceM
+        let minimumRelevantDistanceM = min(teeDistanceM, greenDistanceM, corridorDistanceM)
 
         let score: Double
         if teeDistanceM <= teeCaptureRadiusM {
@@ -345,7 +353,7 @@ public enum HoleDetector {
         } else if greenDistanceM <= greenCaptureRadiusM {
             score = greenDistanceM
         } else {
-            score = projection.corridorDistanceM + (projection.overshootDistanceM * 1.5)
+            score = corridorDistanceM
         }
 
         return HoleDetectionCandidate(
@@ -353,7 +361,7 @@ public enum HoleDetector {
             score: score,
             teeDistanceM: teeDistanceM,
             greenDistanceM: greenDistanceM,
-            corridorDistanceM: projection.corridorDistanceM,
+            corridorDistanceM: corridorDistanceM,
             minimumRelevantDistanceM: minimumRelevantDistanceM
         )
     }
@@ -461,6 +469,25 @@ public enum HoleProgressInference {
         }
 
         return centerline.last
+    }
+
+    public static func landingCoordinate(
+        fromProgressM progressM: Double,
+        carryDistanceM: Double,
+        on hole: CourseHole
+    ) -> GeoCoordinate? {
+        guard carryDistanceM > 0,
+              let start = coordinate(atProgress: progressM, on: hole),
+              let sample = sample(fix: start, on: hole) else {
+            return coordinate(atProgress: progressM, on: hole)
+        }
+
+        if carryDistanceM >= sample.remainingCenterlineM,
+           let green = hole.green.centerCoordinate {
+            return green
+        }
+
+        return coordinate(atProgress: progressM + carryDistanceM, on: hole)
     }
 
     public static func sample(
