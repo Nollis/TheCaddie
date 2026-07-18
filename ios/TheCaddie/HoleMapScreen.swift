@@ -441,7 +441,7 @@ struct HoleMapScreen: View {
     private func onCourseActionBar() -> some View {
         let actionContent = primaryMapActionContent
 
-        HStack(spacing: 10) {
+        return HStack(spacing: 10) {
             Button {
                 viewModel.undoLastScoringAction()
                 viewModel.logDebugEvent("Undid last scoring action from map")
