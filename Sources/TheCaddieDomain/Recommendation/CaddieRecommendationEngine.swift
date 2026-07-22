@@ -81,7 +81,7 @@ public enum CaddieRecommendationEngine {
                 hole: hole,
                 player: player,
                 shot: shot,
-                reason: "On the green. Finish the hole from here.",
+                reason: "Finish the hole when ready.",
                 confidence: .low
             )
         }
@@ -93,7 +93,7 @@ public enum CaddieRecommendationEngine {
                 hole: hole,
                 player: player,
                 shot: shot,
-                reason: "At the green. Finish the hole from here.",
+                reason: "Finish the hole when ready.",
                 confidence: .low
             )
         }

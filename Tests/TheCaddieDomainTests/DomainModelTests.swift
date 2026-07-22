@@ -215,6 +215,108 @@ import TheCaddieDomain
     ))
 }
 
+@Test func liveShotFixGateRequiresPreciseCurrentHoleFixForScoring() {
+    #expect(LiveShotFixGate.isTrusted(
+        isLiveDistanceEnabled: true,
+        isWaitingForCurrentFix: false,
+        fixAgeS: 2,
+        horizontalAccuracyM: 4.4,
+        fixMatchesSelectedHole: true
+    ))
+    #expect(LiveShotFixGate.isTrusted(
+        isLiveDistanceEnabled: true,
+        isWaitingForCurrentFix: false,
+        fixAgeS: 15,
+        horizontalAccuracyM: 12,
+        fixMatchesSelectedHole: true
+    ))
+    #expect(!LiveShotFixGate.isTrusted(
+        isLiveDistanceEnabled: false,
+        isWaitingForCurrentFix: false,
+        fixAgeS: 2,
+        horizontalAccuracyM: 4.4,
+        fixMatchesSelectedHole: true
+    ))
+    #expect(!LiveShotFixGate.isTrusted(
+        isLiveDistanceEnabled: true,
+        isWaitingForCurrentFix: false,
+        fixAgeS: nil,
+        horizontalAccuracyM: 4.4,
+        fixMatchesSelectedHole: true
+    ))
+    #expect(!LiveShotFixGate.isTrusted(
+        isLiveDistanceEnabled: true,
+        isWaitingForCurrentFix: false,
+        fixAgeS: -0.1,
+        horizontalAccuracyM: 4.4,
+        fixMatchesSelectedHole: true
+    ))
+    #expect(!LiveShotFixGate.isTrusted(
+        isLiveDistanceEnabled: true,
+        isWaitingForCurrentFix: false,
+        fixAgeS: 15.1,
+        horizontalAccuracyM: 4.4,
+        fixMatchesSelectedHole: true
+    ))
+    #expect(!LiveShotFixGate.isTrusted(
+        isLiveDistanceEnabled: true,
+        isWaitingForCurrentFix: false,
+        fixAgeS: 2,
+        horizontalAccuracyM: nil,
+        fixMatchesSelectedHole: true
+    ))
+    #expect(!LiveShotFixGate.isTrusted(
+        isLiveDistanceEnabled: true,
+        isWaitingForCurrentFix: false,
+        fixAgeS: 2,
+        horizontalAccuracyM: -0.1,
+        fixMatchesSelectedHole: true
+    ))
+    #expect(!LiveShotFixGate.isTrusted(
+        isLiveDistanceEnabled: true,
+        isWaitingForCurrentFix: false,
+        fixAgeS: 2,
+        horizontalAccuracyM: 12.1,
+        fixMatchesSelectedHole: true
+    ))
+    #expect(!LiveShotFixGate.isTrusted(
+        isLiveDistanceEnabled: true,
+        isWaitingForCurrentFix: false,
+        fixAgeS: 2,
+        horizontalAccuracyM: 13.3,
+        fixMatchesSelectedHole: true
+    ))
+    #expect(!LiveShotFixGate.isTrusted(
+        isLiveDistanceEnabled: true,
+        isWaitingForCurrentFix: false,
+        fixAgeS: 2,
+        horizontalAccuracyM: 4.4,
+        fixMatchesSelectedHole: false
+    ))
+    #expect(!LiveShotFixGate.isTrusted(
+        isLiveDistanceEnabled: true,
+        isWaitingForCurrentFix: true,
+        fixAgeS: 2,
+        horizontalAccuracyM: 4.4,
+        fixMatchesSelectedHole: true
+    ))
+}
+
+@Test func scoringUndoScopeDoesNotCrossHoleBoundary() {
+    #expect(ScoringUndoScope.canUndo(
+        lastActionHoleNumber: 2,
+        selectedHoleNumber: 2
+    ))
+    #expect(!ScoringUndoScope.canUndo(
+        lastActionHoleNumber: 1,
+        selectedHoleNumber: 2
+    ))
+    #expect(!ScoringUndoScope.canUndo(
+        lastActionHoleNumber: nil,
+        selectedHoleNumber: 2
+    ))
+}
+
 @Test func unknownHoleDoesNotCrashCurrentShotResolution() {
     let roundState = SampleRound.roundState.selectHole(99)
     let context = CurrentShotContext.resolve(
@@ -538,6 +640,38 @@ import TheCaddieDomain
     #expect(greenShot.lie.value == .green)
     #expect(finishedRound.isHoleComplete(1))
     #expect(finishedRound.selectedHoleNumber == 2)
+}
+
+@Test func manualGreenCompletionSupportsAZeroPuttChipIn() throws {
+    let finishedRound = SampleRound.roundState.finishCurrentHoleFromGreen(
+        course: SampleRound.course,
+        putts: 0,
+        recordGreenArrivalIfNeeded: true
+    )
+
+    let score = try #require(finishedRound.holeScores[1])
+
+    #expect(score.strokes == 2)
+    #expect(score.putts == 0)
+    #expect(!score.greenInRegulation)
+    #expect(finishedRound.isHoleComplete(1))
+    #expect(finishedRound.selectedHoleNumber == 2)
+}
+
+@Test func zeroPuttsCannotRemoveAConfirmedGreenArrivalStroke() {
+    let onGreenRound = SampleRound.roundState.recordShotResult(
+        course: SampleRound.course,
+        player: SampleRound.player,
+        resultingLie: .green
+    )
+    let attemptedFinish = onGreenRound.finishCurrentHoleFromGreen(
+        course: SampleRound.course,
+        putts: 0,
+        recordGreenArrivalIfNeeded: true
+    )
+
+    #expect(attemptedFinish == onGreenRound)
+    #expect(!attemptedFinish.isHoleComplete(1))
 }
 
 @Test func greenCompletionDoesNotRecordAnApproachTwice() throws {

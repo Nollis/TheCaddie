@@ -212,6 +212,11 @@ public struct RoundState: Equatable, Sendable {
             return self
         }
 
+        let startedOnGreen = currentShotContext()?.lie.value == .green
+        guard putts > 0 || !startedOnGreen else {
+            return self
+        }
+
         var scoringState = self
         if scoringState.currentShotContext()?.lie.value != .green,
            recordGreenArrivalIfNeeded {
@@ -315,6 +320,15 @@ public struct RoundState: Equatable, Sendable {
             completedHoleNumbers: completed,
             holeScores: updatedScores
         )
+    }
+}
+
+public enum ScoringUndoScope {
+    public static func canUndo(
+        lastActionHoleNumber: Int?,
+        selectedHoleNumber: Int
+    ) -> Bool {
+        lastActionHoleNumber == selectedHoleNumber
     }
 }
 

@@ -154,8 +154,9 @@ import TheCaddieDomain
     )
 
     #expect(viewState.kind == .onGreen)
-    #expect(viewState.title == "Putt it out")
-    #expect(viewState.distanceLabel == "On green")
+    #expect(viewState.title == "Finish the hole")
+    #expect(viewState.subtitle == "Enter putts after holing out.")
+    #expect(viewState.distanceLabel == "Putting")
     #expect(viewState.quickActions == [
         .init(kind: .holed, label: "Holed")
     ])
@@ -338,6 +339,16 @@ import TheCaddieDomain
         lieOverride: nil
     ) == .choosePutts)
     #expect(OnCourseMapActionResolver.resolve(
+        viewStateKind: .onGreen,
+        remainingDistanceM: 0,
+        canRecordShotResult: true,
+        hasTrustedLiveFix: true,
+        hasNewBallPosition: false,
+        allowsManualFallback: false,
+        inferredLie: .green,
+        lieOverride: .rough
+    ) == .recordShot(.rough))
+    #expect(OnCourseMapActionResolver.resolve(
         viewStateKind: .holeComplete,
         remainingDistanceM: nil,
         canRecordShotResult: false,
@@ -383,4 +394,53 @@ import TheCaddieDomain
         lieOverride: .rough,
         hasPendingGreenArrival: true
     ) == .recordShot(.rough))
+}
+
+@Test func automaticGreenSuggestionDoesNotPersistAfterTheGolferLeaves() {
+    #expect(GreenArrivalPresentation.shouldPresent(
+        isHoleComplete: false,
+        currentLie: .fairway,
+        hasConfirmedGreenArrival: false,
+        hasTrustedLiveFix: true,
+        inferredLiveLie: .green,
+        isAutomaticSuggestionDismissed: false
+    ))
+
+    #expect(!GreenArrivalPresentation.shouldPresent(
+        isHoleComplete: false,
+        currentLie: .fairway,
+        hasConfirmedGreenArrival: false,
+        hasTrustedLiveFix: true,
+        inferredLiveLie: .rough,
+        isAutomaticSuggestionDismissed: false
+    ))
+}
+
+@Test func confirmedGreenArrivalPersistsUntilThePlayerClearsOrFinishesIt() {
+    #expect(GreenArrivalPresentation.shouldPresent(
+        isHoleComplete: false,
+        currentLie: .fairway,
+        hasConfirmedGreenArrival: true,
+        hasTrustedLiveFix: false,
+        inferredLiveLie: .rough,
+        isAutomaticSuggestionDismissed: false
+    ))
+
+    #expect(!GreenArrivalPresentation.shouldPresent(
+        isHoleComplete: false,
+        currentLie: .fairway,
+        hasConfirmedGreenArrival: false,
+        hasTrustedLiveFix: true,
+        inferredLiveLie: .green,
+        isAutomaticSuggestionDismissed: true
+    ))
+
+    #expect(GreenArrivalPresentation.shouldPresent(
+        isHoleComplete: false,
+        currentLie: .green,
+        hasConfirmedGreenArrival: false,
+        hasTrustedLiveFix: true,
+        inferredLiveLie: .green,
+        isAutomaticSuggestionDismissed: true
+    ))
 }

@@ -91,8 +91,10 @@ struct HoleMapScreen: View {
             isPresented: $showingPuttSelection,
             titleVisibility: .visible
         ) {
-            Button("0 · Holed from off green") {
-                finishHole(putts: 0)
+            if viewModel.canFinishSelectedHoleWithZeroPutts {
+                Button("0 · Holed out from off green") {
+                    finishHole(putts: 0)
+                }
             }
             ForEach(1...3, id: \.self) { putts in
                 Button("\(putts) \(putts == 1 ? "putt" : "putts")") {
@@ -105,7 +107,9 @@ struct HoleMapScreen: View {
                     showingExtendedPuttSelection = true
                 }
             }
-            Button("Cancel", role: .cancel) {}
+            Button("Cancel", role: .cancel) {
+                puttSelectionHoleNumber = nil
+            }
         } message: {
             Text("This completes Hole \(puttSelectionHoleNumber ?? viewModel.selectedHoleNumber).")
         }
@@ -125,7 +129,9 @@ struct HoleMapScreen: View {
                     showingPuttSelection = true
                 }
             }
-            Button("Cancel", role: .cancel) {}
+            Button("Cancel", role: .cancel) {
+                puttSelectionHoleNumber = nil
+            }
         } message: {
             Text("This completes Hole \(puttSelectionHoleNumber ?? viewModel.selectedHoleNumber).")
         }
@@ -455,10 +461,16 @@ struct HoleMapScreen: View {
     private func onCourseActionBar() -> some View {
         let actionContent = primaryMapActionContent
 
-        return HStack(spacing: 10) {
+        return VStack(spacing: 8) {
+            HStack(spacing: 10) {
             Button {
-                viewModel.undoLastScoringAction()
-                viewModel.logDebugEvent("Undid last scoring action from map")
+                let holeNumber = viewModel.selectedHoleNumber
+                if viewModel.undoLastScoringAction() {
+                    viewModel.logDebugEvent(
+                        "Undid last scoring action from map",
+                        holeNumber: holeNumber
+                    )
+                }
                 lieOverride = nil
                 customWaypoints = nil
                 recordedShotFixByHole[viewModel.selectedHoleNumber] = nil
@@ -492,7 +504,7 @@ struct HoleMapScreen: View {
             )
             .disabled(!canPerformPrimaryMapAction)
 
-            Menu {
+                Menu {
                 if viewModel.packet.status == .missingDistance {
                     Section("Fix current shot") {
                         Button {
@@ -549,6 +561,24 @@ struct HoleMapScreen: View {
                     }
                 }
 
+                if viewModel.canManuallyFinishSelectedHole {
+                    Section("Hole scoring") {
+                        Button {
+                            beginGreenCompletion(source: "manual map action")
+                        } label: {
+                            Label("Finish hole…", systemImage: "flag.checkered")
+                        }
+
+                        if viewModel.canKeepPlayingAfterGreenSuggestion {
+                            Button {
+                                keepPlayingAfterGreenSuggestion()
+                            } label: {
+                                Label("Keep playing", systemImage: "figure.golf")
+                            }
+                        }
+                    }
+                }
+
                 Section("Round log") {
                     Button {
                         showingDebugLog = true
@@ -559,12 +589,28 @@ struct HoleMapScreen: View {
                         Label("Share log", systemImage: "square.and.arrow.up")
                     }
                 }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 18, weight: .black))
-                    .frame(width: 46, height: 46)
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 18, weight: .black))
+                        .frame(width: 46, height: 46)
+                }
+                .accessibilityLabel("More actions")
             }
-            .accessibilityLabel("More actions")
+
+            if viewModel.canKeepPlayingAfterGreenSuggestion {
+                Button {
+                    keepPlayingAfterGreenSuggestion()
+                } label: {
+                    Label("Keep playing", systemImage: "figure.golf")
+                        .font(.system(.subheadline, design: .rounded).weight(.black))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 40)
+                }
+                .background(
+                    .white.opacity(0.12),
+                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                )
+            }
         }
         .foregroundStyle(.white)
         .padding(8)
@@ -610,10 +656,15 @@ struct HoleMapScreen: View {
     ) {
         switch primaryMapAction {
         case .choosePutts:
-            let subtitle = viewModel.viewState.kind == .onGreen
-                ? "Enter putts after holing out"
-                : "Green reached · enter putts"
-            return ("Finish hole", "flag.checkered", subtitle)
+            let subtitle: String
+            if viewModel.hasPendingGreenArrivalForSelectedHole {
+                subtitle = "Enter putts after holing out"
+            } else if viewModel.hasAutomaticGreenSuggestionForSelectedHole {
+                subtitle = "Near the green · tap when ready"
+            } else {
+                subtitle = "Enter putts after holing out"
+            }
+            return ("Finish hole…", "flag.checkered", subtitle)
         case .nextHole:
             return ("Next hole", "arrow.right", "Continue to the next tee")
         case let .recordShot(resultingLie):
@@ -644,6 +695,15 @@ struct HoleMapScreen: View {
             }
             if viewModel.hasTrustedLiveFixForSelectedHole && !hasNewBallPosition {
                 return ("Next shot", "figure.golf", "Move to the ball or correct the lie")
+            }
+            if viewModel.hasFreshLiveFix,
+               let accuracyM = viewModel.liveAccuracyM,
+               accuracyM > LiveShotFixGate.maximumHorizontalAccuracyM {
+                return (
+                    "Next shot",
+                    "figure.golf",
+                    "Waiting for precise GPS (±\(Int(accuracyM.rounded())) m)"
+                )
             }
             let subtitle = viewModel.isUsingLiveDistance
                 ? "Walk to your ball for GPS"
@@ -680,8 +740,11 @@ struct HoleMapScreen: View {
     private func performPrimaryMapAction() {
         switch primaryMapAction {
         case .choosePutts:
-            puttSelectionHoleNumber = viewModel.selectedHoleNumber
-            showingPuttSelection = true
+            beginGreenCompletion(
+                source: viewModel.hasAutomaticGreenSuggestionForSelectedHole
+                    ? "GPS suggestion"
+                    : "map action"
+            )
         case .nextHole:
             viewModel.selectNextOpenHole()
             lieOverride = nil
@@ -720,8 +783,9 @@ struct HoleMapScreen: View {
     }
 
     private func finishHole(putts: Int) {
-        guard puttSelectionHoleNumber == viewModel.selectedHoleNumber,
-              viewModel.canFinishSelectedHoleFromGreen else {
+        guard let holeNumber = puttSelectionHoleNumber,
+              holeNumber == viewModel.selectedHoleNumber,
+              viewModel.canManuallyFinishSelectedHole else {
             viewModel.logDebugEvent("Cancelled stale putt entry after hole changed")
             showingPuttSelection = false
             showingExtendedPuttSelection = false
@@ -729,11 +793,38 @@ struct HoleMapScreen: View {
             return
         }
 
-        viewModel.logDebugEvent("Finished hole from map with \(putts) putts")
-        viewModel.finishHoleFromGreen(putts: putts)
+        let didFinish = viewModel.finishHoleFromGreen(putts: putts)
+        viewModel.logDebugEvent(
+            didFinish
+                ? "Finished hole from map with \(putts) putts"
+                : "Finish hole from map was not recorded",
+            holeNumber: holeNumber
+        )
         puttSelectionHoleNumber = nil
         lieOverride = nil
         customWaypoints = nil
+    }
+
+    private func beginGreenCompletion(source: String) {
+        guard viewModel.canManuallyFinishSelectedHole else {
+            return
+        }
+
+        let holeNumber = viewModel.selectedHoleNumber
+        viewModel.logDebugEvent(
+            "Opened finish-hole scoring (\(source))",
+            holeNumber: holeNumber
+        )
+        puttSelectionHoleNumber = holeNumber
+        showingPuttSelection = true
+    }
+
+    private func keepPlayingAfterGreenSuggestion() {
+        viewModel.keepPlayingAfterGreenSuggestion()
+        viewModel.logDebugEvent("Dismissed GPS green suggestion; continuing hole")
+        showingPuttSelection = false
+        showingExtendedPuttSelection = false
+        puttSelectionHoleNumber = nil
     }
 
     private func recordPenaltyDrop() {

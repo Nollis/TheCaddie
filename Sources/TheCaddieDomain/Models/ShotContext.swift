@@ -74,6 +74,33 @@ public enum NextShotLieResolver {
     }
 }
 
+public enum LiveShotFixGate {
+    public static let maximumHorizontalAccuracyM = 12.0
+
+    public static func isTrusted(
+        isLiveDistanceEnabled: Bool,
+        isWaitingForCurrentFix: Bool,
+        fixAgeS: Double?,
+        horizontalAccuracyM: Double?,
+        fixMatchesSelectedHole: Bool,
+        maximumFixAgeS: Double = 15.0
+    ) -> Bool {
+        guard isLiveDistanceEnabled,
+              !isWaitingForCurrentFix,
+              let fixAgeS,
+              fixAgeS >= 0,
+              fixAgeS <= maximumFixAgeS,
+              let horizontalAccuracyM,
+              horizontalAccuracyM >= 0,
+              horizontalAccuracyM <= maximumHorizontalAccuracyM,
+              fixMatchesSelectedHole else {
+            return false
+        }
+
+        return true
+    }
+}
+
 public enum RecordedShotPositionGate {
     public static func allowsRecording(
         lastRecordedCoordinate: GeoCoordinate?,

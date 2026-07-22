@@ -15,8 +15,10 @@ private enum LiveGPSQuality {
 @MainActor
 final class CaddieViewModel: ObservableObject {
     private struct ScoringUndoState {
+        let holeNumber: Int
         let roundState: RoundState
         let pendingGreenArrivalHoleNumbers: Set<Int>
+        let dismissedAutomaticGreenHoleNumbers: Set<Int>
     }
 
     @Published private(set) var course: Course?
@@ -37,6 +39,7 @@ final class CaddieViewModel: ObservableObject {
     @Published private(set) var debugLogEntries: [DebugLogEntry] = []
     @Published private(set) var roundSessionID = UUID()
     @Published private(set) var pendingGreenArrivalHoleNumbers: Set<Int> = []
+    @Published private(set) var dismissedAutomaticGreenHoleNumbers: Set<Int> = []
     @Published private var liveStatusNow = Date()
 
     private let locationManager: LiveRoundLocationManager
@@ -66,11 +69,51 @@ final class CaddieViewModel: ObservableObject {
     }
 
     var packet: CaddieRecommendationPacket {
-        CaddieRecommendationEngine.build(
+        let packet = CaddieRecommendationEngine.build(
             course: course,
             player: player,
-            roundState: roundState
+            roundState: recommendationRoundState
         )
+        guard dismissedAutomaticGreenHoleNumbers.contains(selectedHoleNumber),
+              liveInferredLie == .green,
+              roundState.currentShotContext()?.lie.value != .green else {
+            return packet
+        }
+
+        return CaddieRecommendationPacket(
+            status: .unavailable,
+            courseId: packet.courseId,
+            holeNumber: packet.holeNumber,
+            par: packet.par,
+            shotNumber: packet.shotNumber,
+            remainingDistanceM: packet.remainingDistanceM,
+            lie: roundState.currentShotContext()?.lie.value,
+            strategyPreference: player.strategyPreference,
+            shotIntent: nil,
+            target: nil,
+            recommendedClub: nil,
+            clubCarryDistanceM: nil,
+            distanceBasisM: packet.distanceBasisM,
+            expectedDispersionM: nil,
+            primaryReason: "Green suggestion dismissed. Continue to your ball or set the lie manually.",
+            riskNote: nil,
+            confidence: .low
+        )
+    }
+
+    private var recommendationRoundState: RoundState {
+        guard shouldPresentGreenCompletion,
+              let currentShot = roundState.currentShotContext() else {
+            return roundState
+        }
+
+        return roundState.updateShotContext(ShotContext(
+            shotNumber: currentShot.shotNumber,
+            remainingDistanceM: .known(0),
+            lie: .known(.green),
+            wind: currentShot.wind,
+            progressM: course?.hole(number: selectedHoleNumber)?.teeLengthM
+        ))
     }
 
     var viewState: CaddieViewState {
@@ -198,16 +241,50 @@ final class CaddieViewModel: ObservableObject {
     }
 
     var canUndoLastScoringAction: Bool {
-        !scoringUndoStates.isEmpty
+        ScoringUndoScope.canUndo(
+            lastActionHoleNumber: scoringUndoStates.last?.holeNumber,
+            selectedHoleNumber: selectedHoleNumber
+        )
     }
 
     var hasPendingGreenArrivalForSelectedHole: Bool {
         pendingGreenArrivalHoleNumbers.contains(selectedHoleNumber)
     }
 
-    var canFinishSelectedHoleFromGreen: Bool {
-        hasPendingGreenArrivalForSelectedHole
-            || roundState.currentShotContext()?.lie.value == .green
+    var shouldPresentGreenCompletion: Bool {
+        GreenArrivalPresentation.shouldPresent(
+            isHoleComplete: roundState.isHoleComplete(selectedHoleNumber),
+            currentLie: roundState.currentShotContext()?.lie.value,
+            hasConfirmedGreenArrival: hasPendingGreenArrivalForSelectedHole,
+            hasTrustedLiveFix: hasTrustedLiveFixForSelectedHole,
+            inferredLiveLie: liveInferredLie,
+            isAutomaticSuggestionDismissed: dismissedAutomaticGreenHoleNumbers.contains(selectedHoleNumber)
+        )
+    }
+
+    var hasAutomaticGreenSuggestionForSelectedHole: Bool {
+        !roundState.isHoleComplete(selectedHoleNumber)
+            && roundState.currentShotContext()?.lie.value != .green
+            && !hasPendingGreenArrivalForSelectedHole
+            && hasTrustedLiveFixForSelectedHole
+            && liveInferredLie == .green
+            && !dismissedAutomaticGreenHoleNumbers.contains(selectedHoleNumber)
+    }
+
+    var canKeepPlayingAfterGreenSuggestion: Bool {
+        hasAutomaticGreenSuggestionForSelectedHole
+    }
+
+    var canManuallyFinishSelectedHole: Bool {
+        course?.hole(number: selectedHoleNumber) != nil
+            && roundState.currentShotContext() != nil
+            && !roundState.isHoleComplete(selectedHoleNumber)
+    }
+
+    var canFinishSelectedHoleWithZeroPutts: Bool {
+        canManuallyFinishSelectedHole
+            && roundState.currentShotContext()?.lie.value != .green
+            && !hasPendingGreenArrivalForSelectedHole
     }
 
     var canRecordShotResultFromCurrentContext: Bool {
@@ -241,19 +318,33 @@ final class CaddieViewModel: ObservableObject {
     }
 
     var hasTrustedLiveFixForSelectedHole: Bool {
-        guard isUsingLiveDistance,
-              minimumLiveFixTimestamp == nil,
-              let liveFixTimestamp,
-              Date().timeIntervalSince(liveFixTimestamp) <= LiveGPSTiming.freshFixWindowS,
-              let liveCoordinate,
-              let activeHole = course?.hole(number: selectedHoleNumber) else {
-            return false
+        let fixMatchesSelectedHole: Bool
+        if let liveCoordinate,
+           let activeHole = course?.hole(number: selectedHoleNumber) {
+            fixMatchesSelectedHole = HoleDetector.fixMatchesHole(
+                fix: liveCoordinate,
+                hole: activeHole
+            )
+        } else {
+            fixMatchesSelectedHole = false
         }
 
-        return HoleDetector.fixMatchesHole(fix: liveCoordinate, hole: activeHole)
+        return LiveShotFixGate.isTrusted(
+            isLiveDistanceEnabled: isUsingLiveDistance,
+            isWaitingForCurrentFix: minimumLiveFixTimestamp != nil,
+            fixAgeS: liveFixTimestamp.map { Date().timeIntervalSince($0) },
+            horizontalAccuracyM: liveAccuracyM,
+            fixMatchesSelectedHole: fixMatchesSelectedHole,
+            maximumFixAgeS: LiveGPSTiming.freshFixWindowS
+        )
     }
 
     var inferredNextShotLie: ShotLie? {
+        if dismissedAutomaticGreenHoleNumbers.contains(selectedHoleNumber),
+           liveInferredLie == .green {
+            return nil
+        }
+
         return NextShotLieResolver.resolve(
             isLiveDistanceEnabled: isUsingLiveDistance,
             hasFreshFix: hasFreshLiveFix,
@@ -399,6 +490,22 @@ final class CaddieViewModel: ObservableObject {
         if let scoreSummary = debugScoreSummary {
             lines.append("Score Summary: \(scoreSummary)")
         }
+        if let course, !roundState.holeScores.isEmpty {
+            lines.append("")
+            lines.append("Hole Scores")
+            for hole in course.holes {
+                guard let score = roundState.holeScores[hole.number] else {
+                    continue
+                }
+                let difference = score.strokes - hole.par
+                let differenceText = difference == 0
+                    ? "E"
+                    : (difference > 0 ? "+\(difference)" : "\(difference)")
+                lines.append(
+                    "H\(hole.number) | \(score.strokes) (\(differenceText)) | \(score.putts) putts | GIR \(score.greenInRegulation ? "yes" : "no")"
+                )
+            }
+        }
 
         if let debugInfo = packet.debugInfo {
             lines.append("")
@@ -530,13 +637,21 @@ final class CaddieViewModel: ObservableObject {
         )
         roundState = roundState.updateShotContext(updatedShot)
         if lie != .green {
-            setPendingGreenArrival(false, for: selectedHoleNumber)
+            keepPlayingAfterGreenSuggestion()
+        } else {
+            dismissedAutomaticGreenHoleNumbers.remove(selectedHoleNumber)
         }
+    }
+
+    func keepPlayingAfterGreenSuggestion() {
+        setPendingGreenArrival(false, for: selectedHoleNumber)
+        dismissedAutomaticGreenHoleNumbers.insert(selectedHoleNumber)
     }
 
     func recordShotResult(_ lie: ShotLie, useLivePosition: Bool = true) {
         let previousState = roundState
         let previousPendingGreenArrivals = pendingGreenArrivalHoleNumbers
+        let previousDismissedGreenSuggestions = dismissedAutomaticGreenHoleNumbers
         roundState = roundState.recordShotResult(
             course: course,
             player: player,
@@ -549,16 +664,24 @@ final class CaddieViewModel: ObservableObject {
         }
         if roundState != previousState {
             setPendingGreenArrival(lie == .green, for: selectedHoleNumber)
+            if lie == .green {
+                dismissedAutomaticGreenHoleNumbers.remove(selectedHoleNumber)
+            } else if liveInferredLie == .green {
+                dismissedAutomaticGreenHoleNumbers.insert(selectedHoleNumber)
+            }
         }
         recordUndoState(
             previousState,
-            pendingGreenArrivals: previousPendingGreenArrivals
+            holeNumber: selectedHoleNumber,
+            pendingGreenArrivals: previousPendingGreenArrivals,
+            dismissedGreenSuggestions: previousDismissedGreenSuggestions
         )
     }
 
     func recordPenaltyDrop() {
         let previousState = roundState
         let previousPendingGreenArrivals = pendingGreenArrivalHoleNumbers
+        let previousDismissedGreenSuggestions = dismissedAutomaticGreenHoleNumbers
         roundState = roundState.recordPenaltyDrop(
             course: course,
             player: player
@@ -569,33 +692,51 @@ final class CaddieViewModel: ObservableObject {
         }
         if roundState != previousState {
             setPendingGreenArrival(false, for: selectedHoleNumber)
+            if liveInferredLie == .green {
+                dismissedAutomaticGreenHoleNumbers.insert(selectedHoleNumber)
+            }
         }
         recordUndoState(
             previousState,
-            pendingGreenArrivals: previousPendingGreenArrivals
+            holeNumber: selectedHoleNumber,
+            pendingGreenArrivals: previousPendingGreenArrivals,
+            dismissedGreenSuggestions: previousDismissedGreenSuggestions
         )
     }
 
     func recordStrokeAndDistancePenalty() {
         let previousState = roundState
         let previousPendingGreenArrivals = pendingGreenArrivalHoleNumbers
+        let previousDismissedGreenSuggestions = dismissedAutomaticGreenHoleNumbers
         roundState = roundState.recordStrokeAndDistancePenalty()
         if roundState != previousState {
             setPendingGreenArrival(false, for: selectedHoleNumber)
+            if liveInferredLie == .green {
+                dismissedAutomaticGreenHoleNumbers.insert(selectedHoleNumber)
+            }
         }
         recordUndoState(
             previousState,
-            pendingGreenArrivals: previousPendingGreenArrivals
+            holeNumber: selectedHoleNumber,
+            pendingGreenArrivals: previousPendingGreenArrivals,
+            dismissedGreenSuggestions: previousDismissedGreenSuggestions
         )
     }
 
-    func undoLastScoringAction() {
-        guard let previousState = scoringUndoStates.popLast() else {
-            return
+    @discardableResult
+    func undoLastScoringAction() -> Bool {
+        guard ScoringUndoScope.canUndo(
+            lastActionHoleNumber: scoringUndoStates.last?.holeNumber,
+            selectedHoleNumber: selectedHoleNumber
+        ),
+              let previousState = scoringUndoStates.popLast() else {
+            return false
         }
 
         roundState = previousState.roundState
         pendingGreenArrivalHoleNumbers = previousState.pendingGreenArrivalHoleNumbers
+        dismissedAutomaticGreenHoleNumbers = previousState.dismissedAutomaticGreenHoleNumbers
+        return true
     }
 
     func recordQuickAction(_ action: CaddieViewState.QuickAction.Kind) {
@@ -696,41 +837,53 @@ final class CaddieViewModel: ObservableObject {
         let holeNumber = selectedHoleNumber
         let previousState = roundState
         let previousPendingGreenArrivals = pendingGreenArrivalHoleNumbers
+        let previousDismissedGreenSuggestions = dismissedAutomaticGreenHoleNumbers
         let updatedState = roundState.finishCurrentHole(course: course)
         guard updatedState != roundState else {
             return
         }
         roundState = updatedState
         setPendingGreenArrival(false, for: holeNumber)
+        dismissedAutomaticGreenHoleNumbers.remove(holeNumber)
         recordUndoState(
             previousState,
-            pendingGreenArrivals: previousPendingGreenArrivals
+            holeNumber: holeNumber,
+            pendingGreenArrivals: previousPendingGreenArrivals,
+            dismissedGreenSuggestions: previousDismissedGreenSuggestions
         )
         syncLiveDistanceIfNeeded(allowCachedFix: false)
     }
 
-    func finishHoleFromGreen(putts: Int) {
-        guard let course else {
-            return
+    @discardableResult
+    func finishHoleFromGreen(putts: Int) -> Bool {
+        guard let course,
+              canManuallyFinishSelectedHole,
+              putts != 0 || canFinishSelectedHoleWithZeroPutts else {
+            return false
         }
         let holeNumber = selectedHoleNumber
         let previousState = roundState
         let previousPendingGreenArrivals = pendingGreenArrivalHoleNumbers
+        let previousDismissedGreenSuggestions = dismissedAutomaticGreenHoleNumbers
         let updatedState = roundState.finishCurrentHoleFromGreen(
             course: course,
             putts: putts,
-            recordGreenArrivalIfNeeded: hasPendingGreenArrivalForSelectedHole
+            recordGreenArrivalIfNeeded: true
         )
         guard updatedState != roundState else {
-            return
+            return false
         }
         roundState = updatedState
         setPendingGreenArrival(false, for: holeNumber)
+        dismissedAutomaticGreenHoleNumbers.remove(holeNumber)
         recordUndoState(
             previousState,
-            pendingGreenArrivals: previousPendingGreenArrivals
+            holeNumber: holeNumber,
+            pendingGreenArrivals: previousPendingGreenArrivals,
+            dismissedGreenSuggestions: previousDismissedGreenSuggestions
         )
         syncLiveDistanceIfNeeded(allowCachedFix: false)
+        return true
     }
 
     func selectNextOpenHole() {
@@ -757,6 +910,7 @@ final class CaddieViewModel: ObservableObject {
         self.course = course
         scoringUndoStates = []
         pendingGreenArrivalHoleNumbers = []
+        dismissedAutomaticGreenHoleNumbers = []
         self.roundState = RoundState(
             courseId: course.id,
             selectedHoleNumber: startingHole,
@@ -804,6 +958,7 @@ final class CaddieViewModel: ObservableObject {
         consecutiveHoleMisses = 0
         minimumLiveFixTimestamp = nil
         pendingGreenArrivalHoleNumbers = []
+        dismissedAutomaticGreenHoleNumbers = []
         roundSessionID = UUID()
     }
 
@@ -885,10 +1040,18 @@ final class CaddieViewModel: ObservableObject {
             holeScores: updatedScores
         )
         syncLiveDistanceIfNeeded()
+        logDebugEvent(
+            "Updated scorecard: \(strokes) strokes, \(putts) putts",
+            holeNumber: holeNumber
+        )
     }
 
-    func logDebugEvent(_ action: String) {
-        appendDebugEntry(action: action, eventType: .userAction)
+    func logDebugEvent(_ action: String, holeNumber: Int? = nil) {
+        appendDebugEntry(
+            action: action,
+            eventType: .userAction,
+            holeNumber: holeNumber
+        )
     }
 
     private func resolvedShotContext() -> ShotContext {
@@ -1031,18 +1194,29 @@ final class CaddieViewModel: ObservableObject {
     private func appendDebugEntry(
         action: String,
         eventType: DebugLogEventType,
+        holeNumber: Int? = nil,
         coordinate: GeoCoordinate? = nil,
         accuracyM: Double? = nil,
         captureSummary: String? = nil,
         timestamp: Date = Date()
     ) {
-        let packet = packet
+        let entryHoleNumber = holeNumber ?? selectedHoleNumber
+        let entryRoundState = entryHoleNumber == selectedHoleNumber
+            ? recommendationRoundState
+            : roundState.selectHole(entryHoleNumber)
+        let packet = entryHoleNumber == selectedHoleNumber
+            ? self.packet
+            : CaddieRecommendationEngine.build(
+                course: course,
+                player: player,
+                roundState: entryRoundState
+            )
         let entry = DebugLogEntry(
             timestamp: timestamp,
             eventType: eventType,
-            holeNumber: selectedHoleNumber,
+            holeNumber: entryHoleNumber,
             detectedHoleNumber: autoDetectedHoleNumber,
-            shotNumber: packet.shotNumber ?? roundState.currentShotContext()?.shotNumber,
+            shotNumber: packet.shotNumber ?? entryRoundState.currentShotContext()?.shotNumber,
             action: action,
             packetDistanceM: packet.remainingDistanceM,
             adjustedBasisM: packet.distanceBasisM,
@@ -1075,16 +1249,21 @@ final class CaddieViewModel: ObservableObject {
 
     private func recordUndoState(
         _ previousState: RoundState,
-        pendingGreenArrivals: Set<Int>
+        holeNumber: Int,
+        pendingGreenArrivals: Set<Int>,
+        dismissedGreenSuggestions: Set<Int>
     ) {
         guard roundState != previousState
-                || pendingGreenArrivalHoleNumbers != pendingGreenArrivals else {
+                || pendingGreenArrivalHoleNumbers != pendingGreenArrivals
+                || dismissedAutomaticGreenHoleNumbers != dismissedGreenSuggestions else {
             return
         }
 
         scoringUndoStates.append(ScoringUndoState(
+            holeNumber: holeNumber,
             roundState: previousState,
-            pendingGreenArrivalHoleNumbers: pendingGreenArrivals
+            pendingGreenArrivalHoleNumbers: pendingGreenArrivals,
+            dismissedAutomaticGreenHoleNumbers: dismissedGreenSuggestions
         ))
         if scoringUndoStates.count > 20 {
             scoringUndoStates.removeFirst()
@@ -1111,7 +1290,7 @@ final class CaddieViewModel: ObservableObject {
     }
 
     private func liveShotOverride(after resultingLie: ShotLie) -> ShotContext? {
-        guard isUsingLiveDistance,
+        guard hasTrustedLiveFixForSelectedHole,
               let currentShot = roundState.currentShotContext(),
               let liveFixTimestamp,
               Date().timeIntervalSince(liveFixTimestamp) <= LiveGPSTiming.shotOverrideWindowS else {
@@ -1194,6 +1373,7 @@ final class CaddieViewModel: ObservableObject {
             liveProgressM = nil
             liveCenterlineOffsetM = progressSample?.distanceFromCenterlineM
             liveInferredLie = nil
+            dismissedAutomaticGreenHoleNumbers.remove(selectedHoleNumber)
             liveLocationStatus = "GPS fix is outside Hole \(selectedHoleNumber)"
             appendDebugEntry(
                 action: "GPS update ignored outside active hole",
@@ -1232,10 +1412,18 @@ final class CaddieViewModel: ObservableObject {
             fix: fix.coordinate,
             on: activeHole
         )
+        let previousInferredLie = liveInferredLie
         liveInferredLie = inferredLie
-        if inferredLie == .green,
-           setPendingGreenArrival(true, for: selectedHoleNumber) {
-            logDebugEvent("Green arrival detected; awaiting putts")
+        if inferredLie != .green {
+            dismissedAutomaticGreenHoleNumbers.remove(selectedHoleNumber)
+        } else if previousInferredLie != .green {
+            appendDebugEntry(
+                action: "GPS entered green area; player confirmation required",
+                eventType: .userAction,
+                coordinate: fix.coordinate,
+                accuracyM: fix.horizontalAccuracyM,
+                timestamp: fix.timestamp
+            )
         }
 
         let updatedShot = ShotContext(
@@ -1681,7 +1869,7 @@ struct DebugLogEntry: Codable, Identifiable, Equatable {
         if let captureSummary {
             context.append("capture \(captureSummary)")
         }
-        if eventType == .gpsUpdate, let accuracyM {
+        if let accuracyM {
             context.append("accuracy ±\(formatDebugNumber(accuracyM))m")
         }
         if let lie {

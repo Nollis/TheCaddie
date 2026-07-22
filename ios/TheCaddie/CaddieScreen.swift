@@ -7,7 +7,9 @@ struct CaddieScreen: View {
     
     @State private var showDebugDrawer = false
     @State private var showHoleMap = false
-    @State private var puttCount = 2
+    @State private var showingPuttSelection = false
+    @State private var showingExtendedPuttSelection = false
+    @State private var puttSelectionHoleNumber: Int?
     @State private var debugCopyConfirmation: String?
 
     init(
@@ -64,6 +66,61 @@ struct CaddieScreen: View {
         }
         .fullScreenCover(isPresented: $showHoleMap) {
             HoleMapScreen(viewModel: viewModel)
+        }
+        .onChange(of: viewModel.selectedHoleNumber) { _, _ in
+            resetPuttSelection()
+        }
+        .onChange(of: viewModel.roundSessionID) { _, _ in
+            resetPuttSelection()
+        }
+        .confirmationDialog(
+            "How many putts?",
+            isPresented: $showingPuttSelection,
+            titleVisibility: .visible
+        ) {
+            if viewModel.canFinishSelectedHoleWithZeroPutts {
+                Button("0 · Holed out from off green") {
+                    finishHole(putts: 0)
+                }
+            }
+            ForEach(1...3, id: \.self) { putts in
+                Button("\(putts) \(putts == 1 ? "putt" : "putts")") {
+                    finishHole(putts: putts)
+                }
+            }
+            Button("More…") {
+                showingPuttSelection = false
+                DispatchQueue.main.async {
+                    showingExtendedPuttSelection = true
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                puttSelectionHoleNumber = nil
+            }
+        } message: {
+            Text("This completes Hole \(puttSelectionHoleNumber ?? viewModel.selectedHoleNumber).")
+        }
+        .confirmationDialog(
+            "More putts",
+            isPresented: $showingExtendedPuttSelection,
+            titleVisibility: .visible
+        ) {
+            ForEach(4...GreenCompletionScoring.supportedPutts.upperBound, id: \.self) { putts in
+                Button("\(putts) putts") {
+                    finishHole(putts: putts)
+                }
+            }
+            Button("Back") {
+                showingExtendedPuttSelection = false
+                DispatchQueue.main.async {
+                    showingPuttSelection = true
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                puttSelectionHoleNumber = nil
+            }
+        } message: {
+            Text("This completes Hole \(puttSelectionHoleNumber ?? viewModel.selectedHoleNumber).")
         }
     }
 
@@ -163,7 +220,9 @@ struct CaddieScreen: View {
     }
 
     private func recommendationCard(_ viewState: CaddieViewState) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
+        let isAutomaticGreenSuggestion = viewModel.hasAutomaticGreenSuggestionForSelectedHole
+
+        return VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .center, spacing: 12) {
                 Text(viewState.holeLabel)
                     .font(.system(.headline, design: .rounded).weight(.bold))
@@ -171,7 +230,7 @@ struct CaddieScreen: View {
 
                 Spacer()
 
-                Text(viewState.distanceLabel)
+                Text(isAutomaticGreenSuggestion ? "GPS nearby" : viewState.distanceLabel)
                     .font(.system(.subheadline, design: .rounded).weight(.bold))
                     .foregroundStyle(Color(red: 0.05, green: 0.38, blue: 0.19))
                     .padding(.horizontal, 12)
@@ -179,19 +238,23 @@ struct CaddieScreen: View {
                     .background(Color.black.opacity(0.05), in: Capsule())
             }
 
-            Text(statusEyebrow(for: viewState.kind))
+            Text(isAutomaticGreenSuggestion ? "GPS suggestion" : statusEyebrow(for: viewState.kind))
                 .font(.system(.caption, design: .rounded).weight(.black))
                 .tracking(1.1)
                 .textCase(.uppercase)
                 .foregroundStyle(statusColor(for: viewState.kind))
 
-            Text(viewState.title)
+            Text(isAutomaticGreenSuggestion ? "Near the green" : viewState.title)
                 .font(.system(size: 44, weight: .black, design: .rounded))
                 .foregroundStyle(.black)
                 .minimumScaleFactor(0.72)
                 .lineLimit(3)
 
-            Text(viewState.subtitle)
+            Text(
+                isAutomaticGreenSuggestion
+                    ? "Ready to finish this hole?"
+                    : viewState.subtitle
+            )
                 .font(.system(.title3, design: .rounded).weight(.semibold))
                 .foregroundStyle(.secondary)
                 .lineSpacing(3)
@@ -239,50 +302,38 @@ struct CaddieScreen: View {
     private func quickUpdates(_ viewState: CaddieViewState) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             if viewState.kind == .onGreen {
-                Text("Finish the hole")
+                Text(viewModel.hasAutomaticGreenSuggestionForSelectedHole ? "Near the green" : "Finish the hole")
                     .font(.system(.title3, design: .rounded).weight(.black))
                     .foregroundStyle(.black)
-                
-                HStack(spacing: 12) {
-                    // Putt Stepper
-                    HStack(spacing: 12) {
-                        Button(action: {
-                            if puttCount > 1 {
-                                puttCount -= 1
-                                logAction("Adjusted putt count to \(puttCount)")
-                            }
-                        }) {
-                            Image(systemName: "minus.circle.fill")
-                                .font(.title2)
-                                .foregroundColor(Color(red: 0.06, green: 0.56, blue: 0.24))
-                        }
-                        
-                        Text("\(puttCount) Putts")
-                            .font(.system(.headline, design: .rounded).bold())
-                            .frame(width: 80)
-                        
-                        Button(action: {
-                            if puttCount < 6 {
-                                puttCount += 1
-                                logAction("Adjusted putt count to \(puttCount)")
-                            }
-                        }) {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.title2)
-                                .foregroundColor(Color(red: 0.06, green: 0.56, blue: 0.24))
-                        }
+
+                Text(
+                    viewModel.hasAutomaticGreenSuggestionForSelectedHole
+                        ? "Ready to finish this hole?"
+                        : "Enter your putts after holing out."
+                )
+                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                .foregroundStyle(.secondary)
+
+                Button("Finish hole…") {
+                    beginHoleCompletion(
+                        source: viewModel.hasAutomaticGreenSuggestionForSelectedHole
+                            ? "GPS suggestion"
+                            : "green state"
+                    )
+                }
+                .buttonStyle(CaddiePrimaryButtonStyle())
+
+                if viewModel.canKeepPlayingAfterGreenSuggestion {
+                    Button {
+                        viewModel.keepPlayingAfterGreenSuggestion()
+                        resetPuttSelection()
+                        logAction("Dismissed GPS green suggestion; continuing hole")
+                    } label: {
+                        Label("Keep playing", systemImage: "figure.golf")
+                            .font(.system(.subheadline, design: .rounded).weight(.bold))
+                            .frame(maxWidth: .infinity)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Color.white.opacity(0.86))
-                    .cornerRadius(20)
-                    
-                    Button("Save & Finish") {
-                        logAction("Finished hole with \(puttCount) putts.")
-                        viewModel.finishHoleFromGreen(putts: puttCount)
-                        puttCount = 2 // Reset default for next hole
-                    }
-                    .buttonStyle(CaddiePrimaryButtonStyle())
+                    .buttonStyle(CaddiePillButtonStyle())
                 }
             } else {
                 Text(quickUpdateTitle(for: viewState))
@@ -299,12 +350,25 @@ struct CaddieScreen: View {
                 }
                 .opacity(viewState.quickActions.isEmpty ? 0.35 : 1)
                 .disabled(viewState.quickActions.isEmpty)
+
+                if viewModel.canManuallyFinishSelectedHole {
+                    Button {
+                        beginHoleCompletion(source: "manual caddie action")
+                    } label: {
+                        Label("Finish hole…", systemImage: "flag.checkered")
+                            .font(.system(.subheadline, design: .rounded).weight(.bold))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(CaddiePillButtonStyle())
+                }
             }
 
             if viewModel.canUndoLastScoringAction {
                 Button {
-                    viewModel.undoLastScoringAction()
-                    logAction("Undid last scoring action")
+                    let holeNumber = viewModel.selectedHoleNumber
+                    if viewModel.undoLastScoringAction() {
+                        logAction("Undid last scoring action", holeNumber: holeNumber)
+                    }
                 } label: {
                     Label("Undo last score action", systemImage: "arrow.uturn.backward")
                         .font(.system(.subheadline, design: .rounded).weight(.bold))
@@ -871,8 +935,47 @@ struct CaddieScreen: View {
         }
     }
 
-    private func logAction(_ action: String) {
-        viewModel.logDebugEvent(action)
+    private func logAction(_ action: String, holeNumber: Int? = nil) {
+        viewModel.logDebugEvent(action, holeNumber: holeNumber)
+    }
+
+    private func beginHoleCompletion(source: String) {
+        guard viewModel.canManuallyFinishSelectedHole else {
+            return
+        }
+
+        let holeNumber = viewModel.selectedHoleNumber
+        puttSelectionHoleNumber = holeNumber
+        showingPuttSelection = true
+        logAction(
+            "Opened finish-hole scoring (\(source))",
+            holeNumber: holeNumber
+        )
+    }
+
+    private func finishHole(putts: Int) {
+        guard let holeNumber = puttSelectionHoleNumber,
+              holeNumber == viewModel.selectedHoleNumber,
+              viewModel.canManuallyFinishSelectedHole else {
+            logAction("Cancelled stale putt entry after hole changed")
+            resetPuttSelection()
+            return
+        }
+
+        let didFinish = viewModel.finishHoleFromGreen(putts: putts)
+        logAction(
+            didFinish
+                ? "Finished hole with \(putts) putts."
+                : "Finish hole was not recorded.",
+            holeNumber: holeNumber
+        )
+        resetPuttSelection()
+    }
+
+    private func resetPuttSelection() {
+        showingPuttSelection = false
+        showingExtendedPuttSelection = false
+        puttSelectionHoleNumber = nil
     }
 
     private func copyDebugReport() {
@@ -908,7 +1011,7 @@ struct CaddieScreen: View {
         case .unavailable:
             return "Unavailable"
         case .onGreen:
-            return "On the green"
+            return "Hole scoring"
         case .holeComplete:
             return "Hole finished"
         case .roundComplete:

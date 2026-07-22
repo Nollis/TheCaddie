@@ -589,7 +589,7 @@ private func teePacket(
     #expect(packet.recommendedClub == nil)
     #expect(packet.shotIntent == nil)
     #expect(packet.distanceBasisM == 1)
-    #expect(packet.primaryReason == "At the green. Finish the hole from here.")
+    #expect(packet.primaryReason == "Finish the hole when ready.")
 }
 
 @Test func noSuitableClubReturnsUnavailablePacket() {

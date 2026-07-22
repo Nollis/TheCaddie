@@ -103,12 +103,12 @@ public struct CaddieViewState: Equatable, Sendable {
             if currentLie(for: packet, roundState: roundState) == .green {
                 return CaddieViewState(
                     kind: .onGreen,
-                    title: "Putt it out",
-                    subtitle: "You're on the green. Finish the hole from here.",
+                    title: "Finish the hole",
+                    subtitle: "Enter putts after holing out.",
                     noteText: nil,
                     holeLabel: holeLabel(for: packet, roundState: roundState, course: course),
                     shotLabel: shotLabel(for: packet, roundState: roundState),
-                    distanceLabel: "On green",
+                    distanceLabel: "Putting",
                     primaryActionLabel: nil,
                     quickActions: [.init(kind: .holed, label: "Holed")]
                 )
@@ -272,6 +272,28 @@ public enum OnCourseMapPrimaryAction: Equatable, Sendable {
     case none
 }
 
+public enum GreenArrivalPresentation {
+    public static func shouldPresent(
+        isHoleComplete: Bool,
+        currentLie: ShotLie?,
+        hasConfirmedGreenArrival: Bool,
+        hasTrustedLiveFix: Bool,
+        inferredLiveLie: ShotLie?,
+        isAutomaticSuggestionDismissed: Bool
+    ) -> Bool {
+        guard !isHoleComplete else {
+            return false
+        }
+        if currentLie == .green || hasConfirmedGreenArrival {
+            return true
+        }
+
+        return hasTrustedLiveFix
+            && inferredLiveLie == .green
+            && !isAutomaticSuggestionDismissed
+    }
+}
+
 public enum OnCourseMapActionResolver {
     public static func resolve(
         viewStateKind: CaddieViewState.Kind,
@@ -295,6 +317,9 @@ public enum OnCourseMapActionResolver {
 
         switch viewStateKind {
         case .onGreen:
+            if let lieOverride {
+                return .recordShot(lieOverride)
+            }
             return .choosePutts
         case .holeComplete:
             return .nextHole
