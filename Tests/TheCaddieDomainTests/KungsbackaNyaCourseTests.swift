@@ -144,6 +144,28 @@ private func coordinatesMatch(
     ])
 }
 
+@Test func kungsbackaHoleNineIncludesMappedGreensideBunker() throws {
+    let hole9 = try #require(KungsbackaNyaCourse.course.hole(number: 9))
+    let bunker = try #require(hole9.hazards.first { $0.id == "h9-bunker-right-282" })
+    let bunkerCenter = GeoCoordinate(
+        latitude: 57.492656894,
+        longitude: 11.986202782
+    )
+
+    #expect(bunker == Hazard(
+        id: "h9-bunker-right-282",
+        kind: .bunker,
+        position: "right 282m",
+        note: "Right bunker guards the approach to the green.",
+        coordinate: bunkerCenter,
+        progressM: 281.86,
+        side: .right,
+        lateralOffsetM: 7.84
+    ))
+    #expect(hole9.surfaces.contains { $0.kind == .bunker })
+    #expect(HoleLieInference.inferLie(fix: bunkerCenter, on: hole9) == .bunker)
+}
+
 @Test func kungsbackaNyaCourseCarriesGreenCenterCoordinatesFromBundle() throws {
     let hole1 = try #require(KungsbackaNyaCourse.course.hole(number: 1))
     let hole8 = try #require(KungsbackaNyaCourse.course.hole(number: 8))

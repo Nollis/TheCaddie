@@ -130,6 +130,7 @@ public enum KungsbackaNyaCourse {
                 fairway: FairwayContext(landingWidthM: 30, drivingZoneEndM: 215),
                 surfaces: KungsbackaNyaSurfaceData.surfaces(for: 9),
                 hazards: [
+                    hazard("h9-bunker-right-282", .bunker, "right 282m", "Right bunker guards the approach to the green.", coordinate: GeoCoordinate(latitude: 57.492656894, longitude: 11.986202782), progressM: 281.86, side: .right, lateralOffsetM: 7.84),
                     hazard("h9-water-right-106", .water, "right 106m", "Water right affects the tee corridor.", progressM: 105.57, side: .right, lateralOffsetM: 30.42),
                     hazard("h9-water-left-298", .water, "left 298m", "Water left is the expensive miss deeper in the hole.", progressM: 298.3, side: .left, lateralOffsetM: 20.97)
                 ]
