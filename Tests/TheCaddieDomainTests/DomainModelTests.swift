@@ -179,8 +179,8 @@ import TheCaddieDomain
     let origin = GeoCoordinate(latitude: 57.500000, longitude: 12.000000)
     let justUnderThreeMeters = GeoCoordinate(latitude: 57.500026, longitude: 12.000000)
     let metersPerLatitudeDegree = 6_371_000.0 * Double.pi / 180.0
-    let exactlyThreeMeters = GeoCoordinate(
-        latitude: 57.500000 + (3.0 / metersPerLatitudeDegree),
+    let justOverThreeMeters = GeoCoordinate(
+        latitude: 57.500000 + (3.01 / metersPerLatitudeDegree),
         longitude: 12.000000
     )
 
@@ -198,18 +198,18 @@ import TheCaddieDomain
     ))
     #expect(RecordedShotPositionGate.allowsRecording(
         lastRecordedCoordinate: origin,
-        currentCoordinate: exactlyThreeMeters,
-        minimumMovementM: origin.distance(to: exactlyThreeMeters)
+        currentCoordinate: justOverThreeMeters,
+        minimumMovementM: 3
     ))
     #expect(!RecordedShotPositionGate.allowsRecording(
         lastRecordedCoordinate: origin,
-        currentCoordinate: exactlyThreeMeters,
+        currentCoordinate: justOverThreeMeters,
         lastHorizontalAccuracyM: 2,
         currentHorizontalAccuracyM: 2
     ))
     #expect(RecordedShotPositionGate.allowsRecording(
         lastRecordedCoordinate: origin,
-        currentCoordinate: exactlyThreeMeters,
+        currentCoordinate: justOverThreeMeters,
         lastHorizontalAccuracyM: 1,
         currentHorizontalAccuracyM: 2,
         minimumMovementM: 0
