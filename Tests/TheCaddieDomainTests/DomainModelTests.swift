@@ -178,8 +178,9 @@ import TheCaddieDomain
 @Test func recordedShotPositionGateRequiresThreeMetersOfMovement() {
     let origin = GeoCoordinate(latitude: 57.500000, longitude: 12.000000)
     let justUnderThreeMeters = GeoCoordinate(latitude: 57.500026, longitude: 12.000000)
+    let metersPerLatitudeDegree = 6_371_000.0 * Double.pi / 180.0
     let exactlyThreeMeters = GeoCoordinate(
-        latitude: 57.500000 + (3 / 111_320),
+        latitude: 57.500000 + (3.0 / metersPerLatitudeDegree),
         longitude: 12.000000
     )
 
